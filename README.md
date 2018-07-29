@@ -9,13 +9,13 @@ This project uses the [HyperPlatform](https://github.com/tandasat/HyperPlatform)
 Projects
 --------
 
-##### VivienneVMM
+### VivienneVMM
 The core driver project containing the Vivienne Virtual Machine Monitor.
 
-##### VivienneCL
+### VivienneCL
 A command line VivienneVMM client which makes use of the hardware breakpoint control interface. A simple debugger.
 
-##### Tests
+### Tests
 VivienneVMM test cases.
 
 
