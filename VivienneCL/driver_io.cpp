@@ -1,0 +1,233 @@
+#include "driver_io.h"
+
+
+//=============================================================================
+// Module Globals
+//=============================================================================
+
+// NOTE Not thread safe.
+static HANDLE g_hDevice = INVALID_HANDLE_VALUE;
+
+
+//=============================================================================
+// Meta Interface
+//=============================================================================
+
+//
+// DrvInitialization
+//
+_Use_decl_annotations_
+BOOL
+DrvInitialization()
+{
+    HANDLE hDevice = INVALID_HANDLE_VALUE;
+    BOOL status = TRUE;
+
+    hDevice = CreateFileW(
+        VVMM_LOCALDEVICE_PATH_W,
+        GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+    if (INVALID_HANDLE_VALUE == hDevice)
+    {
+        status = FALSE;
+        goto exit;
+    }
+
+    g_hDevice = hDevice;
+
+exit:
+    return status;
+}
+
+
+//
+// DrvTermination
+//
+_Use_decl_annotations_
+BOOL
+DrvTermination()
+{
+    BOOL status = TRUE;
+
+    if (INVALID_HANDLE_VALUE != g_hDevice)
+    {
+        status = CloseHandle(g_hDevice);
+        if (!status)
+        {
+            goto exit;
+        }
+
+        g_hDevice = INVALID_HANDLE_VALUE;
+    }
+
+exit:
+    return status;
+}
+
+
+//=============================================================================
+// Driver Interface
+//=============================================================================
+
+//
+// DrvQuerySystemDebugState
+//
+// Query the breakpoint manager's debug register state for all processors.
+//
+_Use_decl_annotations_
+BOOL
+DrvQuerySystemDebugState(
+    PSYSTEM_DEBUG_STATE pSystemDebugState,
+    ULONG cbSystemDebugState
+)
+{
+    PQUERYSYSTEMDEBUGSTATE_REPLY pReply =
+        (PQUERYSYSTEMDEBUGSTATE_REPLY)pSystemDebugState;
+    DWORD ReturnedBytes = 0;
+    BOOL status = TRUE;
+
+    // Zero out parameters.
+    RtlSecureZeroMemory(pSystemDebugState, cbSystemDebugState);
+
+    status = DeviceIoControl(
+        g_hDevice,
+        IOCTL_QUERYSYSTEMDEBUGSTATE,
+        NULL,
+        0,
+        pReply,
+        cbSystemDebugState,
+        &ReturnedBytes,
+        NULL);
+
+    return status;
+}
+
+
+//
+// DrvSetHardwareBreakpoint
+//
+// Install a hardware breakpoint on all processors.
+//
+_Use_decl_annotations_
+BOOL
+DrvSetHardwareBreakpoint(
+    ULONG_PTR ProcessId,
+    ULONG DebugRegisterIndex,
+    ULONG_PTR Address,
+    HWBP_TYPE Type,
+    HWBP_SIZE Size
+)
+{
+    SETHARDWAREBREAKPOINT_REQUEST Request = {};
+    DWORD ReturnedBytes = 0;
+    BOOL status = TRUE;
+
+    Request.ProcessId = ProcessId;
+    Request.Index = DebugRegisterIndex;
+    Request.Address = Address;
+    Request.Type = Type;
+    Request.Size = Size;
+
+    status = DeviceIoControl(
+        g_hDevice,
+        IOCTL_SETHARDWAREBREAKPOINT,
+        &Request,
+        sizeof(Request),
+        NULL,
+        0,
+        &ReturnedBytes,
+        NULL);
+
+    return status;
+}
+
+
+//
+// DrvClearHardwareBreakpoint
+//
+// Uninstall a hardware breakpoint on all processors.
+//
+_Use_decl_annotations_
+BOOL
+DrvClearHardwareBreakpoint(
+    ULONG DebugRegisterIndex
+)
+{
+    CLEARHARDWAREBREAKPOINT_REQUEST Request = {};
+    DWORD ReturnedBytes = 0;
+    BOOL status = TRUE;
+
+    Request.Index = DebugRegisterIndex;
+
+    status = DeviceIoControl(
+        g_hDevice,
+        IOCTL_CLEARHARDWAREBREAKPOINT,
+        &Request,
+        sizeof(Request),
+        NULL,
+        0,
+        &ReturnedBytes,
+        NULL);
+
+    return status;
+}
+
+
+//
+// DrvCaptureUniqueRegisterValues
+//
+// Install a hardware breakpoint on all processors which, when triggered, will
+//  examine the contents of the target register and record all unique values
+//  to the output buffer.
+//
+// NOTE This is a synchronous call which will block for the specified
+//  duration. The duration is clamped to an internal value to prevent timeouts
+//  caused by input error.
+//
+_Use_decl_annotations_
+BOOL
+DrvCaptureUniqueRegisterValues(
+    ULONG_PTR ProcessId,
+    ULONG DebugRegisterIndex,
+    ULONG_PTR Address,
+    HWBP_TYPE Type,
+    HWBP_SIZE Size,
+    ULONG RegisterKey,
+    ULONG DurationInMilliseconds,
+    PCAPTURED_UNIQUE_REGVALS pCapturedCtx,
+    ULONG cbCapturedCtx
+)
+{
+    CAPTUREUNIQUEREGVALS_REQUEST Request = {};
+    PCAPTUREUNIQUEREGVALS_REPLY pReply =
+        (PCAPTUREUNIQUEREGVALS_REPLY)pCapturedCtx;
+    DWORD ReturnedBytes = 0;
+    BOOL status = TRUE;
+
+    // Zero out parameters.
+    RtlSecureZeroMemory(pCapturedCtx, cbCapturedCtx);
+
+    Request.ProcessId = ProcessId;
+    Request.Index = DebugRegisterIndex;
+    Request.Address = Address;
+    Request.Type = Type;
+    Request.Size = Size;
+    Request.RegisterKey = RegisterKey;
+    Request.DurationInMilliseconds = DurationInMilliseconds;
+
+    status = DeviceIoControl(
+        g_hDevice,
+        IOCTL_CAPTUREUNIQUEREGVALS,
+        &Request,
+        sizeof(Request),
+        pReply,
+        cbCapturedCtx,
+        &ReturnedBytes,
+        NULL);
+
+    return status;
+}

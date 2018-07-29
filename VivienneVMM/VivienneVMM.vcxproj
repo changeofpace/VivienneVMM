@@ -1,0 +1,124 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{914E9EBE-76FF-456A-999C-AC55D05890EB}</ProjectGuid>
+    <WindowsTargetPlatformVersion>$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <TargetVersion>Windows7</TargetVersion>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+    <DriverTargetPlatform>Desktop</DriverTargetPlatform>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <TargetVersion>Windows7</TargetVersion>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>WindowsKernelModeDriver10.0</PlatformToolset>
+    <ConfigurationType>Driver</ConfigurationType>
+    <DriverType>WDM</DriverType>
+    <DriverTargetPlatform>Desktop</DriverTargetPlatform>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <TargetName>vivienne</TargetName>
+    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
+    <TargetName>vivienne</TargetName>
+    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <FilesToPackage Include="$(TargetPath)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\common\arch_x64.h" />
+    <ClInclude Include="..\common\driver_io_types.h" />
+    <ClInclude Include="..\common\kdebug.h" />
+    <ClInclude Include="..\common\time_util.h" />
+    <ClInclude Include="breakpoint_callbacks.h" />
+    <ClInclude Include="breakpoint_manager.h" />
+    <ClInclude Include="capture_execution_context.h" />
+    <ClInclude Include="config.h" />
+    <ClInclude Include="debug_register_facade.h" />
+    <ClInclude Include="dispatch.h" />
+    <ClInclude Include="HyperPlatform\asm.h" />
+    <ClInclude Include="HyperPlatform\common.h" />
+    <ClInclude Include="HyperPlatform\driver.h" />
+    <ClInclude Include="HyperPlatform\ept.h" />
+    <ClInclude Include="HyperPlatform\global_object.h" />
+    <ClInclude Include="HyperPlatform\hotplug_callback.h" />
+    <ClInclude Include="HyperPlatform\ia32_type.h" />
+    <ClInclude Include="HyperPlatform\log.h" />
+    <ClInclude Include="HyperPlatform\performance.h" />
+    <ClInclude Include="HyperPlatform\perf_counter.h" />
+    <ClInclude Include="HyperPlatform\power_callback.h" />
+    <ClInclude Include="HyperPlatform\util.h" />
+    <ClInclude Include="HyperPlatform\util_page_constants.h" />
+    <ClInclude Include="HyperPlatform\vm.h" />
+    <ClInclude Include="HyperPlatform\vmm.h" />
+    <ClInclude Include="log_util.h" />
+    <ClInclude Include="process.h" />
+    <ClInclude Include="register_util.h" />
+    <ClInclude Include="vivienne.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\common\time_util.cpp" />
+    <ClCompile Include="breakpoint_callbacks.cpp" />
+    <ClCompile Include="breakpoint_manager.cpp" />
+    <ClCompile Include="capture_execution_context.cpp" />
+    <ClCompile Include="debug_register_facade.cpp" />
+    <ClCompile Include="dispatch.cpp" />
+    <ClCompile Include="HyperPlatform\driver.cpp" />
+    <ClCompile Include="HyperPlatform\ept.cpp" />
+    <ClCompile Include="HyperPlatform\global_object.cpp" />
+    <ClCompile Include="HyperPlatform\hotplug_callback.cpp" />
+    <ClCompile Include="HyperPlatform\kernel_stl.cpp" />
+    <ClCompile Include="HyperPlatform\log.cpp" />
+    <ClCompile Include="HyperPlatform\performance.cpp" />
+    <ClCompile Include="HyperPlatform\power_callback.cpp" />
+    <ClCompile Include="HyperPlatform\util.cpp" />
+    <ClCompile Include="HyperPlatform\vm.cpp" />
+    <ClCompile Include="HyperPlatform\vmm.cpp" />
+    <ClCompile Include="process.cpp" />
+    <ClCompile Include="register_util.cpp" />
+    <ClCompile Include="vivienne.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="HyperPlatform\Arch\x64\x64.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </MASM>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

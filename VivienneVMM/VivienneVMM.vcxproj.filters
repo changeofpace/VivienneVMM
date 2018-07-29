@@ -1,0 +1,181 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="VivienneVMM">
+      <UniqueIdentifier>{0046df91-459d-44e6-82a0-1585dd500ed6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="VivienneVMM\Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="VivienneVMM\Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="HyperPlatform">
+      <UniqueIdentifier>{8a41ebea-fce3-449b-af90-ef5c1576d609}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="HyperPlatform\Header Files">
+      <UniqueIdentifier>{03f9b74e-8380-48f8-9620-b2524d1cb802}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="HyperPlatform\Source Files">
+      <UniqueIdentifier>{f694af98-f485-44ac-864c-f5a2e0ca5d6e}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="HyperPlatform\asm.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\common.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\driver.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\ept.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\global_object.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\hotplug_callback.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\ia32_type.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\log.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\perf_counter.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\performance.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\power_callback.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\util.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\util_page_constants.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\vm.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HyperPlatform\vmm.h">
+      <Filter>HyperPlatform\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="config.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="log_util.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\driver_io_types.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\time_util.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="breakpoint_manager.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="capture_execution_context.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dispatch.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="breakpoint_callbacks.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="process.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="register_util.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\kdebug.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="debug_register_facade.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\arch_x64.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="vivienne.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="HyperPlatform\driver.cpp">
+      <Filter>HyperPlatform\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HyperPlatform\ept.cpp">
+      <Filter>HyperPlatform\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HyperPlatform\global_object.cpp">
+      <Filter>HyperPlatform\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HyperPlatform\hotplug_callback.cpp">
+      <Filter>HyperPlatform\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HyperPlatform\kernel_stl.cpp">
+      <Filter>HyperPlatform\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HyperPlatform\log.cpp">
+      <Filter>HyperPlatform\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HyperPlatform\performance.cpp">
+      <Filter>HyperPlatform\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HyperPlatform\power_callback.cpp">
+      <Filter>HyperPlatform\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HyperPlatform\util.cpp">
+      <Filter>HyperPlatform\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HyperPlatform\vm.cpp">
+      <Filter>HyperPlatform\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HyperPlatform\vmm.cpp">
+      <Filter>HyperPlatform\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\common\time_util.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dispatch.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="process.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="register_util.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="breakpoint_callbacks.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="breakpoint_manager.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="capture_execution_context.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="debug_register_facade.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="vivienne.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="HyperPlatform\Arch\x64\x64.asm">
+      <Filter>HyperPlatform\Source Files</Filter>
+    </MASM>
+  </ItemGroup>
+</Project>
