@@ -22,7 +22,7 @@ VivienneVMM test cases.
 Implementation
 --------------
 
-#### Breakpoint Manager
+### Breakpoint Manager
 The breakpoint manager (BPM) modifies processor debug registers to install and uninstall hardware breakpoints. Each modification is performed synchronously on all logical processors using the following protocol:
 
 1. The client requests a breakpoint change via an IOCTL.
@@ -34,7 +34,7 @@ Processors generate a debug exception when the execution of an instruction satis
 
 Users can customize breakpoint behavior by registering a callback during breakpoint installation. Callbacks are executed in VMX root mode, in the context of the target process, whenever the breakpoint condition is met. **Capture execution context** is an example callback which acts as an execution hook to read register state.
 
-#### Debug Register Facade
+### Debug Register Facade
 The debug register facade prevents the guest from accessing processor debug registers via a MovDr VM exit handler. This handler emulates debug register access instructions using a set of processor-specific, 'fake' debug registers.
 
 
