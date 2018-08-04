@@ -138,6 +138,7 @@ typedef struct _BPM_PROCESSOR_STATE
 typedef struct _BREAKPOINT_MANAGER_STATE
 {
     BREAKPOINT_MANAGER_STATISTICS Statistics;
+    BOOLEAN ProcessCallbackInstalled;
 
     //
     // Constant after initialization.
@@ -281,6 +282,7 @@ BpmInitialization()
 
     // Initialize module globals.
     KeInitializeGuardedMutex(&g_BreakpointManager.Mutex);
+    g_BreakpointManager.ProcessCallbackInstalled = ProcessCallbackInstalled;
     g_BreakpointManager.NumberOfProcessors = cProcessors;
     g_BreakpointManager.Processors = pProcessorStates;
 
@@ -336,16 +338,19 @@ BpmTermination()
         Failed = TRUE;
     }
 
-    // Uninstall the notification callback.
-    ntstatus = PsSetCreateProcessNotifyRoutine(
-        BpmiCreateProcessNotifyRoutine,
-        TRUE);
-    if (!NT_SUCCESS(ntstatus))
+    if (g_BreakpointManager.ProcessCallbackInstalled)
     {
-        err_print(
-            "PsSetCreateProcessNotifyRoutine failed: 0x%X",
-            ntstatus);
-        Failed = TRUE;
+        // Uninstall the process notification callback.
+        ntstatus = PsSetCreateProcessNotifyRoutine(
+            BpmiCreateProcessNotifyRoutine,
+            TRUE);
+        if (!NT_SUCCESS(ntstatus))
+        {
+            err_print(
+                "PsSetCreateProcessNotifyRoutine failed: 0x%X",
+                ntstatus);
+            Failed = TRUE;
+        }
     }
 
     // Release processor state resources.
