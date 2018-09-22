@@ -18,6 +18,11 @@
 #include "vm.h"
 #include "performance.h"
 
+#include "..\config.h"
+#include "..\debug_register_facade.h"
+#include "..\log_util.h"
+#include "..\vivienne.h"
+
 extern "C" {
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -67,10 +72,11 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
   UNREFERENCED_PARAMETER(registry_path);
   PAGED_CODE();
 
-  static const wchar_t kLogFilePath[] = L"\\SystemRoot\\HyperPlatform.log";
+  static const wchar_t kLogFilePath[] = CFG_LOGFILE_NTPATH_W;
   static const auto kLogLevel =
-      (IsReleaseBuild()) ? kLogPutLevelInfo | kLogOptDisableFunctionName
-                         : kLogPutLevelDebug | kLogOptDisableFunctionName;
+      (IsReleaseBuild())
+        ? kLogPutLevelInfo | kLogOptDisableFunctionName | kLogOptDisableDbgPrint
+        : kLogPutLevelDebug | kLogOptDisableFunctionName;
 
   auto status = STATUS_UNSUCCESSFUL;
   driver_object->DriverUnload = DriverpDriverUnload;
@@ -139,9 +145,44 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
     return status;
   }
 
+  // Initialize VivienneVMM
+  status = VvmmInitialization(driver_object, registry_path);
+  if (!NT_SUCCESS(status))
+  {
+    err_print("VvmmInitialization failed: 0x%X", status);
+    HotplugCallbackTermination();
+    PowerCallbackTermination();
+    UtilTermination();
+    PerfTermination();
+    GlobalObjectTermination();
+    LogTermination();
+    return status;
+  }
+
+#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
+  // Initialize DebugRegisterFacade
+  status = FcdInitialization();
+  if (!NT_SUCCESS(status))
+  {
+    err_print("FcdInitialization failed: 0x%X", status);
+    (VOID)VvmmTermination(driver_object);
+    HotplugCallbackTermination();
+    PowerCallbackTermination();
+    UtilTermination();
+    PerfTermination();
+    GlobalObjectTermination();
+    LogTermination();
+    return status;
+  }
+#endif
+
   // Virtualize all processors
   status = VmInitialization();
   if (!NT_SUCCESS(status)) {
+#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
+    (VOID)FcdTermination();
+#endif
+    (VOID)VvmmTermination(driver_object);
     HotplugCallbackTermination();
     PowerCallbackTermination();
     UtilTermination();
@@ -163,12 +204,39 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
 // Unload handler
 _Use_decl_annotations_ static void DriverpDriverUnload(
     PDRIVER_OBJECT driver_object) {
+
+  NTSTATUS ntstatus = STATUS_SUCCESS;
+
   UNREFERENCED_PARAMETER(driver_object);
   PAGED_CODE();
 
   HYPERPLATFORM_COMMON_DBG_BREAK();
 
+  //
+  // We must terminate VivienneVMM before devirtualization because we must be
+  //  able to enter VMX root mode to perform cleanup.
+  //
+  ntstatus = VvmmTermination(driver_object);
+  if (!NT_SUCCESS(ntstatus))
+  {
+    err_print("VvmmTermination failed: 0x%X", ntstatus);
+  }
+
   VmTermination();
+
+#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
+  //
+  // We must terminate the DebugRegisterFacade after devirtualization because
+  //  the DebugRegisterFacade performs internal cleanup in VMX root mode during
+  //  VM teardown.
+  //
+  ntstatus = FcdTermination();
+  if (!NT_SUCCESS(ntstatus))
+  {
+    err_print("FcdTermination failed: 0x%X", ntstatus);
+  }
+#endif
+
   HotplugCallbackTermination();
   PowerCallbackTermination();
   UtilTermination();

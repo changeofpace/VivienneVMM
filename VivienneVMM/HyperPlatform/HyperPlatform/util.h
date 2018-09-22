@@ -69,6 +69,7 @@ enum class HypercallNumber : unsigned __int32 {
   kTerminateVmm,            //!< Terminates VMM
   kPingVmm,                 //!< Sends ping to the VMM
   kGetSharedProcessorData,  //!< Terminates VMM
+  kSetHardwareBreakpoint,   //!< VVMM Breakpoint manager control
 };
 
 ////////////////////////////////////////////////////////////////////////////////

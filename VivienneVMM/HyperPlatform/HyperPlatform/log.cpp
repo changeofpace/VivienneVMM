@@ -426,11 +426,21 @@ _Use_decl_annotations_ NTSTATUS LogpPrint(ULONG level,
   char message[512];
   static_assert(RTL_NUMBER_OF(message) <= 512,
                 "One log message should not exceed 512 bytes.");
-  status = LogpMakePrefix(pure_level, function_name, log_message, message,
-                          RTL_NUMBER_OF(message));
-  if (!NT_SUCCESS(status)) {
-    LogpDbgBreak();
-    return status;
+
+  if (attribute & kLogpLevelNoPrefix)
+  {
+    RtlCopyMemory(message, log_message, sizeof(log_message) - 1);
+    message[ARRAYSIZE(message) - 1] = '\0';
+  }
+  else
+  {
+    status = LogpMakePrefix(pure_level, function_name, log_message, message,
+                            RTL_NUMBER_OF(message));
+    if (!NT_SUCCESS(status))
+    {
+      LogpDbgBreak();
+      return status;
+    }
   }
 
   status = LogpPut(message, attribute);

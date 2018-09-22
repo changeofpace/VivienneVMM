@@ -14,6 +14,11 @@
 #include "util.h"
 #include "performance.h"
 
+#include "..\breakpoint_manager.h"
+#include "..\config.h"
+#include "..\debug_register_facade.h"
+#include "..\log_util.h"
+
 extern "C" {
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -380,6 +385,20 @@ _Use_decl_annotations_ static void VmmpHandleException(
       HYPERPLATFORM_LOG_INFO_SAFE("GuestIp= %016Ix, #GP Code= 0x%2x",
                                   guest_context->ip, error_code);
 
+    } else if (vector == InterruptionVector::kDebugException) {
+      // #DB
+#pragma warning(suppress : 28123) // Call not permitted at high IRQ level.
+      NTSTATUS ntstatus = BpmVmxProcessDebugExceptionEvent(
+        guest_context->gp_regs,
+        &guest_context->flag_reg,
+        guest_context->ip);
+      if (!NT_SUCCESS(ntstatus))
+      {
+        // If the breakpoint manager did not handle the exception then
+        //  forward it to the guest.
+        VmmpInjectInterruption(interruption_type, vector, false, 0);
+      }
+
     } else {
       HYPERPLATFORM_COMMON_BUG_CHECK(HyperPlatformBugCheck::kUnspecified, 0, 0,
                                      0);
@@ -420,7 +439,8 @@ _Use_decl_annotations_ static void VmmpHandleCpuid(
     cpu_info[2] = static_cast<int>(cpu_features.all);
   } else if (function_id == kHyperVCpuidInterface) {
     // Leave signature of HyperPlatform onto EAX
-    cpu_info[0] = 'PpyH';
+    // NOTE This signature can be used as a VM detection vector.
+    cpu_info[0] = CFG_VVMM_SIGNATURE;
   }
 
   guest_context->gp_regs->ax = cpu_info[0];
@@ -766,6 +786,15 @@ _Use_decl_annotations_ static void VmmpHandleDrAccess(
   const auto register_used =
       VmmpSelectRegister(exit_qualification.fields.gp_register, guest_context);
 
+#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
+  NTSTATUS ntstatus = STATUS_SUCCESS;
+
+  ntstatus = FcdVmxProcessMovDrEvent(exit_qualification, register_used);
+  if (!NT_SUCCESS(ntstatus))
+  {
+    err_print("FcdVmxProcessMovDrEvent failed: 0x%X", ntstatus);
+  }
+#else
   // Emulate the instruction
   switch (static_cast<MovDrDirection>(exit_qualification.fields.direction)) {
     case MovDrDirection::kMoveToDr:
@@ -803,6 +832,7 @@ _Use_decl_annotations_ static void VmmpHandleDrAccess(
                                      0);
       break;
   }
+#endif
 
   VmmpAdjustGuestInstructionPointer(guest_context);
 }
@@ -1052,6 +1082,11 @@ _Use_decl_annotations_ static void VmmpHandleVmx(GuestContext *guest_context) {
   VmmpAdjustGuestInstructionPointer(guest_context);
 }
 
+//
+// TODO Add a dynamic password system to the VMCALL interface to prevent third
+//  parties from determining the presence of HyperPlatform via VMCALL fuzzing.
+//
+
 // VMCALL
 _Use_decl_annotations_ static void VmmpHandleVmCall(
     GuestContext *guest_context) {
@@ -1067,21 +1102,35 @@ _Use_decl_annotations_ static void VmmpHandleVmCall(
     case HypercallNumber::kTerminateVmm:
       // Unloading requested. This VMCALL is allowed to execute only from CPL=0
       if (VmmpGetGuestCpl() == 0) {
+#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
+        FcdVmxTermination();
+#endif
         VmmpHandleVmCallTermination(guest_context, context);
       } else {
         VmmpIndicateUnsuccessfulVmcall(guest_context);
       }
       break;
+#ifdef CFG_ENABLE_VMCALL_PING
     case HypercallNumber::kPingVmm:
       // Sample VMCALL handler
       HYPERPLATFORM_LOG_INFO_SAFE("Pong by VMM! (context = %p)", context);
       VmmpIndicateSuccessfulVmcall(guest_context);
       break;
+#endif
     case HypercallNumber::kGetSharedProcessorData:
       *reinterpret_cast<void **>(context) =
           guest_context->stack->processor_data->shared_data;
       VmmpIndicateSuccessfulVmcall(guest_context);
       break;
+    case HypercallNumber::kSetHardwareBreakpoint:
+    {
+      NTSTATUS ntstatus = BpmVmxSetHardwareBreakpoint(context);
+      if (NT_SUCCESS(ntstatus))
+      {
+        VmmpIndicateSuccessfulVmcall(guest_context);
+      }
+      break;
+    }
     default:
       // Unsupported hypercall
       VmmpIndicateUnsuccessfulVmcall(guest_context);

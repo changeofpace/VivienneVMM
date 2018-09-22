@@ -22,16 +22,6 @@ Environment:
 #pragma once
 
 //=============================================================================
-// General
-//=============================================================================
-
-/*
- * A sentinel value returned from cpuid which is used to determine if
- *   VivienneVMM is already running on the local machine.
- */
-#define CFG_VVMM_SENTINEL ((int)'mmvv')
-
-//=============================================================================
 // Features
 //=============================================================================
 
@@ -41,13 +31,12 @@ Environment:
  * WARNING Disabling this can result in corrupt breakpoint manager state if
  *  the guest writes to the debug registers.
  */
-#define CFG_ENABLE_DR_FACADE
+#define CFG_ENABLE_DEBUGREGISTERFACADE
 
  /*
- * Convenience option to enable or disable the initialization and termination
- *  of EPT support. This project currently does not utilize EPT so this option
- *  is disabled by default.
- */
+  * Enable EPT via the 'enable EPT' secondary processor-based VM-execution
+  *  control.
+  */
  //#define CFG_ENABLE_EPT
 
 //=============================================================================
@@ -58,26 +47,6 @@ Environment:
  * An NT file path used to store the log file.
  */
 #define CFG_LOGFILE_NTPATH_W L"\\SystemRoot\\vivienne.log"
-
-/*
- * Log buffer size in pages. (see HyperPlatform.log!kLogpBufferSizeInPages)
- */
-#ifdef DBG
-#define CFG_LOG_BUFFER_SIZE_PAGES 32ul
-#else
-#define CFG_LOG_BUFFER_SIZE_PAGES 16ul
-#endif
-
-/*
- * Convenience option to toggle the execution of breakpoints on abnormal log
- *  events. (see HyperPlatform.log!LogpDbgBreak)
- */
-//#define CFG_ENABLE_LOG_ERROR_BREAKS
-
-/*
- * Enable verbose logging for the breakpoint manager.
- */
-//#define CFG_VERBOSE_BREAKPOINTMANAGER
 
 /*
  * Enable logging of MovDr VM exit events.
@@ -91,11 +60,34 @@ Environment:
  * TODO Determine if MovDr logging causes an infinite, recursive loop because
  *  file logging occurs outside of VMX root mode.
  */
-#ifdef CFG_ENABLE_DR_FACADE
+#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
 //#define CFG_LOG_MOVDR_EVENTS
 #endif
+
+/*
+ * Enable verbose logging for the breakpoint manager.
+ */
+//#define CFG_VERBOSE_BREAKPOINTMANAGER
 
 /*
  * Enable verbose logging for capture execution context requests.
  */
 //#define CFG_VERBOSE_CAPTUREEXECUTIONCONTEXT
+
+//=============================================================================
+// Stealth
+//=============================================================================
+
+/*
+ * A sentinel value returned from cpuid which is used to determine if
+ *   VivienneVMM is already running on the local machine.
+ */
+#define CFG_VVMM_SIGNATURE ((int)'mmvv')
+
+/*
+ * Enable the VMCALL handler for the 'ping VMM' hypercall.
+ *
+ * NOTE Enabling this option exposes an interface which can be used to detect
+ *  the presence of HyperPlatform.
+ */
+//#define CFG_ENABLE_VMCALL_PING

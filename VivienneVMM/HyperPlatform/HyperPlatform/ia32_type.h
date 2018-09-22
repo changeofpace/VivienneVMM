@@ -1298,6 +1298,37 @@ enum class LdtrOrTrInstructionIdentity {
   kLtr,
 };
 
+/// See: Format of Pending-Debug-Exceptions
+union PendingDebugExceptions
+{
+  ULONG_PTR all;
+  struct
+  {
+    ULONG_PTR dar_bitmap : 4;           //!< [0:3]
+    ULONG_PTR reserved1  : 8;           //!< [4:11]
+    ULONG_PTR enabled_breakpoint : 1;   //!< [12]
+    ULONG_PTR reserved2  : 1;           //!< [13]
+    ULONG_PTR BS         : 1;           //!< [14]
+    ULONG_PTR reserved3  : 1;           //!< [15]
+    ULONG_PTR RTM        : 1;           //!< [16]
+    ULONG_PTR reserved4  : 47;          //!< [17:63]
+  } fields;
+};
+
+/// See: Exit Qualification for Debug Exceptions
+union DebugExceptionQualification
+{
+  ULONG_PTR all;
+  struct
+  {
+    ULONG_PTR dar_bitmap : 4;           //!< [0:3]
+    ULONG_PTR reserved1  : 9;           //!< [4:12]
+    ULONG_PTR debug_register_access : 1;//!< [13]
+    ULONG_PTR single_step_or_branch : 1;//!< [14]
+    ULONG_PTR reserved2 : 49;           //!< [15:63]
+  } fields;
+};
+
 /// See: Exit Qualification for MOV DR
 enum class MovDrDirection {
   kMoveToDr = 0,

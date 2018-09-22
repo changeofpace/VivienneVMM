@@ -25,7 +25,7 @@ TestCaptureUniqueRegisterValuesEdgeCases();
 VOID
 TestHardwareBreakpointRanges();
 
-#ifdef CFG_ENABLE_DR_FACADE
+#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
 VOID
 TestDebugRegisterFacade();
 

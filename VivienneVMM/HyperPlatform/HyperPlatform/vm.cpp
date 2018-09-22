@@ -15,6 +15,9 @@
 #include "util.h"
 #include "vmm.h"
 
+#include "..\config.h"
+#include "..\debug_register_facade.h"
+
 extern "C" {
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -451,6 +454,16 @@ _Use_decl_annotations_ static void VmpInitializeVm(
     goto ReturnFalseWithVmxOff;
   }
 
+#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
+  //
+  // We must perform DebugRegisterFacade VMX initialization before launching
+  //  the VM to avoid race conditions involving the contents of the debug
+  //  registers.
+  //
+#pragma warning(suppress : 28122) // IRQL too low.
+  FcdVmxInitialization();
+#endif
+
   // Do virtualize the processor
   VmpLaunchVm();
 
@@ -558,44 +571,128 @@ _Use_decl_annotations_ static bool VmpSetupVmcs(
   const auto use_true_msrs = Ia32VmxBasicMsr{UtilReadMsr64(Msr::kIa32VmxBasic)}
                                  .fields.vmx_capability_hint;
 
+  //===========================================================================
+  // VM Entry Controls
+  //===========================================================================
   VmxVmEntryControls vm_entryctl_requested = {};
+
   vm_entryctl_requested.fields.load_debug_controls = true;
   vm_entryctl_requested.fields.ia32e_mode_guest = IsX64();
+  vm_entryctl_requested.fields.entry_to_smm = false;
+  vm_entryctl_requested.fields.deactivate_dual_monitor_treatment = false;
+  vm_entryctl_requested.fields.load_ia32_perf_global_ctrl = false;
+  vm_entryctl_requested.fields.load_ia32_pat = false;
+  vm_entryctl_requested.fields.load_ia32_efer = false;
+  vm_entryctl_requested.fields.load_ia32_bndcfgs = false;
+  vm_entryctl_requested.fields.conceal_vmentries_from_intel_pt = false;
+
   VmxVmEntryControls vm_entryctl = {VmpAdjustControlValue(
       (use_true_msrs) ? Msr::kIa32VmxTrueEntryCtls : Msr::kIa32VmxEntryCtls,
       vm_entryctl_requested.all)};
 
+  //===========================================================================
+  // VM Exit Controls
+  //===========================================================================
   VmxVmExitControls vm_exitctl_requested = {};
+
+  vm_exitctl_requested.fields.save_debug_controls = true;
   vm_exitctl_requested.fields.host_address_space_size = IsX64();
+  vm_exitctl_requested.fields.load_ia32_perf_global_ctrl = false;
   vm_exitctl_requested.fields.acknowledge_interrupt_on_exit = true;
+  vm_exitctl_requested.fields.save_ia32_pat = false;
+  vm_exitctl_requested.fields.load_ia32_pat = false;
+  vm_exitctl_requested.fields.save_ia32_efer = false;
+  vm_exitctl_requested.fields.load_ia32_efer = false;
+  vm_exitctl_requested.fields.save_vmx_preemption_timer_value = false;
+  vm_exitctl_requested.fields.clear_ia32_bndcfgs = false;
+  vm_exitctl_requested.fields.conceal_vmexits_from_intel_pt = false;
+
   VmxVmExitControls vm_exitctl = {VmpAdjustControlValue(
       (use_true_msrs) ? Msr::kIa32VmxTrueExitCtls : Msr::kIa32VmxExitCtls,
       vm_exitctl_requested.all)};
 
+  //===========================================================================
+  // Pin Based Controls
+  //===========================================================================
   VmxPinBasedControls vm_pinctl_requested = {};
+
+  vm_pinctl_requested.fields.external_interrupt_exiting = false;
+  vm_pinctl_requested.fields.nmi_exiting = false;
+  vm_pinctl_requested.fields.virtual_nmis = false;
+  vm_pinctl_requested.fields.activate_vmx_peemption_timer = false;
+  vm_pinctl_requested.fields.process_posted_interrupts = false;
+
   VmxPinBasedControls vm_pinctl = {
       VmpAdjustControlValue((use_true_msrs) ? Msr::kIa32VmxTruePinbasedCtls
                                             : Msr::kIa32VmxPinbasedCtls,
                             vm_pinctl_requested.all)};
 
+  //===========================================================================
+  // Processor Based Controls
+  //===========================================================================
   VmxProcessorBasedControls vm_procctl_requested = {};
+
+  vm_procctl_requested.fields.interrupt_window_exiting = false;
+  vm_procctl_requested.fields.use_tsc_offseting = false;
+  vm_procctl_requested.fields.hlt_exiting = false;
+  vm_procctl_requested.fields.invlpg_exiting = false;
+  vm_procctl_requested.fields.mwait_exiting = false;
+  vm_procctl_requested.fields.rdpmc_exiting = false;
+  vm_procctl_requested.fields.rdtsc_exiting = false;
   vm_procctl_requested.fields.cr3_load_exiting = true;
+  vm_procctl_requested.fields.cr3_store_exiting = false;
+  vm_procctl_requested.fields.cr8_load_exiting = false;
+  vm_procctl_requested.fields.cr8_store_exiting = false;
+  vm_procctl_requested.fields.use_tpr_shadow = false;
+  vm_procctl_requested.fields.nmi_window_exiting = false;
+#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
   vm_procctl_requested.fields.mov_dr_exiting = true;
-  vm_procctl_requested.fields.use_io_bitmaps = true;
-  vm_procctl_requested.fields.use_msr_bitmaps = true;
+#else
+  vm_procctl_requested.fields.mov_dr_exiting = false;
+#endif
+  vm_procctl_requested.fields.unconditional_io_exiting = false;
+  vm_procctl_requested.fields.use_io_bitmaps = false;
+  vm_procctl_requested.fields.monitor_trap_flag = false;
+  vm_procctl_requested.fields.use_msr_bitmaps = false;
+  vm_procctl_requested.fields.monitor_exiting = false;
+  vm_procctl_requested.fields.pause_exiting = false;
   vm_procctl_requested.fields.activate_secondary_control = true;
+
   VmxProcessorBasedControls vm_procctl = {
       VmpAdjustControlValue((use_true_msrs) ? Msr::kIa32VmxTrueProcBasedCtls
                                             : Msr::kIa32VmxProcBasedCtls,
                             vm_procctl_requested.all)};
 
+  //===========================================================================
+  // Secondary Processor Based Controls
+  //===========================================================================
   VmxSecondaryProcessorBasedControls vm_procctl2_requested = {};
+
+  vm_procctl2_requested.fields.virtualize_apic_accesses = false;
+#ifdef CFG_ENABLE_EPT
   vm_procctl2_requested.fields.enable_ept = true;
-  vm_procctl2_requested.fields.descriptor_table_exiting = true;
-  vm_procctl2_requested.fields.enable_rdtscp = true;  // for Win10
+#else
+  vm_procctl2_requested.fields.enable_ept = false;
+#endif
+  vm_procctl2_requested.fields.descriptor_table_exiting = false;
+  vm_procctl2_requested.fields.enable_rdtscp = true;            // for Win10
+  vm_procctl2_requested.fields.virtualize_x2apic_mode = false;
   vm_procctl2_requested.fields.enable_vpid = true;
-  vm_procctl2_requested.fields.enable_invpcid = true;        // for Win10
-  vm_procctl2_requested.fields.enable_xsaves_xstors = true;  // for Win10
+  vm_procctl2_requested.fields.wbinvd_exiting = false;
+  vm_procctl2_requested.fields.unrestricted_guest = false;
+  vm_procctl2_requested.fields.apic_register_virtualization = false;
+  vm_procctl2_requested.fields.virtual_interrupt_delivery = false;
+  vm_procctl2_requested.fields.pause_loop_exiting = false;
+  vm_procctl2_requested.fields.rdrand_exiting = false;
+  vm_procctl2_requested.fields.enable_invpcid = true;           // for Win10
+  vm_procctl2_requested.fields.enable_vm_functions = false;
+  vm_procctl2_requested.fields.vmcs_shadowing = false;
+  vm_procctl2_requested.fields.rdseed_exiting = false;
+  vm_procctl2_requested.fields.ept_violation_ve = false;
+  vm_procctl2_requested.fields.enable_xsaves_xstors = true;     // for Win10
+  vm_procctl2_requested.fields.mode_based_execute_control_for_ept = false;
+  vm_procctl2_requested.fields.use_tsc_scaling = false;
+
   VmxSecondaryProcessorBasedControls vm_procctl2 = {VmpAdjustControlValue(
       Msr::kIa32VmxProcBasedCtls2, vm_procctl2_requested.all)};
 
@@ -615,6 +712,7 @@ _Use_decl_annotations_ static bool VmpSetupVmcs(
       // 1 << InterruptionVector::kBreakpointException |
       // 1 << InterruptionVector::kGeneralProtectionException |
       // 1 << InterruptionVector::kPageFaultException |
+      1 << InterruptionVector::kDebugException |
       0;
 
   // Set up CR0 and CR4 bitmaps
@@ -990,7 +1088,7 @@ _Use_decl_annotations_ static bool VmpIsHyperPlatformInstalled() {
   }
 
   __cpuid(cpu_info, kHyperVCpuidInterface);
-  return cpu_info[0] == 'PpyH';
+  return cpu_info[0] == CFG_VVMM_SIGNATURE;
 }
 
 // Virtualizes the specified processor

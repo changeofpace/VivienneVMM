@@ -308,7 +308,7 @@ FcdVmxProcessMovDrEvent(
 
     NT_ASSERT(pFacade->Initialized);
 
-    Index = ExitQualification.fields.debug_register;
+    Index = ExitQualification.fields.debugl_register;
 
     NT_ASSERT(DR_COUNT > Index);
 

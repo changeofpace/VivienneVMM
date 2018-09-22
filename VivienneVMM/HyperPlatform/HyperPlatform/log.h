@@ -81,6 +81,9 @@ extern "C" {
 /// Save this log to buffer and not try to write to a log file.
 static const auto kLogpLevelOptSafe = 0x1ul;
 
+/// Do not prepend context text to the log message.
+static const auto kLogpLevelNoPrefix = 0x2ul;
+
 static const auto kLogpLevelDebug = 0x10ul;  //!< Bit mask for DEBUG level logs
 static const auto kLogpLevelInfo = 0x20ul;   //!< Bit mask for INFO level logs
 static const auto kLogpLevelWarn = 0x40ul;   //!< Bit mask for WARN level logs

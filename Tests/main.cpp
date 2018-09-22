@@ -52,7 +52,7 @@ RunAllTests()
     TestCaptureUniqueRegisterValuesEdgeCases();
     Sleep(TEST_DELAY_DURATION_MS);
 
-#ifdef CFG_ENABLE_DR_FACADE
+#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
     TestDebugRegisterFacade();
     Sleep(TEST_DELAY_DURATION_MS);
 
