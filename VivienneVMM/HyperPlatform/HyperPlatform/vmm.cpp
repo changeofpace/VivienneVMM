@@ -828,6 +828,11 @@ _Use_decl_annotations_ static void VmmpHandleDrAccess(
     GuestContext *guest_context) {
   HYPERPLATFORM_PERFORMANCE_MEASURE_THIS_SCOPE();
 
+  //
+  // TODO Add a logging function here when the 'CFG_LOG_MOVDR_EVENTS' option is
+  //  enabled.
+  //
+
   // Normally, when the privileged instruction is executed at CPL3, #GP(0)
   // occurs instead of VM-exit. However, access to the debug registers is
   // exception. Inject #GP(0) in such case to emulate what the processor
@@ -880,6 +885,10 @@ _Use_decl_annotations_ static void VmmpHandleDrAccess(
     VmmpInjectInterruption(InterruptionType::kHardwareException,
                            InterruptionVector::kDebugException, false, 0);
 
+    //
+    // TODO Implement the behavior described below inside our #DB handler.
+    //
+
     // While the processor clears the DR7.GD bit on #DB ("The processor clears
     // the GD flag upon entering to the debug exception handler"), it does not
     // change that in the VMCS. Emulate that behavior here. Note that this bit
@@ -909,6 +918,9 @@ _Use_decl_annotations_ static void VmmpHandleDrAccess(
     }
   }
 
+  //
+  // TODO Use the Dr6 and Dr7 reserved-bits enforcement below in BPM and FCD.
+  //
 #ifdef CFG_ENABLE_DEBUGREGISTERFACADE
   NTSTATUS ntstatus = STATUS_SUCCESS;
 

@@ -120,6 +120,25 @@ EPT hooking is a viable alternative for implementing stealth debugging which doe
 * The target machine must use a processor that supports EPT.
 
 
+Project Structure
+-----------------
+
+This project uses HyperPlatform as a git subtree with prefix='VivienneVMM/HyperPlatform'. We subtree the project instead of using a git submodule because we must modify HyperPlatform files to implement VivienneVMM features. This allows us to merge HyperPlatform updates from upstream with minimal merge conflicts.
+
+The following list of console commands are an example of how to pull HyperPlatform updates into a local VivienneVMM repository:
+
+    # Remote configuration.
+    cd VivienneVMM/
+    git checkout master
+    git remote add upstream https://github.com/tandasat/HyperPlatform.git
+    git remote set-url --push upstream DISABLED
+
+    # Pulling updates.
+    cd VivienneVMM/
+    git fetch upstream
+    git subtree pull --prefix=VivienneVMM/HyperPlatform upstream master
+
+
 Notes
 -----
 

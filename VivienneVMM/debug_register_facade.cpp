@@ -208,6 +208,10 @@ FcdVmxInitialization()
     pFacade->DebugRegisters[2] = __readdr(2);
     pFacade->DebugRegisters[3] = __readdr(3);
 
+    //
+    // TODO Refactor this code to reflect the updates to VmmpHandleDrAccess.
+    //
+
     // If debug extensions are enabled (CR4.DE = 1), accessing DR4 and/or DR5
     //  cause an invalid-opcode exception.
     if (HostCr4.fields.de)
@@ -262,6 +266,10 @@ FcdVmxTermination()
     __writedr(1, pFacade->DebugRegisters[1]);
     __writedr(2, pFacade->DebugRegisters[2]);
     __writedr(3, pFacade->DebugRegisters[3]);
+
+    //
+    // TODO Refactor this code to reflect the updates to VmmpHandleDrAccess.
+    //
 
     // If debug extensions are enabled (CR4.DE = 1), accessing DR4 and/or DR5
     //  cause an invalid-opcode exception.
