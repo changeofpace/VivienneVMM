@@ -607,13 +607,11 @@ _Use_decl_annotations_ static NTSTATUS LogpFlushLogBuffer(LogBufferInfo *info) {
   KLOCK_QUEUE_HANDLE lock_handle = {};
   KeAcquireInStackQueuedSpinLock(&info->spin_lock, &lock_handle);
   const auto old_log_buffer = const_cast<char *>(info->log_buffer_head);
-  if (old_log_buffer[0]) {
-    info->log_buffer_head = (old_log_buffer == info->log_buffer1)
-                                ? info->log_buffer2
-                                : info->log_buffer1;
-    info->log_buffer_head[0] = '\0';
-    info->log_buffer_tail = info->log_buffer_head;
-  }
+  info->log_buffer_head = (old_log_buffer == info->log_buffer1)
+                              ? info->log_buffer2
+                              : info->log_buffer1;
+  info->log_buffer_head[0] = '\0';
+  info->log_buffer_tail = info->log_buffer_head;
   KeReleaseInStackQueuedSpinLock(&lock_handle);
 
   // Write all log entries in old log buffer.
@@ -718,7 +716,7 @@ _Use_decl_annotations_ static void LogpDoDbgPrint(char *message) {
   const auto location_of_cr = strlen(message) - 2;
   message[location_of_cr] = '\n';
   message[location_of_cr + 1] = '\0';
-  DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_ERROR_LEVEL, "%s", message);
+  DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "%s", message);
 }
 
 // Returns true when a log file is enabled.

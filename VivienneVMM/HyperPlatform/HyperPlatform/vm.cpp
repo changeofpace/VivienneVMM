@@ -6,8 +6,8 @@
 /// Implements VMM initialization functions.
 
 #include "vm.h"
-#include <limits.h>
 #include <intrin.h>
+#include <limits.h>   // for CHAR_BIT
 #include "asm.h"
 #include "common.h"
 #include "ept.h"
@@ -382,14 +382,16 @@ _Use_decl_annotations_ static void VmpInitializeVm(
   // Set up EPT
   processor_data->ept_data = EptInitialization();
   if (!processor_data->ept_data) {
-    goto ReturnFalse;
+    VmpFreeProcessorData(processor_data);
+    return;
   }
 
   // Allocate other processor data fields
   processor_data->vmm_stack_limit =
       UtilAllocateContiguousMemory(KERNEL_STACK_SIZE);
   if (!processor_data->vmm_stack_limit) {
-    goto ReturnFalse;
+    VmpFreeProcessorData(processor_data);
+    return;
   }
   RtlZeroMemory(processor_data->vmm_stack_limit, KERNEL_STACK_SIZE);
 
@@ -397,7 +399,8 @@ _Use_decl_annotations_ static void VmpInitializeVm(
       reinterpret_cast<VmControlStructure *>(ExAllocatePoolWithTag(
           NonPagedPool, kVmxMaxVmcsSize, kHyperPlatformCommonPoolTag));
   if (!processor_data->vmcs_region) {
-    goto ReturnFalse;
+    VmpFreeProcessorData(processor_data);
+    return;
   }
   RtlZeroMemory(processor_data->vmcs_region, kVmxMaxVmcsSize);
 
@@ -405,7 +408,8 @@ _Use_decl_annotations_ static void VmpInitializeVm(
       reinterpret_cast<VmControlStructure *>(ExAllocatePoolWithTag(
           NonPagedPool, kVmxMaxVmcsSize, kHyperPlatformCommonPoolTag));
   if (!processor_data->vmxon_region) {
-    goto ReturnFalse;
+    VmpFreeProcessorData(processor_data);
+    return;
   }
   RtlZeroMemory(processor_data->vmxon_region, kVmxMaxVmcsSize);
 
@@ -444,14 +448,15 @@ _Use_decl_annotations_ static void VmpInitializeVm(
 
   // Set up VMCS
   if (!VmpEnterVmxMode(processor_data)) {
-    goto ReturnFalse;
+    VmpFreeProcessorData(processor_data);
+    return;
   }
   if (!VmpInitializeVmcs(processor_data)) {
-    goto ReturnFalseWithVmxOff;
+    goto Exit;
   }
   if (!VmpSetupVmcs(processor_data, guest_stack_pointer,
                     guest_instruction_pointer, vmm_stack_base)) {
-    goto ReturnFalseWithVmxOff;
+    goto Exit;
   }
 
 #ifdef CFG_ENABLE_DEBUGREGISTERFACADE
@@ -470,10 +475,8 @@ _Use_decl_annotations_ static void VmpInitializeVm(
   // Here is not be executed with successful vmlaunch. Instead, the context
   // jumps to an address specified by guest_instruction_pointer.
 
-ReturnFalseWithVmxOff:;
+Exit:;
   __vmx_off();
-
-ReturnFalse:;
   VmpFreeProcessorData(processor_data);
 }
 
@@ -562,7 +565,7 @@ _Use_decl_annotations_ static bool VmpSetupVmcs(
   PAGED_CODE();
 
   Gdtr gdtr = {};
-  __sgdt(&gdtr);
+  _sgdt(&gdtr);
 
   Idtr idtr = {};
   __sidt(&idtr);
