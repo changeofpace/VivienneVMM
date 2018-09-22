@@ -70,6 +70,21 @@
     <ClInclude Include="config.h" />
     <ClInclude Include="debug_register_facade.h" />
     <ClInclude Include="dispatch.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\asm.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\common.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\driver.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\ept.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\global_object.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\hotplug_callback.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\ia32_type.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\log.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\performance.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\perf_counter.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\power_callback.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\util.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\util_page_constants.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\vm.h" />
+    <ClInclude Include="HyperPlatform\HyperPlatform\vmm.h" />
     <ClInclude Include="log_util.h" />
     <ClInclude Include="process.h" />
     <ClInclude Include="register_util.h" />
@@ -82,9 +97,27 @@
     <ClCompile Include="capture_execution_context.cpp" />
     <ClCompile Include="debug_register_facade.cpp" />
     <ClCompile Include="dispatch.cpp" />
+    <ClCompile Include="HyperPlatform\HyperPlatform\driver.cpp" />
+    <ClCompile Include="HyperPlatform\HyperPlatform\ept.cpp" />
+    <ClCompile Include="HyperPlatform\HyperPlatform\global_object.cpp" />
+    <ClCompile Include="HyperPlatform\HyperPlatform\hotplug_callback.cpp" />
+    <ClCompile Include="HyperPlatform\HyperPlatform\kernel_stl.cpp" />
+    <ClCompile Include="HyperPlatform\HyperPlatform\log.cpp" />
+    <ClCompile Include="HyperPlatform\HyperPlatform\performance.cpp" />
+    <ClCompile Include="HyperPlatform\HyperPlatform\power_callback.cpp" />
+    <ClCompile Include="HyperPlatform\HyperPlatform\util.cpp" />
+    <ClCompile Include="HyperPlatform\HyperPlatform\vm.cpp" />
+    <ClCompile Include="HyperPlatform\HyperPlatform\vmm.cpp" />
     <ClCompile Include="process.cpp" />
     <ClCompile Include="register_util.cpp" />
     <ClCompile Include="vivienne.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="HyperPlatform\HyperPlatform\Arch\x64\x64.asm" />
+    <MASM Include="HyperPlatform\HyperPlatform\Arch\x86\x86.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </MASM>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
