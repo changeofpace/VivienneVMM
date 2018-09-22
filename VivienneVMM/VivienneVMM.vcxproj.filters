@@ -23,51 +23,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="HyperPlatform\asm.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\common.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\driver.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\ept.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\global_object.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\hotplug_callback.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\ia32_type.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\log.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\perf_counter.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\performance.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\power_callback.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\util.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\util_page_constants.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\vm.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="HyperPlatform\vmm.h">
-      <Filter>HyperPlatform\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="config.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
@@ -112,39 +67,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="HyperPlatform\driver.cpp">
-      <Filter>HyperPlatform\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="HyperPlatform\ept.cpp">
-      <Filter>HyperPlatform\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="HyperPlatform\global_object.cpp">
-      <Filter>HyperPlatform\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="HyperPlatform\hotplug_callback.cpp">
-      <Filter>HyperPlatform\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="HyperPlatform\kernel_stl.cpp">
-      <Filter>HyperPlatform\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="HyperPlatform\log.cpp">
-      <Filter>HyperPlatform\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="HyperPlatform\performance.cpp">
-      <Filter>HyperPlatform\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="HyperPlatform\power_callback.cpp">
-      <Filter>HyperPlatform\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="HyperPlatform\util.cpp">
-      <Filter>HyperPlatform\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="HyperPlatform\vm.cpp">
-      <Filter>HyperPlatform\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="HyperPlatform\vmm.cpp">
-      <Filter>HyperPlatform\Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\common\time_util.cpp">
       <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
@@ -172,10 +94,5 @@
     <ClCompile Include="vivienne.cpp">
       <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <MASM Include="HyperPlatform\Arch\x64\x64.asm">
-      <Filter>HyperPlatform\Source Files</Filter>
-    </MASM>
   </ItemGroup>
 </Project>
