@@ -83,8 +83,8 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="test_antidebug_single_step.cpp" />
     <ClCompile Include="test_breakpoint_ranges.cpp" />
-    <ClCompile Include="test_curv.cpp" />
-    <ClCompile Include="test_curv_edge_cases.cpp" />
+    <ClCompile Include="test_cecr.cpp" />
+    <ClCompile Include="test_cecr_edge_cases.cpp" />
     <ClCompile Include="test_duplicate_breakpoints.cpp" />
     <ClCompile Include="test_facade.cpp" />
     <ClCompile Include="test_facade_stress.cpp" />

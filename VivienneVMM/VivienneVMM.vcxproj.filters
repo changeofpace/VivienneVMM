@@ -110,6 +110,9 @@
     <ClInclude Include="HyperPlatform\HyperPlatform\vmm.h">
       <Filter>HyperPlatform\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ioctl_validation.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\time_util.cpp">
@@ -171,6 +174,9 @@
     </ClCompile>
     <ClCompile Include="HyperPlatform\HyperPlatform\vmm.cpp">
       <Filter>HyperPlatform\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ioctl_validation.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

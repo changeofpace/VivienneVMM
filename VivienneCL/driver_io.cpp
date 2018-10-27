@@ -178,7 +178,7 @@ DrvClearHardwareBreakpoint(
 
 
 //
-// DrvCaptureUniqueRegisterValues
+// DrvCaptureRegisterValues
 //
 // Install a hardware breakpoint on all processors which, when triggered, will
 //  examine the contents of the target register and record all unique values
@@ -190,21 +190,20 @@ DrvClearHardwareBreakpoint(
 //
 _Use_decl_annotations_
 BOOL
-DrvCaptureUniqueRegisterValues(
+DrvCaptureRegisterValues(
     ULONG_PTR ProcessId,
     ULONG DebugRegisterIndex,
     ULONG_PTR Address,
     HWBP_TYPE Type,
     HWBP_SIZE Size,
-    ULONG RegisterKey,
+    X64_REGISTER Register,
     ULONG DurationInMilliseconds,
-    PCAPTURED_UNIQUE_REGVALS pCapturedCtx,
+    PCEC_REGISTER_VALUES pCapturedCtx,
     ULONG cbCapturedCtx
 )
 {
-    CAPTUREUNIQUEREGVALS_REQUEST Request = {};
-    PCAPTUREUNIQUEREGVALS_REPLY pReply =
-        (PCAPTUREUNIQUEREGVALS_REPLY)pCapturedCtx;
+    CEC_REGISTER_REQUEST Request = {};
+    PCEC_REGISTER_REPLY pReply = (PCEC_REGISTER_REPLY)pCapturedCtx;
     DWORD ReturnedBytes = 0;
     BOOL status = TRUE;
 
@@ -216,12 +215,12 @@ DrvCaptureUniqueRegisterValues(
     Request.Address = Address;
     Request.Type = Type;
     Request.Size = Size;
-    Request.RegisterKey = RegisterKey;
+    Request.Register = Register;
     Request.DurationInMilliseconds = DurationInMilliseconds;
 
     status = DeviceIoControl(
         g_hDevice,
-        IOCTL_CAPTUREUNIQUEREGVALS,
+        IOCTL_CEC_REGISTER,
         &Request,
         sizeof(Request),
         pReply,

@@ -215,28 +215,28 @@ DispatchDeviceControl(
 
             break;
         }
-        case IOCTL_CAPTUREUNIQUEREGVALS:
+        case IOCTL_CEC_REGISTER:
         {
-            dbg_print("Processing IOCTL_CAPTUREUNIQUEREGVALS.");
+            dbg_print("Processing IOCTL_CEC_REGISTER.");
 
-            if (cbInput >= sizeof(CAPTUREUNIQUEREGVALS_REQUEST) &&
-                cbOutput >= sizeof(CAPTUREUNIQUEREGVALS_REPLY) &&
+            if (cbInput >= sizeof(CEC_REGISTER_REQUEST) &&
+                cbOutput >= sizeof(CEC_REGISTER_REPLY) &&
                 pSystemBuffer)
             {
-                PCAPTUREUNIQUEREGVALS_REQUEST pRequest =
-                    (PCAPTUREUNIQUEREGVALS_REQUEST)pSystemBuffer;
-                PCAPTUREUNIQUEREGVALS_REPLY pReply =
-                    (PCAPTUREUNIQUEREGVALS_REPLY)pSystemBuffer;
+                PCEC_REGISTER_REQUEST pRequest =
+                    (PCEC_REGISTER_REQUEST)pSystemBuffer;
+                PCEC_REGISTER_REPLY pReply =
+                    (PCEC_REGISTER_REPLY)pSystemBuffer;
 
-                ntstatus = CecCaptureUniqueRegisterValues(
+                ntstatus = CecCaptureRegisterValues(
                     pRequest->ProcessId,
                     pRequest->Index,
                     pRequest->Address,
                     pRequest->Type,
                     pRequest->Size,
-                    pRequest->RegisterKey,
+                    pRequest->Register,
                     pRequest->DurationInMilliseconds,
-                    (PCAPTURED_UNIQUE_REGVALS)pReply,
+                    (PCEC_REGISTER_VALUES)pReply,
                     cbOutput);
                 if (NT_SUCCESS(ntstatus))
                 {
@@ -245,7 +245,7 @@ DispatchDeviceControl(
                 else
                 {
                     err_print(
-                        "CecCaptureUniqueRegisterValues failed: 0x%X",
+                        "CecCaptureRegisterValues failed: 0x%X",
                         ntstatus);
                 }
             }

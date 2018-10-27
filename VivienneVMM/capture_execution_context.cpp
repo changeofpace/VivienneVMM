@@ -23,6 +23,7 @@ Environment:
 #include "capture_execution_context.h"
 
 #include "breakpoint_manager.h"
+#include "ioctl_validation.h"
 #include "log_util.h"
 #include "register_util.h"
 
@@ -50,15 +51,20 @@ Environment:
 //=============================================================================
 
 //
-// This breakpoint callback context represents an active CURV request.
+// All callback context types must be allocated from the nonpaged pool because
+//  they will be modified inside VM exit handlers. The 'Values' buffers are
+//  implicitly allocated from the nonpaged pool because they are part of
+//  METHOD_BUFFERED requests.
 //
-typedef struct _CEC_CALLBACK_CONTEXT
+typedef struct _CEC_REGISTER_CALLBACK_CONTEXT
 {
-    ULONG RegisterKey; // See REGISTER_*.
+    X64_REGISTER Register;
+
     KSPIN_LOCK Lock;
     _Write_guarded_by_(Lock) ULONG ExceptionCount;
-    _Guarded_by_(Lock) PCAPTURED_UNIQUE_REGVALS CapturedCtx;
-} CEC_CALLBACK_CONTEXT, *PCEC_CALLBACK_CONTEXT;
+    _Guarded_by_(Lock) PCEC_REGISTER_VALUES CapturedCtx;
+
+} CEC_REGISTER_CALLBACK_CONTEXT, *PCEC_REGISTER_CALLBACK_CONTEXT;
 
 //
 // The capture execution context callback stores unique values for a target
@@ -70,13 +76,14 @@ typedef struct _CEC_MANAGER_STATE
 {
     //
     // We use one mutex for each debug address register to ensure that only one
-    //  CURV request is using a debug address register at any given time.
+    //  CEC request is using a debug address register at any given time.
     //
     // NOTE These mutexes do not prevent users from installing a breakpoint,
     //  via the breakpoint manager interface, in a debug address register which
-    //  is being used to complete a CURV request.
+    //  is being used to complete a CEC request.
     //
     KGUARDED_MUTEX DarMutexes[DAR_COUNT];
+
 } CEC_MANAGER_STATE, *PCEC_MANAGER_STATE;
 
 
@@ -92,20 +99,6 @@ CEC_MANAGER_STATE g_CecManager = {};
 _Check_return_
 static
 NTSTATUS
-CeciSanitizeDebugRegisterIndex(
-    _In_ ULONG Index
-);
-
-_Check_return_
-static
-NTSTATUS
-CeciSanitizeRegisterKey(
-    _In_ ULONG RegisterKey
-);
-
-_Check_return_
-static
-NTSTATUS
 CeciInitializeInterval(
     _In_ ULONG DurationInMilliseconds,
     _Out_ PLARGE_INTEGER pInterval
@@ -113,25 +106,25 @@ CeciInitializeInterval(
 
 static
 VOID
-CeciInitializeCurvContext(
-    _Inout_ PCAPTURED_UNIQUE_REGVALS pCapturedCtx,
+CeciInitializeRegisterValuesContext(
+    _Inout_ PCEC_REGISTER_VALUES pCapturedCtx,
     _In_ ULONG cbCapturedCtx
 );
 
 _Check_return_
 static
 NTSTATUS
-CeciInitializeCurvCallbackContext(
-    _Inout_ PCEC_CALLBACK_CONTEXT pCallbackCtx,
-    _In_ PCAPTURED_UNIQUE_REGVALS pCapturedCtx,
-    _In_ ULONG RegisterKey
+CeciInitializeRegisterCallbackContext(
+    _Inout_ PCEC_REGISTER_CALLBACK_CONTEXT pCallbackCtx,
+    _In_ PCEC_REGISTER_VALUES pCapturedCtx,
+    _In_ X64_REGISTER Register
 );
 
 _IRQL_requires_min_(HIGH_LEVEL)
 _Check_return_
 static
 NTSTATUS
-CeciVmxBreakpointCallback(
+CeciVmxRegisterBreakpointCallback(
     _In_ ULONG OwnerIndex,
     _Inout_ GpRegisters* pGuestRegisters,
     _Inout_ FlagRegister* pGuestFlags,
@@ -169,7 +162,7 @@ CecInitialization()
 //=============================================================================
 
 //
-// CecCaptureUniqueRegisterValues
+// CecCaptureRegisterValues
 //
 // Install a hardware breakpoint on all processors which, when triggered, will
 //  examine the contents of the target register and record all unique values
@@ -181,25 +174,25 @@ CecInitialization()
 //
 _Use_decl_annotations_
 NTSTATUS
-CecCaptureUniqueRegisterValues(
+CecCaptureRegisterValues(
     ULONG_PTR ProcessId,
     ULONG Index,
     ULONG_PTR Address,
     HWBP_TYPE Type,
     HWBP_SIZE Size,
-    ULONG RegisterKey,
+    X64_REGISTER Register,
     ULONG DurationInMilliseconds,
-    PCAPTURED_UNIQUE_REGVALS pCapturedCtx,
+    PCEC_REGISTER_VALUES pCapturedCtx,
     ULONG cbCapturedCtx
 )
 {
     HARDWARE_BREAKPOINT Breakpoint = {};
     LARGE_INTEGER DelayInterval = {};
-    PCEC_CALLBACK_CONTEXT pCecCtx = {};
+    PCEC_REGISTER_CALLBACK_CONTEXT pCecCtx = {};
     BOOLEAN HasMutex = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    // Sanitize in parameters.
+    // Validate in parameters.
     ntstatus = BpmInitializeBreakpoint(
         ProcessId,
         Index,
@@ -213,13 +206,22 @@ CecCaptureUniqueRegisterValues(
         goto exit;
     }
 
-    // The debug register index should have been sanitized by the breakpoint
-    //  constructor, but we perform internal sanitization because the index
-    //  determines which mutex we acquire.
-    ntstatus = CeciSanitizeDebugRegisterIndex(Index);
+    ntstatus = IvValidateGeneralPurposeRegister(Register);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("CeciSanitizeDebugRegisterIndex failed: 0x%X", ntstatus);
+        err_print("IvValidateGeneralPurposeRegister failed: 0x%X", ntstatus);
+        goto exit;
+    }
+
+    //
+    // The debug register index should have been validated by the breakpoint
+    //  constructor, but we perform internal validation because the index
+    //  determines which mutex we acquire.
+    //
+    ntstatus = IvValidateDebugRegisterIndex(Index);
+    if (!NT_SUCCESS(ntstatus))
+    {
+        err_print("IvValidateDebugRegisterIndex failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -230,10 +232,12 @@ CecCaptureUniqueRegisterValues(
         goto exit;
     }
 
+    //
     // The callback context must be allocated from the nonpaged pool because it
     //  will be accessed at HIGH_LEVEL.
+    //
 #pragma warning(suppress : 30030) // NonPagedPoolNx is only available in Win8+.
-    pCecCtx = (PCEC_CALLBACK_CONTEXT)ExAllocatePoolWithTag(
+    pCecCtx = (PCEC_REGISTER_CALLBACK_CONTEXT)ExAllocatePoolWithTag(
         NonPagedPool,
         sizeof(*pCecCtx),
         CEC_TAG);
@@ -245,29 +249,28 @@ CecCaptureUniqueRegisterValues(
     }
 
     // Initialize contexts.
-    CeciInitializeCurvContext(pCapturedCtx, cbCapturedCtx);
+    CeciInitializeRegisterValuesContext(pCapturedCtx, cbCapturedCtx);
     
-    ntstatus = CeciInitializeCurvCallbackContext(
+    ntstatus = CeciInitializeRegisterCallbackContext(
         pCecCtx,
         pCapturedCtx,
-        RegisterKey);
+        Register);
     if (!NT_SUCCESS(ntstatus))
     {
         err_print(
-            "CeciInitializeCurvCallbackContext (CURV) failed: 0x%X",
+            "CeciInitializeRegisterCallbackContext failed: 0x%X",
             ntstatus);
         goto exit;
     }
 
     cec_verbose_print(
-        "CEC: CURV request start: DR%u, pid=0x%IX (%Iu), address=0x%IX, type=%c, size=%c, reg=0x%X, time=%u",
+        "CEC: Request: dr%u, pid=0x%IX, addr=0x%IX, bptype=%c, bpsize=%c, reg=%s, time=%u",
         Breakpoint.Index,
-        Breakpoint.ProcessId,
         Breakpoint.ProcessId,
         Breakpoint.Address,
         HwBpTypeToChar(Breakpoint.Type),
         HwBpSizeToChar(Breakpoint.Size),
-        RegisterKey,
+        GpRegToString(pCecCtx->Register),
         DurationInMilliseconds);
 
     // Acquire the mutex for the target debug address register.
@@ -281,14 +284,15 @@ CecCaptureUniqueRegisterValues(
         Address,
         Type,
         Size,
-        CeciVmxBreakpointCallback,
+        CeciVmxRegisterBreakpointCallback,
         pCecCtx);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmSetHardwareBreakpoint (CURV) failed: 0x%X", ntstatus);
+        err_print("BpmSetHardwareBreakpoint failed: 0x%X (CECR)", ntstatus);
         goto exit;
     }
 
+    //
     // Allow the breakpoint to be active for the desired duration.
     //
     // NOTE We do not fail the request if the timer expires.
@@ -297,7 +301,7 @@ CecCaptureUniqueRegisterValues(
     if (!NT_SUCCESS(ntstatus))
     {
         err_print(
-            "KeDelayExecutionThread (CURV) returned unexpected status: 0x%X",
+            "KeDelayExecutionThread returned unexpected status: 0x%X (CECR)",
             ntstatus);
     }
 
@@ -310,7 +314,7 @@ CecCaptureUniqueRegisterValues(
     }
 
     cec_verbose_print(
-        "CEC: CURV request complete: processed %u exceptions.",
+        "CEC: Register request complete: processed %u exceptions.",
         pCecCtx->ExceptionCount);
 
 exit:
@@ -331,78 +335,6 @@ exit:
 //=============================================================================
 // Internal Interface
 //=============================================================================
-
-//
-// CeciSanitizeDebugRegisterIndex
-//
-_Use_decl_annotations_
-static
-NTSTATUS
-CeciSanitizeDebugRegisterIndex(
-    ULONG Index
-)
-{
-    NTSTATUS ntstatus = STATUS_SUCCESS;
-
-    if (DAR_COUNT <= Index)
-    {
-        ntstatus = STATUS_INVALID_PARAMETER;
-        goto exit;
-    }
-
-exit:
-    return ntstatus;
-}
-
-
-//
-// CeciSanitizeRegisterKey
-//
-_Use_decl_annotations_
-static
-NTSTATUS
-CeciSanitizeRegisterKey(
-    ULONG RegisterKey
-)
-{
-    NTSTATUS ntstatus = STATUS_SUCCESS;
-
-    switch (RegisterKey)
-    {
-        case REGISTER_RIP:
-        case REGISTER_RAX:
-        case REGISTER_RCX:
-        case REGISTER_RDX:
-        case REGISTER_RDI:
-        case REGISTER_RSI:
-        case REGISTER_RBX:
-        case REGISTER_RBP:
-        case REGISTER_RSP:
-        case REGISTER_R8:
-        case REGISTER_R9:
-        case REGISTER_R10:
-        case REGISTER_R11:
-        case REGISTER_R12:
-        case REGISTER_R13:
-        case REGISTER_R14:
-        case REGISTER_R15:
-        {
-            break;
-        }
-        case REGISTER_INVALID:
-        {
-            __fallthrough;
-        }
-        default:
-        {
-            ntstatus = STATUS_INVALID_PARAMETER;
-            break;
-        }
-    }
-
-    return ntstatus;
-}
-
 
 //
 // CeciInitializeInterval
@@ -446,15 +378,19 @@ exit:
 
 
 //
-// CeciInitializeCurvContext
+// CeciInitializeRegisterValuesContext
 //
-// CAPTURED_UNIQUE_REGVALS constructor.
+// CEC_REGISTER_VALUES constructor.
+//
+// NOTE This function zeros the request's values buffer which is backed by the
+//  irp's system buffer. All required ioctl data should be copied to local
+//  storage before invoking This function.
 //
 _Use_decl_annotations_
 static
 VOID
-CeciInitializeCurvContext(
-    PCAPTURED_UNIQUE_REGVALS pCapturedCtx,
+CeciInitializeRegisterValuesContext(
+    PCEC_REGISTER_VALUES pCapturedCtx,
     ULONG cbCapturedCtx
 )
 {
@@ -462,54 +398,46 @@ CeciInitializeCurvContext(
 
     pCapturedCtx->Size = cbCapturedCtx;
     pCapturedCtx->MaxIndex =
-        (cbCapturedCtx - FIELD_OFFSET(CAPTURED_UNIQUE_REGVALS, Values))
-            / (RTL_FIELD_SIZE(CAPTURED_UNIQUE_REGVALS, Values));
+        (cbCapturedCtx - FIELD_OFFSET(CEC_REGISTER_VALUES, Values))
+            / (RTL_FIELD_SIZE(CEC_REGISTER_VALUES, Values));
 }
 
 
 //
-// CeciInitializeCurvCallbackContext
+// CeciInitializeRegisterCallbackContext
 //
-// CEC_CALLBACK_CONTEXT constructor.
+// CEC_REGISTER_CALLBACK_CONTEXT constructor.
 //
 _Use_decl_annotations_
 static
 NTSTATUS
-CeciInitializeCurvCallbackContext(
-    PCEC_CALLBACK_CONTEXT pCallbackCtx,
-    PCAPTURED_UNIQUE_REGVALS pCapturedCtx,
-    ULONG RegisterKey
+CeciInitializeRegisterCallbackContext(
+    PCEC_REGISTER_CALLBACK_CONTEXT pCallbackCtx,
+    PCEC_REGISTER_VALUES pCapturedCtx,
+    X64_REGISTER Register
 )
 {
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
     RtlSecureZeroMemory(pCallbackCtx, sizeof(*pCallbackCtx));
 
-    ntstatus = CeciSanitizeRegisterKey(RegisterKey);
-    if (!NT_SUCCESS(ntstatus))
-    {
-        err_print("CeciSanitizeRegisterKey failed: 0x%X", ntstatus);
-        goto exit;
-    }
-
+    pCallbackCtx->Register = Register;
     KeInitializeSpinLock(&pCallbackCtx->Lock);
     pCallbackCtx->CapturedCtx = pCapturedCtx;
-    pCallbackCtx->RegisterKey = RegisterKey;
 
-exit:
     return ntstatus;
 }
 
 
 //
-// CeciVmxBreakpointCallback
+// CeciVmxRegisterBreakpointCallback
 //
-// Store unique values from the target register in the values-buffer.
+// Store unique values from the target register in the values buffer.
 //
 _Use_decl_annotations_
 static
 NTSTATUS
-CeciVmxBreakpointCallback(
+CeciVmxRegisterBreakpointCallback(
     ULONG OwnerIndex,
     GpRegisters* pGuestRegisters,
     FlagRegister* pGuestFlags,
@@ -517,7 +445,8 @@ CeciVmxBreakpointCallback(
     PVOID pCallbackCtx
 )
 {
-    PCEC_CALLBACK_CONTEXT pCecCtx = (PCEC_CALLBACK_CONTEXT)pCallbackCtx;
+    PCEC_REGISTER_CALLBACK_CONTEXT pCecCtx =
+        (PCEC_REGISTER_CALLBACK_CONTEXT)pCallbackCtx;
     ULONG_PTR RegisterValue = 0;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
@@ -528,7 +457,7 @@ CeciVmxBreakpointCallback(
     // NOTE Code analysis considers it invalid to acquire a spin lock at
     //  HIGH_LEVEL, but since this lock will only be acquired inside a VM exit
     //  handler it should not cause issues (famous last words). An alternate
-    //  solution is to divide the values-buffer into even ranges which are
+    //  solution is to divide the values buffer into even ranges which are
     //  indexed by processor number. This guarantees that each region can only
     //  be accessed by one processor at any given time, but will most likely
     //  result in unused buffer space because of thread affinity.
@@ -536,15 +465,17 @@ CeciVmxBreakpointCallback(
 #pragma warning(suppress : 28123)
     KeAcquireSpinLockAtDpcLevel(&pCecCtx->Lock);
 
+    pCecCtx->ExceptionCount++;
+
     //
-    // If the values-buffer is full then we cannot store new values so we must
+    // If the values buffer is full then we cannot store new values so we must
     //  exit.
     //
     // NOTE Previously the CEC callback contained a completion event object
-    //  which was signalled if the values-buffer became full. This was removed
+    //  which was signalled if the values buffer became full. This was removed
     //  because KeSetEvent can only be safely called at IRQL <= DISPATCH_LEVEL.
-    //  Once the values-buffer is full this callback is essentially a waste
-    //  of cycles until the breakpoint timer associated with this CURV request
+    //  Once the values buffer is full this callback is essentially a waste
+    //  of cycles until the breakpoint timer associated with this CECR request
     //  expires.
     //
     if (pCecCtx->CapturedCtx->NumberOfValues >=
@@ -553,10 +484,8 @@ CeciVmxBreakpointCallback(
         goto exit;
     }
 
-    pCecCtx->ExceptionCount++;
-
     ntstatus = ReadGuestRegisterValue(
-        pCecCtx->RegisterKey,
+        pCecCtx->Register,
         pGuestRegisters,
         GuestIp,
         &RegisterValue);
@@ -571,7 +500,7 @@ CeciVmxBreakpointCallback(
         goto exit;
     }
 
-    // Walk the values-buffer to determine if this is a new value.
+    // Walk the values buffer to determine if this is a new value.
     for (ULONG i = 0; i < pCecCtx->CapturedCtx->MaxIndex; ++i)
     {
         // We have reached the end of the buffer so this must be a new value.

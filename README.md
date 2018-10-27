@@ -75,7 +75,7 @@ Disassembly of the for loop:
 .text:0000000140001044     jnb     short loc_140001060
 .text:0000000140001046     mov     ecx, [rsp+38h+PlayerIndex]
 .text:000000014000104A     call    GetDecryptedPlayerPointer
-.text:000000014000104F     mov     [rsp+38h+pPlayer], rax       ; CURV target.
+.text:000000014000104F     mov     [rsp+38h+pPlayer], rax       ; target.
 .text:0000000140001054     mov     rcx, [rsp+38h+pPlayer]
 .text:0000000140001059     call    SimulatePlayerTick
 .text:000000014000105E     jmp     short loc_140001032
@@ -83,23 +83,24 @@ Disassembly of the for loop:
 
 We determine that we can calculate player pointers if we are able to recreate the **GetDecryptedPlayerPointer** function. Now, imagine that this function is heavily obfuscated to the point that it would require an unrealistic amount of time to reverse. Normally we would dismiss this code snippet because the reward is not worth the time investment.
 
-We can accomplish our goal without reversing **GetDecryptedPlayerPointer** by executing a **capture unique register values** (CURV) IOCTL for register **RAX** at address **0x14000104F**. The CEC module satisfies this CURV request by installing an ephemeral hardware breakpoint at **0x14000104F** for the target process. When the target process executes the instruction at this address, a debug exception is generated and processed by BPM. BPM then invokes the CURV callback which records every unique value in the **RAX** register to the IOCTL buffer. The unique values buffer is returned to the client when the breakpoint duration expires.
+We can accomplish our goal without reversing **GetDecryptedPlayerPointer** by executing a **capture register values** (CECR) IOCTL for register **RAX** at address **0x14000104F**. The CEC module satisfies this CECR request by installing an ephemeral hardware breakpoint at **0x14000104F** for the target process. When the target process executes the instruction at this address, a debug exception is generated and processed by BPM. BPM then invokes the CECR callback which records every unique value in the **RAX** register to the IOCTL buffer. The unique values buffer is returned to the client when the breakpoint duration expires.
 
-The following snippet is the client code for this example's CURV request:
+The following snippet is the client code for this example's CECR request:
 
 ```C++
 UCHAR pBuffer[PAGE_SIZE] = {};
-PCAPTURED_UNIQUE_REGVALS pRequest = (PCAPTURED_UNIQUE_REGVALS)pBuffer;
+PCEC_REGISTER_VALUES pRegisterValues = (PCEC_REGISTER_VALUES)pBuffer;
 BOOL status = TRUE;
 
-status = DrvCaptureUniqueRegisterValues(
+status = DrvCaptureRegisterValues(
     GetTargetProcessId(),
     0,
     0x14000104F,
     HWBP_TYPE::Execute,
     HWBP_SIZE::Byte,
     REGISTER_RAX,
-    pRequest,
+    5000,
+    pRegisterValues,
     sizeof(pBuffer));
 ```
 
@@ -123,7 +124,7 @@ EPT hooking is a viable alternative for implementing stealth debugging which doe
 Project Structure
 -----------------
 
-This project uses HyperPlatform as a git subtree with prefix='VivienneVMM/HyperPlatform'. We subtree the project instead of using a git submodule because we must modify HyperPlatform files to implement VivienneVMM features. This allows us to merge HyperPlatform updates from upstream with minimal merge conflicts.
+This project uses [HyperPlatform](https://github.com/tandasat/HyperPlatform) as a git subtree with prefix='VivienneVMM/HyperPlatform'. We subtree the project instead of using a git submodule because we must modify HyperPlatform files to implement VivienneVMM features. This allows us to merge HyperPlatform updates from upstream with minimal merge conflicts.
 
 The following list of console commands are an example of how to pull HyperPlatform updates into a local VivienneVMM repository:
 

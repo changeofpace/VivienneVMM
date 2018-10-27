@@ -26,12 +26,6 @@
     <ClCompile Include="..\common\time_util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="test_curv.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="test_curv_edge_cases.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="test_unowned_breakpoints.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -51,6 +45,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="test_breakpoint_ranges.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test_cecr.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="test_cecr_edge_cases.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -17,10 +17,10 @@ VOID
 TestHardwareBreakpointStress();
 
 VOID
-TestCaptureUniqueRegisterValues();
+TestCaptureRegisterValues();
 
 VOID
-TestCaptureUniqueRegisterValuesEdgeCases();
+TestCaptureRegisterValuesEdgeCases();
 
 VOID
 TestHardwareBreakpointRanges();

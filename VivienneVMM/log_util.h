@@ -112,3 +112,36 @@ HwBpSizeToChar(
         default:                return '?';
     }
 }
+
+//
+// GpRegToString
+//
+FORCEINLINE
+PCSTR
+GpRegToString(
+    _In_ X64_REGISTER Register
+)
+{
+    switch (Register)
+    {
+        case REGISTER_RIP: return "rip";
+        case REGISTER_RAX: return "rax";
+        case REGISTER_RCX: return "rcx";
+        case REGISTER_RDX: return "rdx";
+        case REGISTER_RDI: return "rdi";
+        case REGISTER_RSI: return "rsi";
+        case REGISTER_RBX: return "rbx";
+        case REGISTER_RBP: return "rbp";
+        case REGISTER_RSP: return "rsp";
+        case REGISTER_R8:  return "r8";
+        case REGISTER_R9:  return "r9";
+        case REGISTER_R10: return "r10";
+        case REGISTER_R11: return "r11";
+        case REGISTER_R12: return "r12";
+        case REGISTER_R13: return "r13";
+        case REGISTER_R14: return "r14";
+        case REGISTER_R15: return "r15";
+    }
+
+    return "(UNK)";
+}

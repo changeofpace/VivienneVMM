@@ -51,10 +51,10 @@ Commands
 
 ---
 
-**curv**
+**cecr**
 
     Usage
-        curv index pid access|size address register duration
+        cecr index pid access|size address register duration
 
     Summary
         Capture unique register context at a target address.
@@ -69,7 +69,7 @@ Commands
         duration:  #               capture duration in milliseconds
 
     Example
-        setbp 0 1002 w4 77701650 rbx 5000
+        cecr 0 1002 w4 77701650 rbx 5000
 
 ---
 

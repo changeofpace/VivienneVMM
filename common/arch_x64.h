@@ -34,26 +34,147 @@ Environment:
 #endif
 
 //=============================================================================
-// General Purpose Registers
+// Registers
 //=============================================================================
-#define REGISTER_INVALID    0x00000001
-#define REGISTER_RIP        0x00000002
-#define REGISTER_RAX        0x00000004
-#define REGISTER_RCX        0x00000008
-#define REGISTER_RDX        0x00000010
-#define REGISTER_RDI        0x00000020
-#define REGISTER_RSI        0x00000040
-#define REGISTER_RBX        0x00000080
-#define REGISTER_RBP        0x00000100
-#define REGISTER_RSP        0x00000200
-#define REGISTER_R8         0x00000400
-#define REGISTER_R9         0x00000800
-#define REGISTER_R10        0x00001000
-#define REGISTER_R11        0x00002000
-#define REGISTER_R12        0x00004000
-#define REGISTER_R13        0x00008000
-#define REGISTER_R14        0x00010000
-#define REGISTER_R15        0x00020000
+typedef enum _X64_REGISTER
+{
+    REGISTER_INVALID = 0,
+
+    //
+    // General purpose or integer registers.
+    //
+    REGISTER_RIP,
+    REGISTER_RAX,
+    REGISTER_RCX,
+    REGISTER_RDX,
+    REGISTER_RDI,
+    REGISTER_RSI,
+    REGISTER_RBX,
+    REGISTER_RBP,
+    REGISTER_RSP,
+    REGISTER_R8,
+    REGISTER_R9,
+    REGISTER_R10,
+    REGISTER_R11,
+    REGISTER_R12,
+    REGISTER_R13,
+    REGISTER_R14,
+    REGISTER_R15,
+    REGISTER_GP_MIN = REGISTER_RIP,
+    REGISTER_GP_MAX = REGISTER_R15,
+
+    //
+    // SSE / AVX registers.
+    //
+    REGISTER_XMM0,
+    REGISTER_XMM1,
+    REGISTER_XMM2,
+    REGISTER_XMM3,
+    REGISTER_XMM4,
+    REGISTER_XMM5,
+    REGISTER_XMM6,
+    REGISTER_XMM7,
+    REGISTER_XMM8,
+    REGISTER_XMM9,
+    REGISTER_XMM10,
+    REGISTER_XMM11,
+    REGISTER_XMM12,
+    REGISTER_XMM13,
+    REGISTER_XMM14,
+    REGISTER_XMM15,
+    REGISTER_XMM_LIMIT = REGISTER_XMM15,
+    REGISTER_XMM16,
+    REGISTER_XMM17,
+    REGISTER_XMM18,
+    REGISTER_XMM19,
+    REGISTER_XMM20,
+    REGISTER_XMM21,
+    REGISTER_XMM22,
+    REGISTER_XMM23,
+    REGISTER_XMM24,
+    REGISTER_XMM25,
+    REGISTER_XMM26,
+    REGISTER_XMM27,
+    REGISTER_XMM28,
+    REGISTER_XMM29,
+    REGISTER_XMM30,
+    REGISTER_XMM31,
+    REGISTER_XMM_MIN = REGISTER_XMM0,
+    REGISTER_XMM_MAX = REGISTER_XMM31,
+
+    REGISTER_YMM0,
+    REGISTER_YMM1,
+    REGISTER_YMM2,
+    REGISTER_YMM3,
+    REGISTER_YMM4,
+    REGISTER_YMM5,
+    REGISTER_YMM6,
+    REGISTER_YMM7,
+    REGISTER_YMM8,
+    REGISTER_YMM9,
+    REGISTER_YMM10,
+    REGISTER_YMM11,
+    REGISTER_YMM12,
+    REGISTER_YMM13,
+    REGISTER_YMM14,
+    REGISTER_YMM15,
+    REGISTER_YMM_LIMIT = REGISTER_YMM15,
+    REGISTER_YMM16,
+    REGISTER_YMM17,
+    REGISTER_YMM18,
+    REGISTER_YMM19,
+    REGISTER_YMM20,
+    REGISTER_YMM21,
+    REGISTER_YMM22,
+    REGISTER_YMM23,
+    REGISTER_YMM24,
+    REGISTER_YMM25,
+    REGISTER_YMM26,
+    REGISTER_YMM27,
+    REGISTER_YMM28,
+    REGISTER_YMM29,
+    REGISTER_YMM30,
+    REGISTER_YMM31,
+    REGISTER_YMM_MIN = REGISTER_YMM0,
+    REGISTER_YMM_MAX = REGISTER_YMM31,
+
+    REGISTER_ZMM0,
+    REGISTER_ZMM1,
+    REGISTER_ZMM2,
+    REGISTER_ZMM3,
+    REGISTER_ZMM4,
+    REGISTER_ZMM5,
+    REGISTER_ZMM6,
+    REGISTER_ZMM7,
+    REGISTER_ZMM8,
+    REGISTER_ZMM9,
+    REGISTER_ZMM10,
+    REGISTER_ZMM11,
+    REGISTER_ZMM12,
+    REGISTER_ZMM13,
+    REGISTER_ZMM14,
+    REGISTER_ZMM15,
+    REGISTER_ZMM_LIMIT = REGISTER_ZMM15,
+    REGISTER_ZMM16,
+    REGISTER_ZMM17,
+    REGISTER_ZMM18,
+    REGISTER_ZMM19,
+    REGISTER_ZMM20,
+    REGISTER_ZMM21,
+    REGISTER_ZMM22,
+    REGISTER_ZMM23,
+    REGISTER_ZMM24,
+    REGISTER_ZMM25,
+    REGISTER_ZMM26,
+    REGISTER_ZMM27,
+    REGISTER_ZMM28,
+    REGISTER_ZMM29,
+    REGISTER_ZMM30,
+    REGISTER_ZMM31,
+    REGISTER_ZMM_MIN = REGISTER_ZMM0,
+    REGISTER_ZMM_MAX = REGISTER_ZMM31,
+
+} X64_REGISTER, *PX64_REGISTER;
 
 #pragma warning(push) // Nonstandard extension used: nameless struct/union
 #pragma warning(disable : 4201)
@@ -141,10 +262,10 @@ HwBpSizeToBytes(
 {
     switch (BreakpointSize)
     {
-        case HWBP_SIZE::Byte:   return 1;
-        case HWBP_SIZE::Word:   return 2;
-        case HWBP_SIZE::Qword:  return 8;
-        case HWBP_SIZE::Dword:  return 4;
+        case HWBP_SIZE::Byte:   return sizeof(unsigned __int8);
+        case HWBP_SIZE::Word:   return sizeof(unsigned __int16);
+        case HWBP_SIZE::Qword:  return sizeof(unsigned __int64);
+        case HWBP_SIZE::Dword:  return sizeof(unsigned __int32);
         default:                return 0;
     }
 }

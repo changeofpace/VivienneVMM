@@ -95,6 +95,7 @@
     <ClInclude Include="HyperPlatform\HyperPlatform\util_page_constants.h" />
     <ClInclude Include="HyperPlatform\HyperPlatform\vm.h" />
     <ClInclude Include="HyperPlatform\HyperPlatform\vmm.h" />
+    <ClInclude Include="ioctl_validation.h" />
     <ClInclude Include="log_util.h" />
     <ClInclude Include="process.h" />
     <ClInclude Include="register_util.h" />
@@ -118,6 +119,7 @@
     <ClCompile Include="HyperPlatform\HyperPlatform\util.cpp" />
     <ClCompile Include="HyperPlatform\HyperPlatform\vm.cpp" />
     <ClCompile Include="HyperPlatform\HyperPlatform\vmm.cpp" />
+    <ClCompile Include="ioctl_validation.cpp" />
     <ClCompile Include="process.cpp" />
     <ClCompile Include="register_util.cpp" />
     <ClCompile Include="vivienne.cpp" />

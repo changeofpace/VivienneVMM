@@ -31,12 +31,12 @@ static BOOLEAN g_Active = FALSE;
 //=============================================================================
 
 //
-// MaxResultsCurvRequest
+// MaxResultsCecrRequest
 //
 static
 DWORD
 WINAPI
-MaxResultsCurvRequest(
+MaxResultsCecrRequest(
     _In_ LPVOID lpParameter
 )
 {
@@ -58,14 +58,14 @@ MaxResultsCurvRequest(
 //=============================================================================
 
 //
-// TestCaptureUniqueRegisterValuesEdgeCases
+// TestCaptureRegisterValuesEdgeCases
 //
-// This test executes two CURV requests to test boundary checking.
+// This test executes two CECR requests to test boundary checking.
 //
 VOID
-TestCaptureUniqueRegisterValuesEdgeCases()
+TestCaptureRegisterValuesEdgeCases()
 {
-    PCAPTURED_UNIQUE_REGVALS pCapturedCtx = NULL;
+    PCEC_REGISTER_VALUES pCapturedCtx = NULL;
     DWORD ThreadId = 0;
     HANDLE hThread = NULL;
     DWORD waitstatus = 0;
@@ -75,7 +75,7 @@ TestCaptureUniqueRegisterValuesEdgeCases()
 
     // Allocate the captured context buffer.
     // NOTE This memory will leak if this test fails.
-    pCapturedCtx = (PCAPTURED_UNIQUE_REGVALS)HeapAlloc(
+    pCapturedCtx = (PCEC_REGISTER_VALUES)HeapAlloc(
         GetProcessHeap(),
         HEAP_ZERO_MEMORY,
         CONTEXT_BUFFER_SIZE);
@@ -87,7 +87,7 @@ TestCaptureUniqueRegisterValuesEdgeCases()
     printf("Starting zero results edge case...\n");
 
     // Edge Case: Zero results because the breakpoint was not triggered.
-    status = DrvCaptureUniqueRegisterValues(
+    status = DrvCaptureRegisterValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
         0,
@@ -100,7 +100,7 @@ TestCaptureUniqueRegisterValuesEdgeCases()
     if (!status)
     {
         FAIL_TEST(
-            "DrvCaptureUniqueRegisterValues failed: %u\n",
+            "DrvCaptureRegisterValues failed: %u\n",
             GetLastError());
     }
 
@@ -123,7 +123,7 @@ TestCaptureUniqueRegisterValuesEdgeCases()
     hThread = CreateThread(
         NULL,
         0,
-        MaxResultsCurvRequest,
+        MaxResultsCecrRequest,
         NULL,
         0,
         &ThreadId);
@@ -133,7 +133,7 @@ TestCaptureUniqueRegisterValuesEdgeCases()
     }
 
     // Edge Case: The values-buffer is full.
-    status = DrvCaptureUniqueRegisterValues(
+    status = DrvCaptureRegisterValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
         (ULONG_PTR)&g_AcCaptureTargetR12CaptureAddress,
@@ -146,7 +146,7 @@ TestCaptureUniqueRegisterValuesEdgeCases()
     if (!status)
     {
         FAIL_TEST(
-            "DrvCaptureUniqueRegisterValues failed: %u\n",
+            "DrvCaptureRegisterValues failed: %u\n",
             GetLastError());
     }
 

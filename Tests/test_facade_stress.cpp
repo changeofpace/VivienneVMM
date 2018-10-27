@@ -1,3 +1,8 @@
+//
+// TODO Rewrite the sleep logic for the exercise threads so that each thread
+//  gets equal execution time. Consider using NtYieldExecution.
+//
+
 #include <windows.h>
 
 #include "test_util.h"
@@ -40,6 +45,7 @@ typedef struct _FACADE_STRESS_CONTEXT
 //=============================================================================
 // Module Globals
 //=============================================================================
+static HANDLE g_BarrierEvent = NULL;
 static volatile LONGLONG g_ThreadLocalIterations = 0;
 static volatile LONGLONG g_VvmmManagedIterations = 0;
 static volatile LONGLONG g_ThreadStopCondition = 0;
@@ -135,7 +141,15 @@ InstallThreadLocalBreakpoints(
 )
 {
     PFACADE_STRESS_CONTEXT pContext = (PFACADE_STRESS_CONTEXT)lpParameter;
+    DWORD waitstatus = 0;
     DWORD threadstatus = ERROR_SUCCESS;
+
+    // Wait until all threads have been created.
+    waitstatus = WaitForSingleObject(g_BarrierEvent, WAIT_TIMEOUT_MS);
+    if (WAIT_OBJECT_0 != waitstatus)
+    {
+        FAIL_TEST("WaitForSingleObject failed: %u\n", GetLastError());
+    }
 
     // NOTE This check should be atomic, but the presence of a race condition
     //  here will not negatively impact the test.
@@ -202,9 +216,17 @@ InstallVvmmBreakpoints(
     _In_ LPVOID lpParameter
 )
 {
+    DWORD waitstatus = 0;
     DWORD status = ERROR_SUCCESS;
 
     UNREFERENCED_PARAMETER(lpParameter);
+
+    // Wait until all threads have been created.
+    waitstatus = WaitForSingleObject(g_BarrierEvent, WAIT_TIMEOUT_MS);
+    if (WAIT_OBJECT_0 != waitstatus)
+    {
+        FAIL_TEST("WaitForSingleObject failed: %u\n", GetLastError());
+    }
 
     // Atomic operations are not required because only one thread will write
     //  to the stop-condition global. This laziness is to reduce complexity.
@@ -282,6 +304,13 @@ TestDebugRegisterFacadeStress()
 
     PRINT_TEST_HEADER;
 
+    // Initialize the thread barrier event.
+    g_BarrierEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+    if (!g_BarrierEvent)
+    {
+        FAIL_TEST("CreateEvent failed: %u.\n", GetLastError());
+    }
+
     // Install the stealth check VEH.
     pVectoredHandler = AddVectoredExceptionHandler(
         1,
@@ -333,6 +362,13 @@ TestDebugRegisterFacadeStress()
         }
 
         printf("tid = 0x%IX\n", (ULONG_PTR)ThreadIds[i]);
+    }
+
+    // Activate the exercise threads.
+    status = SetEvent(g_BarrierEvent);
+    if (!status)
+    {
+        FAIL_TEST("SetEvent failed: %u\n", GetLastError());
     }
 
     // Allow the threads to execute until the iteration count is met.

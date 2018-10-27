@@ -468,6 +468,11 @@ NtUnloadDriver(
 );
 
 EXTERN_C
+NTSTATUS
+NTAPI
+NtYieldExecution();
+
+EXTERN_C
 VOID
 NTAPI
 RtlInitUnicodeString(

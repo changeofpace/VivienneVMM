@@ -37,14 +37,14 @@ CecInitialization();
 //=============================================================================
 _Check_return_
 NTSTATUS
-CecCaptureUniqueRegisterValues(
+CecCaptureRegisterValues(
     _In_ ULONG_PTR ProcessId,
     _In_ ULONG Index,
     _In_ ULONG_PTR Address,
     _In_ HWBP_TYPE Type,
     _In_ HWBP_SIZE Size,
-    _In_ ULONG RegisterKey,
+    _In_ X64_REGISTER Register,
     _In_ ULONG DurationInMilliseconds,
-    _Inout_bytecount_(cbCapturedCtx) PCAPTURED_UNIQUE_REGVALS pCapturedCtx,
+    _Inout_bytecount_(cbCapturedCtx) PCEC_REGISTER_VALUES pCapturedCtx,
     _In_ ULONG cbCapturedCtx
 );

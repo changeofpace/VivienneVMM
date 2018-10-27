@@ -23,6 +23,7 @@
 //=============================================================================
 // Module Globals
 //=============================================================================
+static HANDLE g_BarrierEvent = NULL;
 static ULONG g_pRandomValues[NUMBER_OF_UNIQUE_RANDOM_VALUES] = {};
 static BOOLEAN g_Active = FALSE;
 
@@ -32,18 +33,26 @@ static BOOLEAN g_Active = FALSE;
 //=============================================================================
 
 //
-// ExerciseCurv
+// ExerciseCecr
 //
 static
 DWORD
 WINAPI
-ExerciseCurv(
+ExerciseCecr(
     _In_ LPVOID lpParameter
 )
 {
     ULONG ValueIndex = 0;
     DWORD SleepDuration = {};
+    DWORD waitstatus = 0;
     DWORD status = ERROR_SUCCESS;
+
+    // Wait until all threads have been created.
+    waitstatus = WaitForSingleObject(g_BarrierEvent, WAIT_TIMEOUT_MS);
+    if (WAIT_OBJECT_0 != waitstatus)
+    {
+        FAIL_TEST("WaitForSingleObject failed: %u\n", GetLastError());
+    }
 
     while (g_Active)
     {
@@ -73,23 +82,30 @@ ExerciseCurv(
 //=============================================================================
 
 //
-// TestCaptureUniqueRegisterValues
+// TestCaptureRegisterValues
 //
 // This test captures the unique values in register R12 from a line of code
 //  inside AcCaptureTargetR12.
 //
 VOID
-TestCaptureUniqueRegisterValues()
+TestCaptureRegisterValues()
 {
     PVOID pVectoredHandler = NULL;
     DWORD ThreadIds[NUMBER_OF_THREADS] = {};
     HANDLE hThreads[NUMBER_OF_THREADS] = {};
-    PCAPTURED_UNIQUE_REGVALS CapturedCtx = NULL;
+    PCEC_REGISTER_VALUES CapturedCtx = NULL;
     BOOLEAN ValueFound = FALSE;
     DWORD waitstatus = 0;
     BOOL status = TRUE;
 
     PRINT_TEST_HEADER;
+
+    // Initialize the thread barrier event.
+    g_BarrierEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+    if (!g_BarrierEvent)
+    {
+        FAIL_TEST("CreateEvent failed: %u.\n", GetLastError());
+    }
 
     // Install the stealth check VEH.
     pVectoredHandler = AddVectoredExceptionHandler(
@@ -115,7 +131,7 @@ TestCaptureUniqueRegisterValues()
 
     // Allocate the captured context buffer.
     // NOTE This memory will leak if this test fails.
-    CapturedCtx = (PCAPTURED_UNIQUE_REGVALS)HeapAlloc(
+    CapturedCtx = (PCEC_REGISTER_VALUES)HeapAlloc(
         GetProcessHeap(),
         HEAP_ZERO_MEMORY,
         CONTEXT_BUFFER_SIZE);
@@ -136,7 +152,7 @@ TestCaptureUniqueRegisterValues()
         hThreads[i] = CreateThread(
             NULL,
             0,
-            ExerciseCurv,
+            ExerciseCecr,
             NULL,
             0,
             &ThreadIds[i]);
@@ -148,12 +164,19 @@ TestCaptureUniqueRegisterValues()
         printf("    tid: %u (0x%X)\n", ThreadIds[i], ThreadIds[i]);
     }
 
+    // Activate the exercise threads.
+    status = SetEvent(g_BarrierEvent);
+    if (!status)
+    {
+        FAIL_TEST("SetEvent failed: %u\n", GetLastError());
+    }
+
     printf(
         "Requesting unique register values for R12 at 0x%IX\n",
         (ULONG_PTR)&g_AcCaptureTargetR12CaptureAddress);
 
-    // Issue the synchronous CURV request.
-    status = DrvCaptureUniqueRegisterValues(
+    // Issue the synchronous CECR request.
+    status = DrvCaptureRegisterValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
         (ULONG_PTR)&g_AcCaptureTargetR12CaptureAddress,
@@ -166,7 +189,7 @@ TestCaptureUniqueRegisterValues()
     if (!status)
     {
         FAIL_TEST(
-            "DrvCaptureUniqueRegisterValues failed: %u\n",
+            "DrvCaptureRegisterValues failed: %u\n",
             GetLastError());
     }
 
@@ -196,7 +219,7 @@ TestCaptureUniqueRegisterValues()
 
     // Print the results.
     printf(
-        "Curv request completed with %u unique values:\n",
+        "Cecr request completed with %u unique values:\n",
         CapturedCtx->NumberOfValues);
 
     for (ULONG i = 0; i < CapturedCtx->NumberOfValues; ++i)
@@ -214,7 +237,7 @@ TestCaptureUniqueRegisterValues()
             ARRAYSIZE(g_pRandomValues));
     }
 
-    // There should be a 1-to-1 mapping of values in the curv reply to the
+    // There should be a 1-to-1 mapping of values in the CECR reply to the
     //  randomly generated values.
     for (ULONG i = 0; i < ARRAYSIZE(g_pRandomValues); ++i)
     {

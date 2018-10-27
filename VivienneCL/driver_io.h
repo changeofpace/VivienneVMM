@@ -48,14 +48,14 @@ DrvClearHardwareBreakpoint(
 
 _Check_return_
 BOOL
-DrvCaptureUniqueRegisterValues(
+DrvCaptureRegisterValues(
     _In_ ULONG_PTR ProcessId,
     _In_ ULONG DebugRegisterIndex,
     _In_ ULONG_PTR Address,
     _In_ HWBP_TYPE Type,
     _In_ HWBP_SIZE Size,
-    _In_ ULONG RegisterKey,
+    _In_ X64_REGISTER Register,
     _In_ ULONG DurationInMilliseconds,
-    _Out_writes_bytes_(cbCapturedCtx) PCAPTURED_UNIQUE_REGVALS pCapturedCtx,
+    _Out_writes_bytes_(cbCapturedCtx) PCEC_REGISTER_VALUES pCapturedCtx,
     _In_ ULONG cbCapturedCtx
 );

@@ -587,8 +587,8 @@ GenerateBoundedRandomValue(
 //
 // GenerateUniqueRandomValues
 //
-// This function exists because TestCaptureUniqueRegisterValues generated a
-//  duplicate value once which caused the CURV request to return one less than
+// This function exists because TestCaptureRegisterValues generated a
+//  duplicate value once which caused the CECR request to return one less than
 //  the expected value.
 //
 _Use_decl_annotations_

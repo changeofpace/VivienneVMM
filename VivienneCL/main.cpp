@@ -94,9 +94,9 @@ ProcessCommands()
         {
             (VOID)CmdClearHardwareBreakpoint(ArgTokens);
         }
-        else if (CMD_CAPTUREUNIQUEREGVALS == Command)
+        else if (CMD_CEC_REGISTER == Command)
         {
-            (VOID)CmdCaptureUniqueRegisterValues(ArgTokens);
+            (VOID)CmdCaptureRegisterValues(ArgTokens);
         }
         else
         {

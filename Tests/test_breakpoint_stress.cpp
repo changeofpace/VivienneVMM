@@ -1,3 +1,8 @@
+//
+// TODO Rewrite the sleep logic for the exercise threads so that each thread
+//  gets equal execution time. Consider using NtYieldExecution.
+//
+
 #include "tests.h"
 
 #include "test_util.h"
@@ -36,6 +41,7 @@ typedef struct _STRESSTEST_CONTEXT
 //=============================================================================
 // Module Globals
 //=============================================================================
+static HANDLE g_BarrierEvent = NULL;
 static ULONG g_pAccessTargets[NUMBER_OF_ACCESS_TARGETS] = {};
 static ULONG g_pWriteTargets[NUMBER_OF_WRITE_TARGETS] = {};
 static BOOLEAN g_Active = FALSE;
@@ -57,7 +63,18 @@ StressTest1(
 {
     PSTRESSTEST_CONTEXT pContext = (PSTRESSTEST_CONTEXT)lpParameter;
     ULONG AccessValue = 0;
+    DWORD waitstatus = 0;
     DWORD status = ERROR_SUCCESS;
+
+    // Wait until all threads have been created.
+    waitstatus = WaitForSingleObject(g_BarrierEvent, WAIT_TIMEOUT_MS);
+    if (WAIT_OBJECT_0 != waitstatus)
+    {
+        FAIL_TEST(
+            "WaitForSingleObject failed: %u (%s)\n",
+            GetLastError(),
+            __FUNCTION__);
+    }
 
     while (g_Active)
     {
@@ -86,7 +103,18 @@ StressTest2(
 {
     PSTRESSTEST_CONTEXT pContext = (PSTRESSTEST_CONTEXT)lpParameter;
     ULONG AccessValue = 0;
+    DWORD waitstatus = 0;
     DWORD status = ERROR_SUCCESS;
+
+    // Wait until all threads have been created.
+    waitstatus = WaitForSingleObject(g_BarrierEvent, WAIT_TIMEOUT_MS);
+    if (WAIT_OBJECT_0 != waitstatus)
+    {
+        FAIL_TEST(
+            "WaitForSingleObject failed: %u (%s)\n",
+            GetLastError(),
+            __FUNCTION__);
+    }
 
     while (g_Active)
     {
@@ -115,7 +143,18 @@ StressTest3(
 {
     PSTRESSTEST_CONTEXT pContext = (PSTRESSTEST_CONTEXT)lpParameter;
     ULONG AccessValue = 0;
+    DWORD waitstatus = 0;
     DWORD status = ERROR_SUCCESS;
+
+    // Wait until all threads have been created.
+    waitstatus = WaitForSingleObject(g_BarrierEvent, WAIT_TIMEOUT_MS);
+    if (WAIT_OBJECT_0 != waitstatus)
+    {
+        FAIL_TEST(
+            "WaitForSingleObject failed: %u (%s)\n",
+            GetLastError(),
+            __FUNCTION__);
+    }
 
     while (g_Active)
     {
@@ -193,38 +232,33 @@ SetRandomBreakpoint()
     {
         // Execution.
         case 0:
-        {
             Address = (RANDOM_ULONG % 2)
                 ? (ULONG_PTR)&BreakpointStealthCheck
                 : (ULONG_PTR)&Sleep;
             Type = HWBP_TYPE::Execute;
             Size = HWBP_SIZE::Byte;
             break;
-        }
+
         // Access.
         case 1:
-        {
             Address = (ULONG_PTR)&g_pAccessTargets[
                 RANDOM_ULONG % (ARRAYSIZE(g_pAccessTargets) - 1)
             ];
             Type = HWBP_TYPE::Access;
             Size = HWBP_SIZE::Dword;
             break;
-        }
+
         // Write.
         case 2:
-        {
             Address = (ULONG_PTR)&g_pWriteTargets[
                 RANDOM_ULONG % (ARRAYSIZE(g_pWriteTargets) - 1)
             ];
             Type = HWBP_TYPE::Write;
             Size = HWBP_SIZE::Dword;
             break;
-        }
+
         default:
-        {
             FAIL_TEST("Unexpected index: %u", Index);
-        }
     }
 
     status = DrvSetHardwareBreakpoint(
@@ -264,6 +298,13 @@ TestHardwareBreakpointStress()
     static_assert(ARRAYSIZE(hThreads) == ARRAYSIZE(ThreadIds), "Size check");
 
     PRINT_TEST_HEADER;
+
+    // Initialize the thread barrier event.
+    g_BarrierEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+    if (!g_BarrierEvent)
+    {
+        FAIL_TEST("CreateEvent failed: %u.\n", GetLastError());
+    }
 
     // Install the stealth check VEH.
     pVectoredHandler = AddVectoredExceptionHandler(
@@ -334,6 +375,13 @@ TestHardwareBreakpointStress()
         {
             FAIL_TEST("CreateThread %u failed: %u\n", i, GetLastError());
         }
+    }
+
+    // Activate the exercise threads.
+    status = SetEvent(g_BarrierEvent);
+    if (!status)
+    {
+        FAIL_TEST("SetEvent failed: %u\n", GetLastError());
     }
 
     //

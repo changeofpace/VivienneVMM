@@ -112,7 +112,7 @@ typedef struct _BPM_PROCESSOR_STATE
 //
 // Each BPM-managed breakpoint is (un)installed via the following protocol:
 //
-//      1: Sanitize breakpoint parameters and construct a hardware breakpoint.
+//      1: Validate breakpoint parameters and construct a hardware breakpoint.
 //
 //      2: Issue an IPI broadcast to synchronously execute the (un)install
 //          routine on all logical processors.
@@ -463,7 +463,8 @@ BpmInitializeBreakpoint(
     // Zero out parameters.
     RtlSecureZeroMemory(pBreakpoint, sizeof(*pBreakpoint));
 
-    // Sanitize ProcessId.
+    //
+    // Validate ProcessId.
     //
     // Fail if the pid is not associated with an active process.
     //
@@ -477,14 +478,15 @@ BpmInitializeBreakpoint(
         goto exit;
     }
 
-    // Sanitize Index.
+    // Validate Index.
     if (DAR_COUNT <= Index)
     {
         ntstatus = STATUS_INVALID_PARAMETER_2;
         goto exit;
     }
 
-    // Sanitize Address.
+    //
+    // Validate Address.
     //
     // NOTE This logic must remain synchronized with the address filtering
     //  logic in BpmVmxProcessDebugExceptionEvent.
@@ -495,7 +497,7 @@ BpmInitializeBreakpoint(
         goto exit;
     }
 
-    // Sanitize Type.
+    // Validate Type.
     if (HWBP_TYPE::Execute != Type &&
         HWBP_TYPE::Write != Type &&
         HWBP_TYPE::Access != Type)
@@ -511,7 +513,8 @@ BpmInitializeBreakpoint(
         Size = HWBP_SIZE::Byte;
     }
 
-    // Sanitize Size.
+    //
+    // Validate Size.
     //
     // Intel Manual: Breakpoint Field Recognition
     // ------------------------------------------
@@ -613,7 +616,7 @@ exit:
 //
 // BpmSetHardwareBreakpoint
 //
-// Sanitize input parameters, construct a hardware breakpoint, then (un)install
+// Validate input parameters, construct a hardware breakpoint, then (un)install
 //  the breakpoint on all processors.
 //
 _Use_decl_annotations_

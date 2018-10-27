@@ -46,10 +46,10 @@ RunAllTests()
     TestDuplicateHardwareBreakpoints();
     Sleep(TEST_DELAY_DURATION_MS);
 
-    TestCaptureUniqueRegisterValues();
+    TestCaptureRegisterValues();
     Sleep(TEST_DELAY_DURATION_MS);
 
-    TestCaptureUniqueRegisterValuesEdgeCases();
+    TestCaptureRegisterValuesEdgeCases();
     Sleep(TEST_DELAY_DURATION_MS);
 
 #ifdef CFG_ENABLE_DEBUGREGISTERFACADE

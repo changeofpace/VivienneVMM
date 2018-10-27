@@ -10,7 +10,7 @@
 //=============================================================================
 #define CMD_CLEARHARDWAREBREAKPOINT "clear"
 #define CMD_COMMANDS                "commands"
-#define CMD_CAPTUREUNIQUEREGVALS    "curv"
+#define CMD_CEC_REGISTER            "cecr"
 #define CMD_EXITCLIENT              "exit"
 #define CMD_HELP                    "help"
 #define CMD_LOOKUPPROCESSIDBYNAME   "pid"
@@ -52,6 +52,6 @@ CmdClearHardwareBreakpoint(
 
 _Check_return_
 BOOL
-CmdCaptureUniqueRegisterValues(
+CmdCaptureRegisterValues(
     _In_ const std::vector<std::string>& ArgTokens
 );

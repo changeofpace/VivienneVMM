@@ -245,22 +245,22 @@ exit:
 
 
 //
-// ParseRegisterKeyToken
+// ParseRegisterToken
 //
 _Check_return_
 static
 BOOL
-ParseRegisterKeyToken(
+ParseRegisterToken(
     _In_ const std::string& Token,
-    _Out_ PULONG pRegisterKey
+    _Out_ PX64_REGISTER pRegister
 )
 {
     std::string LowercaseToken(Token);
-    ULONG RegisterKey = 0;
+    X64_REGISTER Register = REGISTER_INVALID;
     BOOL status = TRUE;
 
     // Zero out parameters.
-    *pRegisterKey = REGISTER_INVALID;
+    *pRegister = REGISTER_INVALID;
 
     // Convert the token to lowercase.
     std::transform(
@@ -269,32 +269,32 @@ ParseRegisterKeyToken(
         LowercaseToken.begin(),
         ::tolower);
 
-    if (LowercaseToken == "rip") RegisterKey = REGISTER_RIP;
-    else if (LowercaseToken == "rax") RegisterKey = REGISTER_RAX;
-    else if (LowercaseToken == "rcx") RegisterKey = REGISTER_RCX;
-    else if (LowercaseToken == "rdx") RegisterKey = REGISTER_RDX;
-    else if (LowercaseToken == "rdi") RegisterKey = REGISTER_RDI;
-    else if (LowercaseToken == "rsi") RegisterKey = REGISTER_RSI;
-    else if (LowercaseToken == "rbx") RegisterKey = REGISTER_RBX;
-    else if (LowercaseToken == "rbp") RegisterKey = REGISTER_RBP;
-    else if (LowercaseToken == "rsp") RegisterKey = REGISTER_RSP;
-    else if (LowercaseToken == "r8")  RegisterKey = REGISTER_R8;
-    else if (LowercaseToken == "r9")  RegisterKey = REGISTER_R9;
-    else if (LowercaseToken == "r10") RegisterKey = REGISTER_R10;
-    else if (LowercaseToken == "r11") RegisterKey = REGISTER_R11;
-    else if (LowercaseToken == "r12") RegisterKey = REGISTER_R12;
-    else if (LowercaseToken == "r13") RegisterKey = REGISTER_R13;
-    else if (LowercaseToken == "r14") RegisterKey = REGISTER_R14;
-    else if (LowercaseToken == "r15") RegisterKey = REGISTER_R15;
+    if      (LowercaseToken == "rip") Register = REGISTER_RIP;
+    else if (LowercaseToken == "rax") Register = REGISTER_RAX;
+    else if (LowercaseToken == "rcx") Register = REGISTER_RCX;
+    else if (LowercaseToken == "rdx") Register = REGISTER_RDX;
+    else if (LowercaseToken == "rdi") Register = REGISTER_RDI;
+    else if (LowercaseToken == "rsi") Register = REGISTER_RSI;
+    else if (LowercaseToken == "rbx") Register = REGISTER_RBX;
+    else if (LowercaseToken == "rbp") Register = REGISTER_RBP;
+    else if (LowercaseToken == "rsp") Register = REGISTER_RSP;
+    else if (LowercaseToken == "r8")  Register = REGISTER_R8;
+    else if (LowercaseToken == "r9")  Register = REGISTER_R9;
+    else if (LowercaseToken == "r10") Register = REGISTER_R10;
+    else if (LowercaseToken == "r11") Register = REGISTER_R11;
+    else if (LowercaseToken == "r12") Register = REGISTER_R12;
+    else if (LowercaseToken == "r13") Register = REGISTER_R13;
+    else if (LowercaseToken == "r14") Register = REGISTER_R14;
+    else if (LowercaseToken == "r15") Register = REGISTER_R15;
     else
     {
-        printf("Invalid RegisterKey: %s.\n", LowercaseToken.c_str());
+        printf("Invalid Register: %s.\n", LowercaseToken.c_str());
         status = FALSE;
         goto exit;
     }
 
     // Set out parameters.
-    *pRegisterKey = RegisterKey;
+    *pRegister = Register;
 
 exit:
     return status;
@@ -358,7 +358,7 @@ CmdDisplayCommands(
     printf("Commands:\n");
     printf("    %s\n", CMD_CLEARHARDWAREBREAKPOINT);
     printf("    %s\n", CMD_COMMANDS);
-    printf("    %s\n", CMD_CAPTUREUNIQUEREGVALS);
+    printf("    %s\n", CMD_CEC_REGISTER);
     printf("    %s\n", CMD_EXITCLIENT);
     printf("    %s\n", CMD_HELP);
     printf("    %s\n", CMD_LOOKUPPROCESSIDBYNAME);
@@ -665,16 +665,16 @@ exit:
 
 
 //
-// CmdCaptureUniqueRegisterValues
+// CmdCaptureRegisterValues
 //
 // Install a hardware breakpoint on all processors which, when triggered, will
 //  examine the contents of the target register and record all unique values.
 //  On success, the list of unique values is printed to stdout.
 //
-#define CAPTUREUNIQUEREGVALS_ARGC 7
-#define CAPTUREUNIQUEREGVALS_USAGE                                          \
-    "Usage: " CMD_CAPTUREUNIQUEREGVALS " index pid access|size address"     \
-    " register duration\n"                                                  \
+#define CEC_REGISTER_ARGC 7
+#define CEC_REGISTER_USAGE \
+    "Usage: " CMD_CEC_REGISTER " index pid access|size address register"    \
+    " duration\n"                                                           \
     "    Summary\n"                                                         \
     "        Capture unique register context at a target address.\n"        \
     "    Args\n"                                                            \
@@ -686,12 +686,12 @@ exit:
     "        register:  'rip,rax,etc'   the target register\n"              \
     "        duration:  #               capture duration in milliseconds\n" \
     "    Example\n"                                                         \
-    "        curv 0 1002 e1 77701650 rbx 5000\n"
-#define CAPTUREUNIQUEREGVALS_BUFFERSIZE (PAGE_SIZE * 2)
+    "        " CMD_CEC_REGISTER " 0 1002 e1 77701650 rbx 5000\n"
+#define CEC_REGISTER_BUFFER_SIZE (PAGE_SIZE * 2)
 
 _Use_decl_annotations_
 BOOL
-CmdCaptureUniqueRegisterValues(
+CmdCaptureRegisterValues(
     const std::vector<std::string>& ArgTokens
 )
 {
@@ -700,15 +700,15 @@ CmdCaptureUniqueRegisterValues(
     ULONG_PTR Address = 0;
     HWBP_TYPE Type = {};
     HWBP_SIZE Size = {};
-    ULONG RegisterKey = 0;
+    X64_REGISTER Register = {};
     ULONG DurationInMilliseconds = 0;
-    PCAPTURED_UNIQUE_REGVALS pCapturedCtx = NULL;
+    PCEC_REGISTER_VALUES pCapturedCtx = NULL;
     BOOL status = TRUE;
 
-    if (CAPTUREUNIQUEREGVALS_ARGC != ArgTokens.size())
+    if (CEC_REGISTER_ARGC != ArgTokens.size())
     {
         printf("Invalid parameters.\n\n");
-        printf(CAPTUREUNIQUEREGVALS_USAGE);
+        printf(CEC_REGISTER_USAGE);
         status = FALSE;
         goto exit;
     }
@@ -743,7 +743,7 @@ CmdCaptureUniqueRegisterValues(
         goto exit;
     }
 
-    status = ParseRegisterKeyToken(ArgTokens[5], &RegisterKey);
+    status = ParseRegisterToken(ArgTokens[5], &Register);
     if (!status)
     {
         goto exit;
@@ -756,10 +756,10 @@ CmdCaptureUniqueRegisterValues(
     }
 
     // Allocate the captured context buffer.
-    pCapturedCtx = (PCAPTURED_UNIQUE_REGVALS)HeapAlloc(
+    pCapturedCtx = (PCEC_REGISTER_VALUES)HeapAlloc(
         GetProcessHeap(),
         HEAP_ZERO_MEMORY,
-        CAPTUREUNIQUEREGVALS_BUFFERSIZE);
+        CEC_REGISTER_BUFFER_SIZE);
     if (!pCapturedCtx)
     {
         printf("HeapAlloc failed: %u\n", GetLastError());
@@ -767,19 +767,19 @@ CmdCaptureUniqueRegisterValues(
         goto exit;
     }
 
-    status = DrvCaptureUniqueRegisterValues(
+    status = DrvCaptureRegisterValues(
         ProcessId,
         DebugRegisterIndex,
         Address,
         Type,
         Size,
-        RegisterKey,
+        Register,
         DurationInMilliseconds,
         pCapturedCtx,
-        CAPTUREUNIQUEREGVALS_BUFFERSIZE);
+        CEC_REGISTER_BUFFER_SIZE);
     if (!status)
     {
-        printf("DrvCaptureUniqueRegisterValues failed: %u\n", GetLastError());
+        printf("DrvCaptureRegisterValues failed: %u\n", GetLastError());
         goto exit;
     }
 
