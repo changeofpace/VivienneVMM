@@ -1,5 +1,6 @@
 #include "tests.h"
 
+#include <cstdio>
 #include <iostream>
 
 #include "arbitrary_code.h"
@@ -170,7 +171,7 @@ TestProcessUnownedHardwareBreakpoint()
     status = SetThreadLocalHardwareBreakpoint(
         1,
         GetCurrentThread(),
-        (ULONG_PTR)&g_UnownedHwBpAccessTarget,
+        (ULONG_PTR)&g_AcUnownedHwBpAccessTarget,
         HWBP_TYPE::Access,
         HWBP_SIZE::Qword);
     if (!status)
@@ -184,7 +185,7 @@ TestProcessUnownedHardwareBreakpoint()
     status = SetThreadLocalHardwareBreakpoint(
         2,
         GetCurrentThread(),
-        (ULONG_PTR)&g_UnownedHwBpWriteTarget,
+        (ULONG_PTR)&g_AcUnownedHwBpWriteTarget,
         HWBP_TYPE::Write,
         HWBP_SIZE::Qword);
     if (!status)

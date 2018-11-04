@@ -1,5 +1,7 @@
 #include "tests.h"
 
+#include <cstdio>
+
 #include "test_util.h"
 
 #include "..\VivienneCL\driver_io.h"
@@ -26,6 +28,7 @@ static DWORD g_AccessTarget = 1;
 // ExecuteTarget
 //
 static
+DECLSPEC_NOINLINE
 BOOL
 ExecuteTarget()
 {
@@ -49,6 +52,7 @@ VOID
 TestDuplicateHardwareBreakpoints()
 {
     PVOID pVectoredHandler = NULL;
+    DWORD Value = 0;
     BOOL status = TRUE;
 
     PRINT_TEST_HEADER;
@@ -100,13 +104,14 @@ TestDuplicateHardwareBreakpoints()
 
     for (ULONG i = 0; i < NUMBER_OF_ITERATIONS; ++i)
     {
-        (VOID)ExecuteTarget();
-
         // Stealth check.
         if (!BreakpointStealthCheck())
         {
             FAIL_TEST("BreakpointStealthCheck failed.\n");
         }
+
+        // Trigger the breakpoint.
+        (VOID)ExecuteTarget();
 
         // Delay execution to allow the driver log buffer to flush.
         Sleep(SLEEP_DURATION_MS);
@@ -180,14 +185,14 @@ TestDuplicateHardwareBreakpoints()
 
     for (ULONG i = 0; i < NUMBER_OF_ITERATIONS; ++i)
     {
-        // Trigger the breakpoints.
-        DWORD Value = g_AccessTarget;
-
         // Stealth check.
         if (!BreakpointStealthCheck())
         {
             FAIL_TEST("BreakpointStealthCheck failed.\n");
         }
+
+        // Trigger the breakpoints.
+        Value = g_AccessTarget;
 
         // Delay execution to allow the driver log buffer to flush.
         Sleep(SLEEP_DURATION_MS);

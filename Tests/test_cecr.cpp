@@ -1,5 +1,7 @@
 #include "tests.h"
 
+#include <cstdio>
+
 #include "arbitrary_code.h"
 #include "test_util.h"
 
@@ -24,7 +26,7 @@
 // Module Globals
 //=============================================================================
 static HANDLE g_BarrierEvent = NULL;
-static ULONG g_pRandomValues[NUMBER_OF_UNIQUE_RANDOM_VALUES] = {};
+static ULONG_PTR g_RandomValues[NUMBER_OF_UNIQUE_RANDOM_VALUES] = {};
 static BOOLEAN g_Active = FALSE;
 
 
@@ -42,7 +44,7 @@ ExerciseCecr(
     _In_ LPVOID lpParameter
 )
 {
-    ULONG ValueIndex = 0;
+    SIZE_T ValueIndex = 0;
     DWORD SleepDuration = {};
     DWORD waitstatus = 0;
     DWORD status = ERROR_SUCCESS;
@@ -56,19 +58,20 @@ ExerciseCecr(
 
     while (g_Active)
     {
-        ValueIndex = (ValueIndex + 1) % ARRAYSIZE(g_pRandomValues);
-
-        // Generate a random delay duration in range [0, 25] milliseconds.
-        SleepDuration = RANDOM_ULONG % 25;
-
-        // Exercise the target register.
-        AcCaptureTargetR12(g_pRandomValues[ValueIndex]);
-
         // Stealth check.
         if (!BreakpointStealthCheck())
         {
             FAIL_TEST("BreakpointStealthCheck failed.\n");
         }
+
+        // Calculate the effective index.
+        ValueIndex = (ValueIndex + 1) % ARRAYSIZE(g_RandomValues);
+
+        // Generate a random delay duration in range [0, 25] milliseconds.
+        SleepDuration = RANDOM_ULONG % 25;
+
+        // Exercise the target register.
+        AcCaptureRegister(g_RandomValues[ValueIndex]);
 
         // Delay execution to allow the log buffer to flush.
         Sleep(SleepDuration);
@@ -76,6 +79,7 @@ ExerciseCecr(
 
     return status;
 }
+
 
 //=============================================================================
 // Test Interface
@@ -85,7 +89,7 @@ ExerciseCecr(
 // TestCaptureRegisterValues
 //
 // This test captures the unique values in register R12 from a line of code
-//  inside AcCaptureTargetR12.
+//  inside AcCaptureRegister.
 //
 VOID
 TestCaptureRegisterValues()
@@ -93,7 +97,7 @@ TestCaptureRegisterValues()
     PVOID pVectoredHandler = NULL;
     DWORD ThreadIds[NUMBER_OF_THREADS] = {};
     HANDLE hThreads[NUMBER_OF_THREADS] = {};
-    PCEC_REGISTER_VALUES CapturedCtx = NULL;
+    PCEC_REGISTER_VALUES pValuesCtx = NULL;
     BOOLEAN ValueFound = FALSE;
     DWORD waitstatus = 0;
     BOOL status = TRUE;
@@ -122,20 +126,20 @@ TestCaptureRegisterValues()
 
     // Initialize an array of random values which will be passed to our target
     //  capture function by a set of threads.
-    GenerateUniqueRandomValues(g_pRandomValues, ARRAYSIZE(g_pRandomValues));
+    GenerateUniqueRandomValues(g_RandomValues, ARRAYSIZE(g_RandomValues));
 
-    for (ULONG i = 0; i < ARRAYSIZE(g_pRandomValues); ++i)
+    for (ULONG i = 0; i < ARRAYSIZE(g_RandomValues); ++i)
     {
-        printf("    %02u: %u\n", i, g_pRandomValues[i]);
+        printf("    %02u: %Iu\n", i, g_RandomValues[i]);
     }
 
     // Allocate the captured context buffer.
     // NOTE This memory will leak if this test fails.
-    CapturedCtx = (PCEC_REGISTER_VALUES)HeapAlloc(
+    pValuesCtx = (PCEC_REGISTER_VALUES)HeapAlloc(
         GetProcessHeap(),
         HEAP_ZERO_MEMORY,
         CONTEXT_BUFFER_SIZE);
-    if (!CapturedCtx)
+    if (!pValuesCtx)
     {
         FAIL_TEST("HeapAlloc failed: %u\n", GetLastError());
     }
@@ -173,24 +177,22 @@ TestCaptureRegisterValues()
 
     printf(
         "Requesting unique register values for R12 at 0x%IX\n",
-        (ULONG_PTR)&g_AcCaptureTargetR12CaptureAddress);
+        (ULONG_PTR)&g_AcCecrCaptureAddress);
 
     // Issue the synchronous CECR request.
     status = DrvCaptureRegisterValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
-        (ULONG_PTR)&g_AcCaptureTargetR12CaptureAddress,
+        (ULONG_PTR)&g_AcCecrCaptureAddress,
         HWBP_TYPE::Execute,
         HWBP_SIZE::Byte,
         REGISTER_R12,
         REQUEST_DURATION_MS,
-        CapturedCtx,
+        pValuesCtx,
         CONTEXT_BUFFER_SIZE);
     if (!status)
     {
-        FAIL_TEST(
-            "DrvCaptureRegisterValues failed: %u\n",
-            GetLastError());
+        FAIL_TEST("DrvCaptureRegisterValues failed: %u\n", GetLastError());
     }
 
     // Lazily signal that all threads should terminate.
@@ -220,41 +222,41 @@ TestCaptureRegisterValues()
     // Print the results.
     printf(
         "Cecr request completed with %u unique values:\n",
-        CapturedCtx->NumberOfValues);
+        pValuesCtx->NumberOfValues);
 
-    for (ULONG i = 0; i < CapturedCtx->NumberOfValues; ++i)
+    for (ULONG i = 0; i < pValuesCtx->NumberOfValues; ++i)
     {
-        printf("    %02u: %Iu\n", i, CapturedCtx->Values[i]);
+        printf("    %02u: %Iu\n", i, pValuesCtx->Values[i]);
     }
 
     // Examine the captured unique register values. The returned list of values
     //  should be equal to the random value array generated earlier.
-    if (ARRAYSIZE(g_pRandomValues) != CapturedCtx->NumberOfValues)
+    if (ARRAYSIZE(g_RandomValues) != pValuesCtx->NumberOfValues)
     {
         FAIL_TEST(
             "Unexpected number of captured values: actual = %u, expected = %Iu\n",
-            CapturedCtx->NumberOfValues,
-            ARRAYSIZE(g_pRandomValues));
+            pValuesCtx->NumberOfValues,
+            ARRAYSIZE(g_RandomValues));
     }
 
     // There should be a 1-to-1 mapping of values in the CECR reply to the
     //  randomly generated values.
-    for (ULONG i = 0; i < ARRAYSIZE(g_pRandomValues); ++i)
+    for (ULONG i = 0; i < ARRAYSIZE(g_RandomValues); ++i)
     {
         ValueFound = FALSE;
 
         // NOTE We perform a full iteration, even after matching a value, to
         //  ensure that we do not have duplicate matches.
-        for (ULONG j = 0; j < CapturedCtx->NumberOfValues; ++j)
+        for (ULONG j = 0; j < pValuesCtx->NumberOfValues; ++j)
         {
-            if (g_pRandomValues[i] == CapturedCtx->Values[j])
+            if (g_RandomValues[i] == pValuesCtx->Values[j])
             {
                 // Check for duplicate matches.
                 if (ValueFound)
                 {
                     FAIL_TEST(
                         "Found duplicate match for: %Iu\n",
-                        g_pRandomValues[i]);
+                        g_RandomValues[i]);
                 }
 
                 ValueFound = TRUE;
@@ -266,7 +268,7 @@ TestCaptureRegisterValues()
         {
             FAIL_TEST(
                 "Failed to find %Iu in captured context.\n",
-                g_pRandomValues[i]);
+                g_RandomValues[i]);
         }
     }
 
@@ -278,9 +280,9 @@ TestCaptureRegisterValues()
     }
 
     // Release context.
-    if (CapturedCtx)
+    if (pValuesCtx)
     {
-        if (!HeapFree(GetProcessHeap(), 0, CapturedCtx))
+        if (!HeapFree(GetProcessHeap(), 0, pValuesCtx))
         {
             FAIL_TEST("HeapFree failed: %u\n", GetLastError());
         }
@@ -293,6 +295,12 @@ TestCaptureRegisterValues()
         FAIL_TEST(
             "RemoveVectoredExceptionHandler failed: %u\n",
             GetLastError());
+    }
+
+    // Release the barrier event.
+    if (!CloseHandle(g_BarrierEvent))
+    {
+        FAIL_TEST("CloseHandle failed: %u.\n", GetLastError());
     }
 
     PRINT_TEST_FOOTER;

@@ -892,4 +892,34 @@ _Use_decl_annotations_ NTSTATUS UtilForceCopyMemory(void *destination,
   return STATUS_SUCCESS;
 }
 
+// NOTE This function is a recreation of UtilIsAccessibleAddress which returns
+//  the hardware PTE.
+_Use_decl_annotations_ HardwarePte* UtilAddressToPte(void *address)
+{
+  if (!UtilpIsCanonicalFormAddress(address)) {
+    return NULL;
+  }
+
+  if constexpr (IsX64()) {
+    const auto pxe = UtilpAddressToPxe(address);
+    const auto ppe = UtilpAddressToPpe(address);
+    if (!pxe->valid || !ppe->valid) {
+      return NULL;
+    }
+  }
+
+  const auto pde = UtilpAddressToPde(address);
+  const auto pte = UtilpAddressToPte(address);
+  if (!pde->valid) {
+    return NULL;
+  }
+  if (pde->large_page) {
+    return pte;  // A large page is always memory resident
+  }
+  if (!pte || !pte->valid) {
+    return NULL;
+  }
+  return pte;
+}
+
 }  // extern "C"

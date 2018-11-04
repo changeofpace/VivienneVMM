@@ -5,27 +5,57 @@
 #include "..\VivienneVMM\config.h"
 
 //=============================================================================
-// Test Interface
+// Parser
 //=============================================================================
+VOID
+TestTokenParser();
+
+//=============================================================================
+// BPM
+//=============================================================================
+VOID
+TestReadDebugRegister();
+
 VOID
 TestSetClearHardwareBreakpoint();
 
 VOID
-TestDuplicateHardwareBreakpoints();
-
-VOID
 TestHardwareBreakpointStress();
 
+VOID
+TestHardwareBreakpointRanges();
+
+VOID
+TestDuplicateHardwareBreakpoints();
+
+//=============================================================================
+// CECR
+//=============================================================================
 VOID
 TestCaptureRegisterValues();
 
 VOID
 TestCaptureRegisterValuesEdgeCases();
 
+//=============================================================================
+// CECM
+//=============================================================================
 VOID
-TestHardwareBreakpointRanges();
+TestCaptureMemoryValues();
+
+VOID
+TestCaptureMemoryValuesFpuState();
+
+VOID
+TestAntiDebugCecmTrapPage();
+
+VOID
+TestAntiDebugCecmSpanningPage();
 
 #ifdef CFG_ENABLE_DEBUGREGISTERFACADE
+//=============================================================================
+// FCD
+//=============================================================================
 VOID
 TestDebugRegisterFacade();
 
@@ -36,5 +66,8 @@ VOID
 TestProcessUnownedHardwareBreakpoint();
 #endif
 
+//=============================================================================
+// General Anti-Debug
+//=============================================================================
 VOID
 TestAntiDebugSingleStep();

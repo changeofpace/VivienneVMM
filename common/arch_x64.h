@@ -214,6 +214,33 @@ typedef struct _RFLAGS
 #pragma warning(pop)
 
 //=============================================================================
+// Instructions
+//=============================================================================
+
+//
+// SIB bytes.
+//
+typedef enum SCALE_FACTOR
+{
+    SCALE_INVALID = 0,
+    SCALE_BYTE = 1,
+    SCALE_WORD = 2,
+    SCALE_DWORD = 4,
+    SCALE_QWORD = 8,
+} SCALE_FACTOR, *PSCALE_FACTOR;
+
+//
+// Addressing modes.
+//
+typedef struct _INDIRECT_ADDRESS
+{
+    X64_REGISTER BaseRegister;
+    X64_REGISTER IndexRegister;
+    SCALE_FACTOR ScaleFactor;
+    LONG_PTR Displacement;
+} INDIRECT_ADDRESS, *PINDIRECT_ADDRESS;
+
+//=============================================================================
 // Hardware Breakpoints
 //=============================================================================
 #define DAR_COUNT   4

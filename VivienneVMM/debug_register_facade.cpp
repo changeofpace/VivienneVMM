@@ -38,12 +38,6 @@ Environment:
 //=============================================================================
 #define FCD_TAG 'TdcF'
 
-#ifdef CFG_LOG_MOVDR_EVENTS
-#define movdr_print     info_print
-#else
-#define movdr_print(Format, ...) ((VOID)0)
-#endif
-
 
 //=============================================================================
 // Internal Types
@@ -295,6 +289,54 @@ exit:
 
 
 //
+// FcdVmxLogMovDrEvent
+//
+_Use_decl_annotations_
+VOID
+FcdVmxLogMovDrEvent(
+    MovDrQualification ExitQualification,
+    PULONG_PTR pRegisterUsed
+)
+{
+    ULONG CurrentProcessor = KeGetCurrentProcessorNumberEx(NULL);
+    PFCD_PROCESSOR_STATE pFacade = NULL;
+    ULONG Index = 0;
+
+    pFacade = &g_FacadeManager.Processors[CurrentProcessor];
+
+    NT_ASSERT(pFacade->Initialized);
+
+    Index = ExitQualification.fields.debugl_register;
+
+    NT_ASSERT(DR_COUNT > Index);
+
+    switch ((MovDrDirection)ExitQualification.fields.direction)
+    {
+        case MovDrDirection::kMoveToDr:
+            info_print(
+                "FCD: MovDr write dr%u, new=0x%IX, old=0x%IX",
+                Index,
+                *pRegisterUsed,
+                pFacade->DebugRegisters[Index]);
+            break;
+
+        case MovDrDirection::kMoveFromDr:
+            info_print(
+                "FCD: MovDr read  dr%u, val=0x%IX",
+                Index,
+                pFacade->DebugRegisters[Index]);
+            break;
+
+        default:
+            err_print(
+                "FCD: Unexpected MovDrDirection: %d",
+                ExitQualification.fields.direction);
+            break;
+    }
+}
+
+
+//
 // FcdVmxProcessMovDrEvent
 //
 // NOTE Executing a software breakpoint in this function will usually
@@ -324,37 +366,18 @@ FcdVmxProcessMovDrEvent(
     switch ((MovDrDirection)ExitQualification.fields.direction)
     {
         case MovDrDirection::kMoveToDr:
-        {
-            movdr_print(
-                "FCD: MovDr write Dr%u, new=0x%IX, old=0x%IX",
-                Index,
-                *pRegisterUsed,
-                pFacade->DebugRegisters[Index]);
-
             pFacade->DebugRegisters[Index] = *pRegisterUsed;
-
             InterlockedIncrement64(&g_FacadeManager.Statistics.WriteEvents);
-
             break;
-        }
+
         case MovDrDirection::kMoveFromDr:
-        {
-            movdr_print(
-                "FCD: MovDr read  Dr%u, val=0x%IX",
-                Index,
-                pFacade->DebugRegisters[Index]);
-
             *pRegisterUsed = pFacade->DebugRegisters[Index];
-
             InterlockedIncrement64(&g_FacadeManager.Statistics.ReadEvents);
-
             break;
-        }
+
         default:
-        {
             ntstatus = STATUS_INTERNAL_ERROR;
             goto exit;
-        }
     }
 
 exit:

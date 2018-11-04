@@ -8,30 +8,11 @@
 
 #include "commands.h"
 #include "driver_io.h"
+#include "string_util.h"
 
 
 #define VVMM_SUCCESS 0
 #define VVMM_FAILURE 1
-
-
-//
-// TokenizeString
-//
-static
-VOID
-TokenizeString(
-    _In_ std::string& Input,
-    _Out_ std::vector<std::string>& Output
-)
-{
-    std::string Token;
-    std::stringstream Stream(Input);
-
-    Output = {
-        std::istream_iterator<std::string>{Stream},
-        std::istream_iterator<std::string>{}
-    };
-}
 
 
 //
@@ -53,10 +34,8 @@ ProcessCommands()
         std::cout << "> ";
         std::getline(std::cin, Input);
 
-        TokenizeString(Input, ArgTokens);
-
         // Skip empty lines.
-        if (!ArgTokens.size())
+        if (!StrSplitStringByWhitespace(Input, ArgTokens))
         {
             std::cin.clear();
             continue;
@@ -72,7 +51,7 @@ ProcessCommands()
         }
         else if (CMD_HELP == Command)
         {
-            (VOID)CmdDisplayCommands(ArgTokens);
+            (VOID)CmdDisplayHelpText(ArgTokens);
         }
         else if (CMD_COMMANDS == Command)
         {
@@ -97,6 +76,10 @@ ProcessCommands()
         else if (CMD_CEC_REGISTER == Command)
         {
             (VOID)CmdCaptureRegisterValues(ArgTokens);
+        }
+        else if (CMD_CEC_MEMORY == Command)
+        {
+            (VOID)CmdCaptureMemoryValues(ArgTokens);
         }
         else
         {

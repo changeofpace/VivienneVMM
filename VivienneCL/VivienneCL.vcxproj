@@ -20,13 +20,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -80,6 +80,8 @@
     <ClCompile Include="driver_io.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="process.cpp" />
+    <ClCompile Include="string_util.cpp" />
+    <ClCompile Include="token_parser.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\arch_x64.h" />
@@ -88,6 +90,8 @@
     <ClInclude Include="driver_io.h" />
     <ClInclude Include="ntdll.h" />
     <ClInclude Include="process.h" />
+    <ClInclude Include="string_util.h" />
+    <ClInclude Include="token_parser.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

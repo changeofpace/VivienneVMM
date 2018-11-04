@@ -1,7 +1,9 @@
 #include "test_util.h"
 
+#include <cstdio>
 #include <iostream>
 #include <intrin.h>
+#include <limits.h>
 #include <time.h>
 
 #include "..\common\arch_x64.h"
@@ -51,6 +53,7 @@ InitializeRngSeed()
 // Print a message to instruct the user to configure their debugger's exception
 //  handling settings.
 //
+_Use_decl_annotations_
 VOID
 PromptDebuggerExceptionConfiguration(
     PCSTR pszPromptMessage,
@@ -564,6 +567,7 @@ ClearThreadLocalHardwareBreakpoint(
 //
 // GenerateRandomValue
 //
+_Use_decl_annotations_
 ULONG
 GenerateRandomValue()
 {
@@ -574,10 +578,11 @@ GenerateRandomValue()
 //
 // GenerateBoundedRandomValue
 //
+_Use_decl_annotations_
 ULONG_PTR
 GenerateBoundedRandomValue(
-    _In_ ULONG_PTR MinValue,
-    _In_ ULONG_PTR MaxValue
+    ULONG_PTR MinValue,
+    ULONG_PTR MaxValue
 )
 {
     return (GenerateRandomValue() % MaxValue) + MinValue;
@@ -594,17 +599,17 @@ GenerateBoundedRandomValue(
 _Use_decl_annotations_
 VOID
 GenerateUniqueRandomValues(
-    ULONG pValues[],
-    ULONG cValues
+    ULONG_PTR pValues[],
+    SIZE_T cValues
 )
 {
-    for (ULONG i = 0; i < cValues; ++i)
+    for (SIZE_T i = 0; i < cValues; ++i)
     {
-        ULONG RandomValue = GenerateRandomValue();
+        ULONG_PTR RandomValue = GenerateBoundedRandomValue(0, SIZE_MAX);
         BOOLEAN Duplicate = FALSE;
 
         // Check that this random value is not already in the array.
-        for (ULONG j = 0; j < cValues; ++j)
+        for (SIZE_T j = 0; j < cValues; ++j)
         {
             if (pValues[j] == RandomValue)
             {

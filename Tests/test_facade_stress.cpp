@@ -1,9 +1,6 @@
-//
-// TODO Rewrite the sleep logic for the exercise threads so that each thread
-//  gets equal execution time. Consider using NtYieldExecution.
-//
-
 #include <windows.h>
+
+#include <cstdio>
 
 #include "test_util.h"
 
@@ -427,6 +424,12 @@ TestDebugRegisterFacadeStress()
         FAIL_TEST(
             "RemoveVectoredExceptionHandler failed: %u\n",
             GetLastError());
+    }
+
+    // Release the barrier event.
+    if (!CloseHandle(g_BarrierEvent))
+    {
+        FAIL_TEST("CloseHandle failed: %u.\n", GetLastError());
     }
 
     // Print statistics.

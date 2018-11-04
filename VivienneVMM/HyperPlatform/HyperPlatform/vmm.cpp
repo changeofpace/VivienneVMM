@@ -835,10 +835,14 @@ _Use_decl_annotations_ static void VmmpHandleDrAccess(
     GuestContext *guest_context) {
   HYPERPLATFORM_PERFORMANCE_MEASURE_THIS_SCOPE();
 
-  //
-  // TODO Add a logging function here when the 'CFG_LOG_MOVDR_EVENTS' option is
-  //  enabled.
-  //
+  const MovDrQualification exit_qualification = {
+    UtilVmRead(VmcsField::kExitQualification)};
+  const auto register_used =
+    VmmpSelectRegister(exit_qualification.fields.gp_register, guest_context);
+
+#if defined(CFG_LOG_MOVDR_EVENTS)
+  FcdVmxLogMovDrEvent(exit_qualification, register_used);
+#endif
 
   // Normally, when the privileged instruction is executed at CPL3, #GP(0)
   // occurs instead of VM-exit. However, access to the debug registers is
@@ -851,8 +855,8 @@ _Use_decl_annotations_ static void VmmpHandleDrAccess(
     return;
   }
 
-  const MovDrQualification exit_qualification = {
-      UtilVmRead(VmcsField::kExitQualification)};
+  //const MovDrQualification exit_qualification = {
+  //    UtilVmRead(VmcsField::kExitQualification)};
   auto debugl_register = exit_qualification.fields.debugl_register;
 
   // Access to DR4 and 5 causes #UD when CR4.DE (Debugging Extensions) is set.
@@ -907,8 +911,8 @@ _Use_decl_annotations_ static void VmmpHandleDrAccess(
     return;
   }
 
-  const auto register_used =
-      VmmpSelectRegister(exit_qualification.fields.gp_register, guest_context);
+  //const auto register_used =
+  //    VmmpSelectRegister(exit_qualification.fields.gp_register, guest_context);
   const auto direction =
       static_cast<MovDrDirection>(exit_qualification.fields.direction);
 
@@ -1573,6 +1577,11 @@ _Use_decl_annotations_ static void VmmpInjectInterruption(
         *reinterpret_cast<PULONG_PTR>(process + kDirectoryTableBaseOffset);
   }
   return guest_cr3;
+}
+
+ULONG_PTR VmmGetKernelCr3()
+{
+  return VmmpGetKernelCr3();
 }
 
 }  // extern "C"

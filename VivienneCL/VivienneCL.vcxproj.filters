@@ -23,6 +23,12 @@
     <ClCompile Include="process.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="token_parser.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="string_util.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="commands.h">
@@ -41,6 +47,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\common\arch_x64.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="token_parser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="string_util.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

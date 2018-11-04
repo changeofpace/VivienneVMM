@@ -280,6 +280,11 @@ _IRQL_requires_max_(DISPATCH_LEVEL) NTSTATUS
     UtilForceCopyMemory(_In_ void *destination, _In_ const void *source,
                         _In_ SIZE_T length);
 
+/// Lookup the PTE for a virtual address.
+/// @param address  A virtual address
+/// @return The valid, hardware PTE for the address or NULL.
+HardwarePte* UtilAddressToPte(_In_ void *address);
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // variables

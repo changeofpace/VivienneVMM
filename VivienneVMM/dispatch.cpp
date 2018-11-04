@@ -124,10 +124,9 @@ DispatchDeviceControl(
     switch (pIrpStack->Parameters.DeviceIoControl.IoControlCode)
     {
         case IOCTL_QUERYSYSTEMDEBUGSTATE:
-        {
             dbg_print("Processing IOCTL_QUERYSYSTEMDEBUGSTATE.");
 
-            if (cbOutput >= sizeof(QUERYSYSTEMDEBUGSTATE_REPLY) &&
+            if (sizeof(QUERYSYSTEMDEBUGSTATE_REPLY) <= cbOutput &&
                 pSystemBuffer)
             {
                 PQUERYSYSTEMDEBUGSTATE_REPLY pReply =
@@ -157,12 +156,11 @@ DispatchDeviceControl(
             }
 
             break;
-        }
+
         case IOCTL_SETHARDWAREBREAKPOINT:
-        {
             dbg_print("Processing IOCTL_SETHARDWAREBREAKPOINT.");
 
-            if (cbInput >= sizeof(SETHARDWAREBREAKPOINT_REQUEST) &&
+            if (sizeof(SETHARDWAREBREAKPOINT_REQUEST) == cbInput &&
                 pSystemBuffer)
             {
                 PSETHARDWAREBREAKPOINT_REQUEST pRequest =
@@ -189,13 +187,12 @@ DispatchDeviceControl(
             }
 
             break;
-        }
+
         case IOCTL_CLEARHARDWAREBREAKPOINT:
-        {
             dbg_print("Processing IOCTL_CLEARHARDWAREBREAKPOINT.");
 
-            if (cbInput >= sizeof(CLEARHARDWAREBREAKPOINT_REQUEST)
-                && pSystemBuffer)
+            if (sizeof(CLEARHARDWAREBREAKPOINT_REQUEST) == cbInput &&
+                pSystemBuffer)
             {
                 PCLEARHARDWAREBREAKPOINT_REQUEST pRequest =
                     (PCLEARHARDWAREBREAKPOINT_REQUEST)pSystemBuffer;
@@ -214,13 +211,12 @@ DispatchDeviceControl(
             }
 
             break;
-        }
+
         case IOCTL_CEC_REGISTER:
-        {
             dbg_print("Processing IOCTL_CEC_REGISTER.");
 
-            if (cbInput >= sizeof(CEC_REGISTER_REQUEST) &&
-                cbOutput >= sizeof(CEC_REGISTER_REPLY) &&
+            if (sizeof(CEC_REGISTER_REQUEST) == cbInput &&
+                sizeof(CEC_REGISTER_REPLY) <= cbOutput &&
                 pSystemBuffer)
             {
                 PCEC_REGISTER_REQUEST pRequest =
@@ -255,13 +251,51 @@ DispatchDeviceControl(
             }
 
             break;
-        }
+
+        case IOCTL_CEC_MEMORY:
+            dbg_print("Processing IOCTL_CEC_MEMORY.");
+
+            if (sizeof(CEC_MEMORY_REQUEST) == cbInput &&
+                sizeof(CEC_MEMORY_REPLY) <= cbOutput &&
+                pSystemBuffer)
+            {
+                PCEC_MEMORY_REQUEST pRequest =
+                    (PCEC_MEMORY_REQUEST)pSystemBuffer;
+                PCEC_MEMORY_REPLY pReply =
+                    (PCEC_MEMORY_REPLY)pSystemBuffer;
+
+                ntstatus = CecCaptureMemoryValues(
+                    pRequest->ProcessId,
+                    pRequest->Index,
+                    pRequest->Address,
+                    pRequest->Type,
+                    pRequest->Size,
+                    &pRequest->MemoryDescription,
+                    pRequest->DurationInMilliseconds,
+                    (PCEC_MEMORY_REPLY)pReply,
+                    cbOutput);
+                if (NT_SUCCESS(ntstatus))
+                {
+                    Information = pReply->Size;
+                }
+                else
+                {
+                    err_print(
+                        "CecCaptureRegisterValues failed: 0x%X",
+                        ntstatus);
+                }
+            }
+            else
+            {
+                ntstatus = STATUS_INFO_LENGTH_MISMATCH;
+            }
+
+            break;
+
         default:
-        {
             ntstatus = STATUS_NOINTERFACE;
             err_print("Unhandled IOCTL: 0x%X.", pIrpStack->MajorFunction);
             break;
-        }
     }
 
     pIrp->IoStatus.Information = Information;

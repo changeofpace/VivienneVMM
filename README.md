@@ -41,8 +41,12 @@ The debug register facade prevents the guest from accessing processor debug regi
 Capture Execution Context
 -------------------------
 
-The capture execution context (CEC) module implements a breakpoint callback to observe register values at a target address. The callback's purpose is best explained with an example.
+The capture execution context (CEC) module implements two breakpoint callbacks: capture execution context register (CECR) and capture execution context memory (CECM).
 
+### Capture Execution Context Register (CECR)
+This callback samples the contents of a target register and records unique values to a user-supplied buffer.
+
+#### Example
 For this example, we must reverse engineer the 'player' data structure(s) of a multiplayer FPS game. Our goal is to be able to reliably obtain all player pointers for an in game 'round' from our out-of-process client.
 
 We have identified the following function in the game's code which constantly iterates a list of player pointers:
@@ -95,7 +99,7 @@ BOOL status = TRUE;
 status = DrvCaptureRegisterValues(
     GetTargetProcessId(),
     0,
-    0x14000104F,
+    (ULONG_PTR)0x14000104F,
     HWBP_TYPE::Execute,
     HWBP_SIZE::Byte,
     REGISTER_RAX,
@@ -103,6 +107,80 @@ status = DrvCaptureRegisterValues(
     pRegisterValues,
     sizeof(pBuffer));
 ```
+
+### Capture Execution Context Memory (CECM)
+This callback samples the memory-data-typed contents of a memory address defined by a memory expression.
+
+A memory expression can either be an absolute, virtual address or an indirect address in x64 addressing-mode form. The following are examples of valid memory expressions and their evaluations:
+
+    14000           ; effective address = [14000]
+    rax             ; effective address = [rax]
+    rcx+rax*8       ; effective address = [rcx+rax*8]
+    rcx+rax-20      ; effective address = [rcx+rax-20]
+
+For each callback invocation, the effective address is calculated, validated, and interpreted as a pointer to one of the following user-specified types:
+
+    byte
+    word
+    dword
+    qword
+    float
+    double
+
+The value obtained by dereferencing the effective pointer is the value recorded in the unique values buffer.
+
+#### Example
+For this example, we want to sample float values stored in xmm0 in the following instruction:
+
+```
+.text:0000000140001066     movss   dword ptr [rsp+rax*4+30h], xmm0
+.text:000000014000106C     ret
+```
+
+We can easily capture these values using the following CECM request:
+
+```C++
+UCHAR pBuffer[PAGE_SIZE] = {};
+CEC_MEMORY_DESCRIPTION MemoryDescription = {};
+PCEC_MEMORY_VALUES pMemoryValues = NULL;
+PMEMORY_DATA_VALUE pMemoryDataValue = NULL;
+BOOL status = TRUE;
+
+// Translate the memory expression and data type into a memory description.
+status = ParseMemoryDescriptionToken(
+    "rsp+rax*4+30",
+    MDT_FLOAT,
+    &MemoryDescription);
+if (!status)
+{
+    goto exit;
+}
+
+// Issue the CECM request.
+status = DrvCaptureMemoryValues(
+    GetTargetProcessId(),
+    0,
+    (ULONG_PTR)0x14000106C,
+    HWBP_TYPE::Execute,
+    HWBP_SIZE::Byte,
+    &MemoryDescription,
+    5000,
+    pMemoryValues,
+    sizeof(pBuffer));
+if (!status)
+{
+    goto exit;
+}
+
+// Log the results.
+for (ULONG i = 0; i < pValuesCtx->NumberOfValues; ++i)
+{
+    pMemoryDataValue = (PMEMORY_DATA_VALUE)&pValuesCtx->Values[i];
+    printf("    %u: %f\n", i, pMemoryDataValue->Float);
+}
+```
+
+See the CECM command description in the VivienneCL README for more information.
 
 
 Limitations

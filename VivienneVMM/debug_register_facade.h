@@ -47,6 +47,13 @@ FcdVmxTermination();
 // Vmx Interface
 //=============================================================================
 _IRQL_requires_(HIGH_LEVEL)
+VOID
+FcdVmxLogMovDrEvent(
+    _In_ MovDrQualification ExitQualification,
+    _In_ PULONG_PTR pRegisterUsed
+);
+
+_IRQL_requires_(HIGH_LEVEL)
 _Check_return_
 NTSTATUS
 FcdVmxProcessMovDrEvent(

@@ -22,6 +22,8 @@ Environment:
 
 #include <fltKernel.h>
 
+#include "..\common\arch_x64.h"
+
 #include "HyperPlatform\ia32_type.h"
 
 //=============================================================================
@@ -29,8 +31,8 @@ Environment:
 //=============================================================================
 _Check_return_
 NTSTATUS
-ReadGuestRegisterValue(
-    _In_ ULONG Register,
+ReadGuestGpRegisterValue(
+    _In_ X64_REGISTER Register,
     _In_ GpRegisters* pGuestRegisters,
     _In_ ULONG_PTR GuestIp,
     _Out_ PULONG_PTR pValue

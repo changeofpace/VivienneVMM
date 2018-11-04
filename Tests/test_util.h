@@ -96,14 +96,15 @@ GenerateBoundedRandomValue(
 
 VOID
 GenerateUniqueRandomValues(
-    _In_count_c_(cValues) ULONG pValues[],
-    _In_ ULONG cValues
+    _In_count_c_(cValues) ULONG_PTR pValues[],
+    _In_ SIZE_T cValues
 );
 
 //=============================================================================
 // Logging
 //=============================================================================
-#define TEST_DELIM_MAJOR "=================================================\n"
+#define TEST_DELIM_MAJOR \
+    "===========================================================\n"
 
 #define PRINT_TEST_HEADER           \
     printf(TEST_DELIM_MAJOR);       \

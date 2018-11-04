@@ -126,6 +126,9 @@ DrvSetHardwareBreakpoint(
     DWORD ReturnedBytes = 0;
     BOOL status = TRUE;
 
+    //
+    // Initialize the request.
+    //
     Request.ProcessId = ProcessId;
     Request.Index = DebugRegisterIndex;
     Request.Address = Address;
@@ -161,6 +164,9 @@ DrvClearHardwareBreakpoint(
     DWORD ReturnedBytes = 0;
     BOOL status = TRUE;
 
+    //
+    // Initialize the request.
+    //
     Request.Index = DebugRegisterIndex;
 
     status = DeviceIoControl(
@@ -198,18 +204,21 @@ DrvCaptureRegisterValues(
     HWBP_SIZE Size,
     X64_REGISTER Register,
     ULONG DurationInMilliseconds,
-    PCEC_REGISTER_VALUES pCapturedCtx,
-    ULONG cbCapturedCtx
+    PCEC_REGISTER_VALUES pValuesCtx,
+    ULONG cbValuesCtx
 )
 {
     CEC_REGISTER_REQUEST Request = {};
-    PCEC_REGISTER_REPLY pReply = (PCEC_REGISTER_REPLY)pCapturedCtx;
+    PCEC_REGISTER_REPLY pReply = (PCEC_REGISTER_REPLY)pValuesCtx;
     DWORD ReturnedBytes = 0;
     BOOL status = TRUE;
 
     // Zero out parameters.
-    RtlSecureZeroMemory(pCapturedCtx, cbCapturedCtx);
+    RtlSecureZeroMemory(pValuesCtx, cbValuesCtx);
 
+    //
+    // Initialize the request.
+    //
     Request.ProcessId = ProcessId;
     Request.Index = DebugRegisterIndex;
     Request.Address = Address;
@@ -224,7 +233,68 @@ DrvCaptureRegisterValues(
         &Request,
         sizeof(Request),
         pReply,
-        cbCapturedCtx,
+        cbValuesCtx,
+        &ReturnedBytes,
+        NULL);
+
+    return status;
+}
+
+
+//
+// DrvCaptureMemoryValues
+//
+// Install a hardware breakpoint on all processors which, when triggered, will
+//  record all unique values at the memory address defined by the memory
+//  description parameter.
+//
+// NOTE This is a synchronous call which will block for the specified
+//  duration. The duration is clamped to an internal value to prevent timeouts
+//  caused by input error.
+//
+_Use_decl_annotations_
+BOOL
+DrvCaptureMemoryValues(
+    ULONG_PTR ProcessId,
+    ULONG DebugRegisterIndex,
+    ULONG_PTR Address,
+    HWBP_TYPE Type,
+    HWBP_SIZE Size,
+    PCEC_MEMORY_DESCRIPTION pMemoryDescription,
+    ULONG DurationInMilliseconds,
+    PCEC_MEMORY_VALUES pValuesCtx,
+    ULONG cbValuesCtx
+)
+{
+    CEC_MEMORY_REQUEST Request = {};
+    PCEC_MEMORY_REPLY pReply = (PCEC_MEMORY_REPLY)pValuesCtx;
+    DWORD ReturnedBytes = 0;
+    BOOL status = TRUE;
+
+    // Zero out parameters.
+    RtlSecureZeroMemory(pValuesCtx, cbValuesCtx);
+
+    //
+    // Initialize the request.
+    //
+    Request.ProcessId = ProcessId;
+    Request.Index = DebugRegisterIndex;
+    Request.Address = Address;
+    Request.Type = Type;
+    Request.Size = Size;
+    RtlCopyMemory(
+        &Request.MemoryDescription,
+        pMemoryDescription,
+        sizeof(CEC_MEMORY_DESCRIPTION));
+    Request.DurationInMilliseconds = DurationInMilliseconds;
+
+    status = DeviceIoControl(
+        g_hDevice,
+        IOCTL_CEC_MEMORY,
+        &Request,
+        sizeof(Request),
+        pReply,
+        cbValuesCtx,
         &ReturnedBytes,
         NULL);
 

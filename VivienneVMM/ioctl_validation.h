@@ -3,6 +3,7 @@
 #include <fltKernel.h>
 
 #include "..\common\arch_x64.h"
+#include "..\common\driver_io_types.h"
 
 _Check_return_
 NTSTATUS
@@ -14,4 +15,10 @@ _Check_return_
 NTSTATUS
 IvValidateDebugRegisterIndex(
     _In_ ULONG DebugRegisterIndex
+);
+
+_Check_return_
+NTSTATUS
+IvValidateMemoryDescription(
+    _In_ PCEC_MEMORY_DESCRIPTION pMemoryDescription
 );

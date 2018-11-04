@@ -1,5 +1,7 @@
 #include <windows.h>
 
+#include <cstdio>
+
 #include "test_util.h"
 
 #include "..\common\time_util.h"

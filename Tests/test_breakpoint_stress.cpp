@@ -1,9 +1,6 @@
-//
-// TODO Rewrite the sleep logic for the exercise threads so that each thread
-//  gets equal execution time. Consider using NtYieldExecution.
-//
-
 #include "tests.h"
+
+#include <cstdio>
 
 #include "test_util.h"
 
@@ -42,8 +39,8 @@ typedef struct _STRESSTEST_CONTEXT
 // Module Globals
 //=============================================================================
 static HANDLE g_BarrierEvent = NULL;
-static ULONG g_pAccessTargets[NUMBER_OF_ACCESS_TARGETS] = {};
-static ULONG g_pWriteTargets[NUMBER_OF_WRITE_TARGETS] = {};
+static ULONG_PTR g_pAccessTargets[NUMBER_OF_ACCESS_TARGETS] = {};
+static ULONG_PTR g_pWriteTargets[NUMBER_OF_WRITE_TARGETS] = {};
 static BOOLEAN g_Active = FALSE;
 
 
@@ -62,7 +59,7 @@ StressTest1(
 )
 {
     PSTRESSTEST_CONTEXT pContext = (PSTRESSTEST_CONTEXT)lpParameter;
-    ULONG AccessValue = 0;
+    ULONG_PTR AccessValue = 0;
     DWORD waitstatus = 0;
     DWORD status = ERROR_SUCCESS;
 
@@ -78,15 +75,15 @@ StressTest1(
 
     while (g_Active)
     {
-        AccessValue = g_pAccessTargets[pContext->AccessIndex];
-        
-        g_pWriteTargets[pContext->WriteIndex] =
-            AccessValue * pContext->RandomValue;
-
         if (!BreakpointStealthCheck())
         {
             FAIL_TEST("BreakpointStealthCheck failed.\n");
         }
+
+        AccessValue = g_pAccessTargets[pContext->AccessIndex];
+
+        g_pWriteTargets[pContext->WriteIndex] =
+            AccessValue * pContext->RandomValue;
 
         Sleep(pContext->SleepDuration);
     }
@@ -102,7 +99,7 @@ StressTest2(
 )
 {
     PSTRESSTEST_CONTEXT pContext = (PSTRESSTEST_CONTEXT)lpParameter;
-    ULONG AccessValue = 0;
+    ULONG_PTR AccessValue = 0;
     DWORD waitstatus = 0;
     DWORD status = ERROR_SUCCESS;
 
@@ -118,15 +115,15 @@ StressTest2(
 
     while (g_Active)
     {
-        AccessValue = g_pAccessTargets[pContext->AccessIndex];
-
-        g_pWriteTargets[pContext->WriteIndex] =
-            AccessValue / pContext->RandomValue;
-
         if (!BreakpointStealthCheck())
         {
             FAIL_TEST("BreakpointStealthCheck failed.\n");
         }
+
+        AccessValue = g_pAccessTargets[pContext->AccessIndex];
+
+        g_pWriteTargets[pContext->WriteIndex] =
+            AccessValue / pContext->RandomValue;
 
         Sleep(pContext->SleepDuration);
     }
@@ -142,7 +139,7 @@ StressTest3(
 )
 {
     PSTRESSTEST_CONTEXT pContext = (PSTRESSTEST_CONTEXT)lpParameter;
-    ULONG AccessValue = 0;
+    ULONG_PTR AccessValue = 0;
     DWORD waitstatus = 0;
     DWORD status = ERROR_SUCCESS;
 
@@ -158,15 +155,15 @@ StressTest3(
 
     while (g_Active)
     {
-        AccessValue = g_pAccessTargets[pContext->AccessIndex];
-
-        g_pWriteTargets[pContext->WriteIndex] =
-            AccessValue << pContext->RandomValue;
-
         if (!BreakpointStealthCheck())
         {
             FAIL_TEST("BreakpointStealthCheck failed.\n");
         }
+
+        AccessValue = g_pAccessTargets[pContext->AccessIndex];
+
+        g_pWriteTargets[pContext->WriteIndex] =
+            AccessValue << pContext->RandomValue;
 
         Sleep(pContext->SleepDuration);
     }
@@ -327,7 +324,7 @@ TestHardwareBreakpointStress()
     for (ULONG i = 0; i < ARRAYSIZE(g_pAccessTargets); ++i)
     {
         printf(
-            "    %02u: %8u %8X\n",
+            "    %02u: %Iu 0x%IX\n",
             i,
             g_pAccessTargets[i],
             g_pAccessTargets[i]);
@@ -340,7 +337,7 @@ TestHardwareBreakpointStress()
     for (ULONG i = 0; i < ARRAYSIZE(g_pWriteTargets); ++i)
     {
         printf(
-            "    %02u: %8u %8X\n",
+            "    %02u: %Iu 0x%IX\n",
             i,
             g_pWriteTargets[i],
             g_pWriteTargets[i]);
@@ -450,6 +447,12 @@ TestHardwareBreakpointStress()
         FAIL_TEST(
             "RemoveVectoredExceptionHandler failed: %u\n",
             GetLastError());
+    }
+
+    // Release the barrier event.
+    if (!CloseHandle(g_BarrierEvent))
+    {
+        FAIL_TEST("CloseHandle failed: %u.\n", GetLastError());
     }
 
     PRINT_TEST_FOOTER;

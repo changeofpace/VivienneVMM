@@ -1,340 +1,43 @@
+//
+// TODO Rewrite usage text.
+//
+
 #include "commands.h"
 
 #include <algorithm>
 #include <cstdio>
 #include <memory>
+#include <sstream>
 
 #include "driver_io.h"
 #include "ntdll.h"
 #include "process.h"
+#include "token_parser.h"
 
 #include "..\common\arch_x64.h"
+#include "..\common\driver_io_types.h"
 
 
 //=============================================================================
-// Token Parsing and Sanitization
+// Internal Interface
 //=============================================================================
 
 //
-// IsBreakpointAddressAligned
+// CmdpPrintCommandList
 //
-_Check_return_
 static
-BOOL
-IsBreakpointAddressAligned(
-    _In_ ULONG_PTR Address,
-    _In_ HWBP_TYPE Type,
-    _In_ HWBP_SIZE Size
-)
+VOID
+CmdpPrintCommandList()
 {
-    ULONG cbCondition = 0;
-    BOOL status = TRUE;
-
-    // Skip non-data breakpoints.
-    if (HWBP_TYPE::Access != Type ||
-        HWBP_TYPE::Write != Type)
-    {
-        goto exit;
-    }
-
-    cbCondition = HwBpSizeToBytes(Size);
-
-    if (!IS_ALIGNED(Address, cbCondition))
-    {
-        printf(
-            "Misaligned breakpoint address: actual = 0x%IX, expected = 0x%IX\n",
-            Address,
-            (ULONG_PTR)(ALIGN_DOWN_POINTER_BY(Address, cbCondition)));
-        status = FALSE;
-        goto exit;
-    }
-
-exit:
-    return status;
-}
-
-
-//
-// ParseDebugRegisterIndexToken
-//
-_Check_return_
-static
-BOOL
-ParseDebugRegisterIndexToken(
-    _In_ const std::string& Token,
-    _Out_ PULONG pDebugRegisterIndex
-)
-{
-    ULONG DebugRegisterIndex = 0;
-    BOOL status = TRUE;
-
-    // Zero out parameters.
-    *pDebugRegisterIndex = 0;
-
-    try
-    {
-        // Try to parse a number.
-        DebugRegisterIndex = std::stoul(Token);
-    }
-    catch (const std::exception& e)
-    {
-        printf("Invalid DebugRegisterIndex: %s.\n", e.what());
-        status = FALSE;
-        goto exit;
-    }
-
-    if (DAR_COUNT <= DebugRegisterIndex)
-    {
-        printf("Invalid DebugRegisterIndex: %s.\n", Token.c_str());
-        status = FALSE;
-        goto exit;
-    }
-
-    // Set out parameters.
-    *pDebugRegisterIndex = DebugRegisterIndex;
-
-exit:
-    return status;
-}
-
-
-//
-// ParseProcessIdToken
-//
-_Check_return_
-static
-BOOL
-ParseProcessIdToken(
-    _In_ const std::string& Token,
-    _Out_ PULONG_PTR pProcessId
-)
-{
-    ULONG_PTR ProcessId = 0;
-    BOOL status = TRUE;
-
-    // Zero out parameters.
-    *pProcessId = 0;
-
-    try
-    {
-        // Try to parse a hex number.
-        ProcessId = (ULONG_PTR)std::stoull(Token);
-    }
-    catch (const std::exception& e)
-    {
-        printf("Invalid ProcessId: %s\n.", e.what());
-        status = FALSE;
-        goto exit;
-    }
-
-    // Set out parameters.
-    *pProcessId = ProcessId;
-
-exit:
-    return status;
-}
-
-
-//
-// ParseAddressToken
-//
-_Check_return_
-static
-BOOL
-ParseAddressToken(
-    _In_ const std::string& Token,
-    _Out_ PULONG_PTR pAddress
-)
-{
-    ULONG_PTR Address = 0;
-    BOOL status = TRUE;
-
-    // Zero out parameters.
-    *pAddress = 0;
-
-    try
-    {
-        // Try to parse a hex number.
-        Address = (ULONG_PTR)std::stoull(Token, nullptr, 16);
-    }
-    catch (const std::exception& e)
-    {
-        printf("Invalid Address: %s\n.", e.what());
-        status = FALSE;
-        goto exit;
-    }
-
-    // Set out parameters.
-    *pAddress = Address;
-
-exit:
-    return status;
-}
-
-
-#define ACCESS_SIZE_TOKEN_CCH 2
-
-//
-// ParseAccessSizeToken
-//
-_Check_return_
-static
-BOOL
-ParseAccessSizeToken(
-    _In_ const std::string& Token,
-    _Out_ PHWBP_TYPE pType,
-    _Out_ PHWBP_SIZE pSize
-)
-{
-    HWBP_TYPE Type = {};
-    HWBP_SIZE Size = {};
-    BOOL status = TRUE;
-
-    // Zero out parameters.
-    *pType = {};
-    *pSize = {};
-
-    if (ACCESS_SIZE_TOKEN_CCH != Token.size())
-    {
-        printf("Invalid Access|Size: %s.\n", Token.c_str());
-        status = FALSE;
-        goto exit;
-    }
-
-    switch (Token[0])
-    {
-        case 'e': Type = HWBP_TYPE::Execute; break;
-        case 'w': Type = HWBP_TYPE::Write;   break;
-        case 'r': Type = HWBP_TYPE::Access;  break;
-        default:
-        {
-            printf("Invalid Access: use 'e,r,w'.\n");
-            status = FALSE;
-            goto exit;
-        }
-    }
-
-    switch (Token[1])
-    {
-        case '1': Size = HWBP_SIZE::Byte;  break;
-        case '2': Size = HWBP_SIZE::Word;  break;
-        case '4': Size = HWBP_SIZE::Dword; break;
-        case '8': Size = HWBP_SIZE::Qword; break;
-        default:
-        {
-            printf("Invalid Size: use '1,2,4,8'.\n");
-            status = FALSE;
-            goto exit;
-        }
-    }
-
-    // Execution breakpoints must have size 1.
-    if (HWBP_TYPE::Execute == Type &&
-        HWBP_SIZE::Byte != Size)
-    {
-        Size = HWBP_SIZE::Byte;
-    }
-
-    // Set out parameters.
-    *pType = Type;
-    *pSize = Size;
-
-exit:
-    return status;
-}
-
-
-//
-// ParseRegisterToken
-//
-_Check_return_
-static
-BOOL
-ParseRegisterToken(
-    _In_ const std::string& Token,
-    _Out_ PX64_REGISTER pRegister
-)
-{
-    std::string LowercaseToken(Token);
-    X64_REGISTER Register = REGISTER_INVALID;
-    BOOL status = TRUE;
-
-    // Zero out parameters.
-    *pRegister = REGISTER_INVALID;
-
-    // Convert the token to lowercase.
-    std::transform(
-        LowercaseToken.begin(),
-        LowercaseToken.end(),
-        LowercaseToken.begin(),
-        ::tolower);
-
-    if      (LowercaseToken == "rip") Register = REGISTER_RIP;
-    else if (LowercaseToken == "rax") Register = REGISTER_RAX;
-    else if (LowercaseToken == "rcx") Register = REGISTER_RCX;
-    else if (LowercaseToken == "rdx") Register = REGISTER_RDX;
-    else if (LowercaseToken == "rdi") Register = REGISTER_RDI;
-    else if (LowercaseToken == "rsi") Register = REGISTER_RSI;
-    else if (LowercaseToken == "rbx") Register = REGISTER_RBX;
-    else if (LowercaseToken == "rbp") Register = REGISTER_RBP;
-    else if (LowercaseToken == "rsp") Register = REGISTER_RSP;
-    else if (LowercaseToken == "r8")  Register = REGISTER_R8;
-    else if (LowercaseToken == "r9")  Register = REGISTER_R9;
-    else if (LowercaseToken == "r10") Register = REGISTER_R10;
-    else if (LowercaseToken == "r11") Register = REGISTER_R11;
-    else if (LowercaseToken == "r12") Register = REGISTER_R12;
-    else if (LowercaseToken == "r13") Register = REGISTER_R13;
-    else if (LowercaseToken == "r14") Register = REGISTER_R14;
-    else if (LowercaseToken == "r15") Register = REGISTER_R15;
-    else
-    {
-        printf("Invalid Register: %s.\n", LowercaseToken.c_str());
-        status = FALSE;
-        goto exit;
-    }
-
-    // Set out parameters.
-    *pRegister = Register;
-
-exit:
-    return status;
-}
-
-
-//
-// ParseDurationToken
-//
-_Check_return_
-static
-BOOL
-ParseDurationToken(
-    _In_ const std::string& Token,
-    _Out_ PULONG pDurationInMilliseconds
-)
-{
-    ULONG DurationInMilliseconds = 0;
-    BOOL status = TRUE;
-
-    // Zero out parameters.
-    *pDurationInMilliseconds = 0;
-
-    try
-    {
-        // Try to parse a hex number.
-        DurationInMilliseconds = std::stoul(Token);
-    }
-    catch (const std::exception& e)
-    {
-        printf("Invalid DurationInMilliseconds: %s\n.", e.what());
-        status = FALSE;
-        goto exit;
-    }
-
-    // Set out parameters.
-    *pDurationInMilliseconds = DurationInMilliseconds;
-
-exit:
-    return status;
+    printf("    %s\n", CMD_CLEARHARDWAREBREAKPOINT);
+    printf("    %s\n", CMD_COMMANDS);
+    printf("    %s\n", CMD_CEC_REGISTER);
+    printf("    %s\n", CMD_CEC_MEMORY);
+    printf("    %s\n", CMD_EXITCLIENT);
+    printf("    %s\n", CMD_HELP);
+    printf("    %s\n", CMD_LOOKUPPROCESSIDBYNAME);
+    printf("    %s\n", CMD_QUERYSYSTEMDEBUGSTATE);
+    printf("    %s\n", CMD_SETHARDWAREBREAKPOINT);
 }
 
 
@@ -356,14 +59,8 @@ CmdDisplayCommands(
     UNREFERENCED_PARAMETER(ArgTokens);
 
     printf("Commands:\n");
-    printf("    %s\n", CMD_CLEARHARDWAREBREAKPOINT);
-    printf("    %s\n", CMD_COMMANDS);
-    printf("    %s\n", CMD_CEC_REGISTER);
-    printf("    %s\n", CMD_EXITCLIENT);
-    printf("    %s\n", CMD_HELP);
-    printf("    %s\n", CMD_LOOKUPPROCESSIDBYNAME);
-    printf("    %s\n", CMD_QUERYSYSTEMDEBUGSTATE);
-    printf("    %s\n", CMD_SETHARDWAREBREAKPOINT);
+
+    CmdpPrintCommandList();
 
     return TRUE;
 }
@@ -397,7 +94,6 @@ CmdLookupProcessIdByName(
 
     if (LOOKUPPROCESSIDBYNAME_ARGC != ArgTokens.size())
     {
-        printf("Invalid parameters.\n\n");
         printf(LOOKUPPROCESSIDBYNAME_USAGE);
         status = FALSE;
         goto exit;
@@ -561,7 +257,6 @@ CmdSetHardwareBreakpoint(
 
     if (SETHARDWAREBREAKPOINT_ARGC != ArgTokens.size())
     {
-        printf("Invalid parameters.\n\n");
         printf(SETHARDWAREBREAKPOINT_USAGE);
         status = FALSE;
         goto exit;
@@ -640,7 +335,6 @@ CmdClearHardwareBreakpoint(
 
     if (CLEARHARDWAREBREAKPOINT_ARGC != ArgTokens.size())
     {
-        printf("Invalid parameters.\n\n");
         printf(CLEARHARDWAREBREAKPOINT_USAGE);
         status = FALSE;
         goto exit;
@@ -702,12 +396,11 @@ CmdCaptureRegisterValues(
     HWBP_SIZE Size = {};
     X64_REGISTER Register = {};
     ULONG DurationInMilliseconds = 0;
-    PCEC_REGISTER_VALUES pCapturedCtx = NULL;
+    PCEC_REGISTER_VALUES pValuesCtx = NULL;
     BOOL status = TRUE;
 
     if (CEC_REGISTER_ARGC != ArgTokens.size())
     {
-        printf("Invalid parameters.\n\n");
         printf(CEC_REGISTER_USAGE);
         status = FALSE;
         goto exit;
@@ -756,11 +449,11 @@ CmdCaptureRegisterValues(
     }
 
     // Allocate the captured context buffer.
-    pCapturedCtx = (PCEC_REGISTER_VALUES)HeapAlloc(
+    pValuesCtx = (PCEC_REGISTER_VALUES)HeapAlloc(
         GetProcessHeap(),
         HEAP_ZERO_MEMORY,
         CEC_REGISTER_BUFFER_SIZE);
-    if (!pCapturedCtx)
+    if (!pValuesCtx)
     {
         printf("HeapAlloc failed: %u\n", GetLastError());
         status = FALSE;
@@ -775,7 +468,7 @@ CmdCaptureRegisterValues(
         Size,
         Register,
         DurationInMilliseconds,
-        pCapturedCtx,
+        pValuesCtx,
         CEC_REGISTER_BUFFER_SIZE);
     if (!status)
     {
@@ -784,22 +477,361 @@ CmdCaptureRegisterValues(
     }
 
     // Log results.
-    printf("Found %u unique values:\n", pCapturedCtx->NumberOfValues);
+    printf("Found %u unique values:\n", pValuesCtx->NumberOfValues);
 
-    for (ULONG i = 0; i < pCapturedCtx->NumberOfValues; ++i)
+    for (ULONG i = 0; i < pValuesCtx->NumberOfValues; ++i)
     {
-        printf("    %u: 0x%IX\n", i, pCapturedCtx->Values[i]);
+        printf("    %u: 0x%IX\n", i, pValuesCtx->Values[i]);
     }
 
 exit:
-    if (pCapturedCtx)
+    if (pValuesCtx)
     {
-        if (!HeapFree(GetProcessHeap(), 0, pCapturedCtx))
+        if (!HeapFree(GetProcessHeap(), 0, pValuesCtx))
         {
             printf("HeapFree failed: %u\n", GetLastError());
             status = FALSE;
         }
     }
 
+    return status;
+}
+
+
+//
+// CmdCaptureMemoryValues
+//
+// Install a hardware breakpoint on all processors which, when triggered, will
+//  record all unique values at the memory address defined by the memory
+//  description parameter.
+//
+#define CEC_MEMORY_ARGC 8
+#define CEC_MEMORY_BUFFER_SIZE (PAGE_SIZE * 2)
+
+static PCSTR g_CecmUsageText =
+R"(Usage: cecm index pid access|size bp_address mem_type mem_expression duration
+
+Type 'help cecm' for extended information.
+)";
+
+static PCSTR g_CecmHelpText =
+R"(Usage: cecm index pid access|size bp_address mem_type mem_expression duration
+
+    Summary
+        Capture unique values of type mem_type at the memory address described
+        by mem_expression.
+
+        This command sets a hardware breakpoint specified by 'access', 'size',
+        and 'bp_address' using the debug address register specified by 'index'.
+        The breakpoint callback calculates the effective address by evaluating
+        the memory expression (mem_expression) using the guest context. A value
+        of type 'mem_type' is read from the effective address. Unique values
+        are stored to the user data buffer.
+
+    Args
+        index
+            The debug address register index used for the hardware breakpoint.
+
+        pid
+            The target process id. (decimal)
+
+        access
+            The hardware breakpoint type (WinDbg format):
+                'e'     execute
+                'r'     read
+                'w'     write
+
+        size
+            The hardware breakpoint size (WinDbg format):
+                '1'     byte
+                '2'     word
+                '4'     dword
+                '8'     qword
+
+        address
+            The hardware breakpoint address. (hex, '0x' prefix optional)
+
+        mem_type
+            The data type used to interpret the effective address:
+                'b'     byte
+                'w'     word
+                'd'     dword
+                'q'     qword
+                'f'     float
+                'o'     double
+
+        mem_expression
+            An absolute virtual address or a valid indirect address in assembly
+            language format (without spaces). Indirect addresses have the form:
+
+                base_register + index_register * scale_factor +- displacement
+
+            Examples of valid indirect address expressions:
+                0x140000
+                140000
+                rax
+                rax+FF
+                rax+rdi
+                rax+rdi*8
+                rax+rdi*8-20
+                rdi*8+20
+
+        duration
+            The amount of time in milliseconds in which the hardware breakpoint
+            is installed to sample the effective address.
+
+    Example
+        The target instruction:
+
+            0x1400000   mov     rcx, [rcx+rax*8]    ; an array of floats
+
+        The following command captures a float array element whenever the
+        instruction at address 0x140000 is executed:
+
+            cecm 0 123 e1 1400000 f rcx+rax*8 5000
+)";
+
+_Use_decl_annotations_
+BOOL
+CmdCaptureMemoryValues(
+    const std::vector<std::string>& ArgTokens
+)
+{
+    ULONG DebugRegisterIndex = 0;
+    ULONG_PTR ProcessId = 0;
+    ULONG_PTR Address = 0;
+    HWBP_TYPE Type = {};
+    HWBP_SIZE Size = {};
+    MEMORY_DATA_TYPE MemoryDataType = {};
+    CEC_MEMORY_DESCRIPTION MemoryDescription = {};
+    ULONG DurationInMilliseconds = 0;
+    PCEC_MEMORY_VALUES pValuesCtx = NULL;
+    PMEMORY_DATA_VALUE pMemoryDataValue = NULL;
+    BOOL status = TRUE;
+
+    if (CEC_MEMORY_ARGC != ArgTokens.size())
+    {
+        printf(g_CecmUsageText);
+        status = FALSE;
+        goto exit;
+    }
+
+    status = ParseDebugRegisterIndexToken(ArgTokens[1], &DebugRegisterIndex);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseProcessIdToken(ArgTokens[2], &ProcessId);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseAccessSizeToken(ArgTokens[3], &Type, &Size);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseAddressToken(ArgTokens[4], &Address);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = IsBreakpointAddressAligned(Address, Type, Size);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseMemoryDataTypeToken(ArgTokens[5], &MemoryDataType);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseMemoryDescriptionToken(
+        ArgTokens[6],
+        MemoryDataType,
+        &MemoryDescription);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseDurationToken(ArgTokens[7], &DurationInMilliseconds);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    //
+    // Allocate the captured context buffer.
+    //
+    pValuesCtx = (PCEC_MEMORY_VALUES)HeapAlloc(
+        GetProcessHeap(),
+        HEAP_ZERO_MEMORY,
+        CEC_MEMORY_BUFFER_SIZE);
+    if (!pValuesCtx)
+    {
+        printf("HeapAlloc failed: %u\n", GetLastError());
+        status = FALSE;
+        goto exit;
+    }
+
+    status = DrvCaptureMemoryValues(
+        ProcessId,
+        DebugRegisterIndex,
+        Address,
+        Type,
+        Size,
+        &MemoryDescription,
+        DurationInMilliseconds,
+        pValuesCtx,
+        CEC_MEMORY_BUFFER_SIZE);
+    if (!status)
+    {
+        printf("DrvCaptureMemoryValues failed: %u\n", GetLastError());
+        goto exit;
+    }
+
+    //
+    // Log results.
+    //
+    printf("Found %u unique values:\n", pValuesCtx->NumberOfValues);
+
+    //
+    // TODO FUTURE Each values buffer entry is the same size as a ULONG_PTR to
+    //  to reduce complexity.
+    //
+    for (ULONG i = 0; i < pValuesCtx->NumberOfValues; ++i)
+    {
+        pMemoryDataValue = (PMEMORY_DATA_VALUE)&pValuesCtx->Values[i];
+
+        switch (pValuesCtx->DataType)
+        {
+            case MDT_BYTE:
+                printf("    %u: 0x%hhX\n", i, pMemoryDataValue->Byte);
+                break;
+            case MDT_WORD:
+                printf("    %u: 0x%hX\n", i, pMemoryDataValue->Word);
+                break;
+            case MDT_DWORD:
+                printf("    %u: 0x%X\n", i, pMemoryDataValue->Dword);
+                break;
+            case MDT_QWORD:
+                printf("    %u: 0x%IX\n", i, pMemoryDataValue->Qword);
+                break;
+            case MDT_FLOAT:
+                printf("    %u: %f\n", i, pMemoryDataValue->Float);
+                break;
+            case MDT_DOUBLE:
+                printf("    %u: %f\n", i, pMemoryDataValue->Double);
+                break;
+            default:
+                printf(
+                    "Unexpected memory data type: %u\n",
+                    pValuesCtx->DataType);
+                status = FALSE;
+                goto exit;
+        }
+    }
+
+    //
+    // Log statistics.
+    //
+    printf("Statistics:\n");
+    printf("    %Iu hits.\n", pValuesCtx->Statistics.HitCount);
+
+    if (pValuesCtx->Statistics.SkipCount)
+    {
+        printf("    %Iu skips.\n",
+            pValuesCtx->Statistics.SkipCount);
+    }
+
+    if (pValuesCtx->Statistics.InvalidPteErrors)
+    {
+        printf("    %Iu invalid pte errors.\n",
+            pValuesCtx->Statistics.InvalidPteErrors);
+    }
+
+    if (pValuesCtx->Statistics.UntouchedPageErrors)
+    {
+        printf("    %Iu untouched page errors.\n",
+            pValuesCtx->Statistics.UntouchedPageErrors);
+    }
+
+    if (pValuesCtx->Statistics.SpanningAddressErrors)
+    {
+        printf("    %Iu spanning address errors.\n",
+            pValuesCtx->Statistics.SpanningAddressErrors);
+    }
+
+    if (pValuesCtx->Statistics.SystemAddressErrors)
+    {
+        printf("    %Iu system address errors.\n",
+            pValuesCtx->Statistics.SystemAddressErrors);
+    }
+
+    if (pValuesCtx->Statistics.ValidationErrors)
+    {
+        printf("    %Iu validation errors.\n",
+            pValuesCtx->Statistics.ValidationErrors);
+    }
+
+exit:
+    if (pValuesCtx)
+    {
+        if (!HeapFree(GetProcessHeap(), 0, pValuesCtx))
+        {
+            printf("HeapFree failed: %u\n", GetLastError());
+            status = FALSE;
+        }
+    }
+
+    return status;
+}
+
+
+//
+// CmdDisplayHelpText
+//
+// Display extended command information.
+//
+#define HELP_ARGC 2
+
+#define CMD_HELP_USAGE "Usage: help command_name\n"
+
+_Use_decl_annotations_
+BOOL
+CmdDisplayHelpText(
+    const std::vector<std::string>& ArgTokens
+)
+{
+    std::string CommandName = {};
+    BOOL status = TRUE;
+
+    if (HELP_ARGC != ArgTokens.size())
+    {
+        printf(CMD_HELP_USAGE);
+        status = FALSE;
+        goto exit;
+    }
+
+    CommandName = ArgTokens[1];
+
+    if (CMD_CEC_MEMORY == CommandName)
+    {
+        printf(g_CecmHelpText);
+    }
+    else
+    {
+        printf("Commands with extended information:\n");
+        printf("    %s\n", CMD_CEC_MEMORY);
+    }
+
+exit:
     return status;
 }

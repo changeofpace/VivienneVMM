@@ -1,5 +1,7 @@
 #include "tests.h"
 
+#include <cstdio>
+
 #include "arbitrary_code.h"
 #include "test_util.h"
 
@@ -46,7 +48,7 @@ MaxResultsCecrRequest(
     while (g_Active)
     {
         Value++;
-        AcCaptureTargetR12(Value);
+        AcCaptureRegister(Value);
     }
 
     return status;
@@ -65,7 +67,7 @@ MaxResultsCecrRequest(
 VOID
 TestCaptureRegisterValuesEdgeCases()
 {
-    PCEC_REGISTER_VALUES pCapturedCtx = NULL;
+    PCEC_REGISTER_VALUES pValuesCtx = NULL;
     DWORD ThreadId = 0;
     HANDLE hThread = NULL;
     DWORD waitstatus = 0;
@@ -75,11 +77,11 @@ TestCaptureRegisterValuesEdgeCases()
 
     // Allocate the captured context buffer.
     // NOTE This memory will leak if this test fails.
-    pCapturedCtx = (PCEC_REGISTER_VALUES)HeapAlloc(
+    pValuesCtx = (PCEC_REGISTER_VALUES)HeapAlloc(
         GetProcessHeap(),
         HEAP_ZERO_MEMORY,
         CONTEXT_BUFFER_SIZE);
-    if (!pCapturedCtx)
+    if (!pValuesCtx)
     {
         FAIL_TEST("HeapAlloc failed: %u\n", GetLastError());
     }
@@ -95,7 +97,7 @@ TestCaptureRegisterValuesEdgeCases()
         HWBP_SIZE::Byte,
         REGISTER_R12,
         REQUEST_DURATION_MS,
-        pCapturedCtx,
+        pValuesCtx,
         CONTEXT_BUFFER_SIZE);
     if (!status)
     {
@@ -104,15 +106,15 @@ TestCaptureRegisterValuesEdgeCases()
             GetLastError());
     }
 
-    if (pCapturedCtx->NumberOfValues)
+    if (pValuesCtx->NumberOfValues)
     {
         FAIL_TEST(
             "Unexpected number of values: %u\n",
-            pCapturedCtx->NumberOfValues);
+            pValuesCtx->NumberOfValues);
     }
 
     // Reset the context for the next edge case.
-    RtlSecureZeroMemory(pCapturedCtx, CONTEXT_BUFFER_SIZE);
+    RtlSecureZeroMemory(pValuesCtx, CONTEXT_BUFFER_SIZE);
 
     printf("Starting max results edge case...\n");
 
@@ -136,12 +138,12 @@ TestCaptureRegisterValuesEdgeCases()
     status = DrvCaptureRegisterValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
-        (ULONG_PTR)&g_AcCaptureTargetR12CaptureAddress,
+        (ULONG_PTR)&g_AcCecrCaptureAddress,
         HWBP_TYPE::Execute,
         HWBP_SIZE::Byte,
         REGISTER_R12,
         REQUEST_DURATION_MS,
-        pCapturedCtx,
+        pValuesCtx,
         CONTEXT_BUFFER_SIZE);
     if (!status)
     {
@@ -175,25 +177,25 @@ TestCaptureRegisterValuesEdgeCases()
     }
 
     // Check the results.
-    if (pCapturedCtx->NumberOfValues != pCapturedCtx->MaxIndex)
+    if (pValuesCtx->NumberOfValues != pValuesCtx->MaxIndex)
     {
         FAIL_TEST(
             "Captured number of values (%u) not equal to max index (%u).\n",
-            pCapturedCtx->NumberOfValues,
-            pCapturedCtx->MaxIndex);
+            pValuesCtx->NumberOfValues,
+            pValuesCtx->MaxIndex);
     }
 
     // Verify that all values are unique.
-    for (ULONG i = 0; i < pCapturedCtx->NumberOfValues; ++i)
+    for (ULONG i = 0; i < pValuesCtx->NumberOfValues; ++i)
     {
-        for (ULONG j = 0; j < pCapturedCtx->NumberOfValues; ++j)
+        for (ULONG j = 0; j < pValuesCtx->NumberOfValues; ++j)
         {
             if (i == j)
             {
                 continue;
             }
 
-            if (pCapturedCtx->Values[i] == pCapturedCtx->Values[j])
+            if (pValuesCtx->Values[i] == pValuesCtx->Values[j])
             {
                 FAIL_TEST("Duplicate values at indices %u and %u\n", i, j);
             }
@@ -201,9 +203,9 @@ TestCaptureRegisterValuesEdgeCases()
     }
 
     // Release context.
-    if (pCapturedCtx)
+    if (pValuesCtx)
     {
-        if (!HeapFree(GetProcessHeap(), 0, pCapturedCtx))
+        if (!HeapFree(GetProcessHeap(), 0, pValuesCtx))
         {
             FAIL_TEST("HeapFree failed: %u\n", GetLastError());
         }

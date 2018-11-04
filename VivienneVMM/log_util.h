@@ -21,6 +21,7 @@ Environment:
 #pragma once
 
 #include "..\common\arch_x64.h"
+#include "..\common\driver_io_types.h"
 
 #include "HyperPlatform\log.h"
 
@@ -75,6 +76,13 @@ Environment:
         (Format),                                                   \
         __VA_ARGS__)
 
+//=============================================================================
+// Utilities
+//=============================================================================
+
+#define LOG_UTIL_UNKNOWN_CHARACTER  '?'
+#define LOG_UTIL_UNKNOWN_STRING     "(UNK)"
+
 //
 // HwBpTypeToChar
 //
@@ -90,8 +98,11 @@ HwBpTypeToChar(
         case HWBP_TYPE::Write:   return 'W';
         case HWBP_TYPE::Io:      return 'I';
         case HWBP_TYPE::Access:  return 'R';
-        default:                 return '?';
+        default:
+            break;
     }
+
+    return LOG_UTIL_UNKNOWN_CHARACTER;
 }
 
 //
@@ -109,8 +120,11 @@ HwBpSizeToChar(
         case HWBP_SIZE::Word:   return 'W';
         case HWBP_SIZE::Qword:  return 'Q';
         case HWBP_SIZE::Dword:  return 'D';
-        default:                return '?';
+        default:
+            break;
     }
+
+    return LOG_UTIL_UNKNOWN_CHARACTER;
 }
 
 //
@@ -141,7 +155,33 @@ GpRegToString(
         case REGISTER_R13: return "r13";
         case REGISTER_R14: return "r14";
         case REGISTER_R15: return "r15";
+        default:
+            break;
     }
 
-    return "(UNK)";
+    return LOG_UTIL_UNKNOWN_STRING;
+}
+
+//
+// MemoryDataTypeToChar
+//
+FORCEINLINE
+CHAR
+MemoryDataTypeToChar(
+    _In_ MEMORY_DATA_TYPE MemoryDataType
+)
+{
+    switch (MemoryDataType)
+    {
+        case MDT_BYTE:   return 'B';
+        case MDT_WORD:   return 'W';
+        case MDT_DWORD:  return 'D';
+        case MDT_QWORD:  return 'Q';
+        case MDT_FLOAT:  return 'F';
+        case MDT_DOUBLE: return 'O';
+        default:
+            break;
+    }
+
+    return LOG_UTIL_UNKNOWN_CHARACTER;
 }

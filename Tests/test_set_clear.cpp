@@ -1,5 +1,7 @@
 #include "tests.h"
 
+#include <cstdio>
+
 #include "test_util.h"
 
 #include "..\VivienneCL\driver_io.h"
@@ -43,6 +45,12 @@ ExerciseBreakpoints()
 {
     USHORT temp = 0;
 
+    // Stealth check.
+    if (!BreakpointStealthCheck())
+    {
+        FAIL_TEST("BreakpointStealthCheck failed.\n");
+    }
+
     // Exercise execution breakpoint.
     (VOID)ExecuteTarget();
 
@@ -51,12 +59,6 @@ ExerciseBreakpoints()
 
     // Exercise write breakpoint.
     g_WriteTarget = temp + 2;
-
-    // Stealth check.
-    if (!BreakpointStealthCheck())
-    {
-        FAIL_TEST("BreakpointStealthCheck failed.\n");
-    }
 }
 
 
