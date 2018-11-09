@@ -115,8 +115,9 @@ A memory expression can either be an absolute, virtual address or an indirect ad
 
     14000           ; effective address = [14000]
     rax             ; effective address = [rax]
-    rcx+rax*8       ; effective address = [rcx+rax*8]
     rcx+rax-20      ; effective address = [rcx+rax-20]
+    rcx+rax*8       ; effective address = [rcx+rax*8]
+    rcx+rax*8-20    ; effective address = [rcx+rax*8-20]
 
 For each callback invocation, the effective address is calculated, validated, and interpreted as a pointer to one of the following user-specified types:
 
