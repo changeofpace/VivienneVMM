@@ -227,6 +227,7 @@ Related Project(s)
 
 HyperPlatform is an Intel VT-x based hypervisor (a.k.a. virtual machine monitor) aiming to provide a thin platform for research on Windows. HyperPlatform is capable of monitoring a wide range of events, including but not limited to, access to virtual/physical memory and system registers, occurrences of interrupts and execution of certain instructions.
 
+
 Notes
 -----
 
