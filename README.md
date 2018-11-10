@@ -3,7 +3,7 @@ VivienneVMM
 
 VivienneVMM is a stealthy debugging framework implemented via an Intel VT-x hypervisor. The driver exposes a hardware breakpoint control interface which allows a user mode client to set and clear breakpoints. These breakpoints are invisible to the guest.
 
-This project uses the [HyperPlatform](https://github.com/tandasat/HyperPlatform) framework by [tandasat](https://github.com/tandasat).
+This project is an extension of the [HyperPlatform](https://github.com/tandasat/HyperPlatform) framework by [tandasat](https://github.com/tandasat).
 
 
 Projects
@@ -218,6 +218,14 @@ The following list of console commands are an example of how to pull HyperPlatfo
     git fetch upstream
     git subtree pull --prefix=VivienneVMM/HyperPlatform upstream master
 
+
+Related Project(s)
+------------------
+
+* HyperPlatform
+* https://github.com/tandasat/HyperPlatform
+
+HyperPlatform is an Intel VT-x based hypervisor (a.k.a. virtual machine monitor) aiming to provide a thin platform for research on Windows. HyperPlatform is capable of monitoring a wide range of events, including but not limited to, access to virtual/physical memory and system registers, occurrences of interrupts and execution of certain instructions.
 
 Notes
 -----
