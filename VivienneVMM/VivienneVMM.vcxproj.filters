@@ -47,9 +47,6 @@
     <ClInclude Include="breakpoint_callbacks.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="process.h">
-      <Filter>VivienneVMM\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="register_util.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
@@ -119,9 +116,6 @@
       <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="dispatch.cpp">
-      <Filter>VivienneVMM\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="process.cpp">
       <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="register_util.cpp">

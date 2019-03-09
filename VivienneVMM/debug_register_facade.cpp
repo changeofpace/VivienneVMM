@@ -113,7 +113,6 @@ FcdInitialization()
     info_print("Initializing debug register facade.");
 
     // Allocate and initialize processor state.
-#pragma warning(suppress : 30030) // NonPagedPoolNx is only available in Win8+.
     pProcessorStates = (PFCD_PROCESSOR_STATE)ExAllocatePoolWithTag(
         NonPagedPool,
         cbProcessorStates,
@@ -123,7 +122,7 @@ FcdInitialization()
         ntstatus = STATUS_NO_MEMORY;
         goto exit;
     }
-
+    //
     RtlSecureZeroMemory(pProcessorStates, cbProcessorStates);
 
     // Initialize module globals.

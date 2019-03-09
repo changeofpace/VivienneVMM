@@ -254,7 +254,6 @@ BpmInitialization()
     info_print("Initializing breakpoint manager.");
 
     // Allocate and initialize processor state.
-#pragma warning(suppress : 30030) // NonPagedPoolNx is only available in Win8+.
     pProcessorStates = (PBPM_PROCESSOR_STATE)ExAllocatePoolWithTag(
         NonPagedPool,
         cbProcessorStates,
@@ -264,7 +263,7 @@ BpmInitialization()
         ntstatus = STATUS_NO_MEMORY;
         goto exit;
     }
-
+    //
     RtlSecureZeroMemory(pProcessorStates, cbProcessorStates);
 
     // NOTE We must install the callback after allocating memory for the
@@ -457,6 +456,7 @@ BpmInitializeBreakpoint(
 )
 {
     PEPROCESS pProcess = NULL;
+    BOOLEAN fHasProcessReference = FALSE;
     ULONG cbCondition = 0;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
@@ -477,6 +477,8 @@ BpmInitializeBreakpoint(
         ntstatus = STATUS_INVALID_PARAMETER_1;
         goto exit;
     }
+    //
+    fHasProcessReference = TRUE;
 
     // Validate Index.
     if (DAR_COUNT <= Index)
@@ -555,7 +557,7 @@ BpmInitializeBreakpoint(
     pBreakpoint->Size = Size;
 
 exit:
-    if (pProcess)
+    if (fHasProcessReference)
     {
         ObDereferenceObject(pProcess);
     }
@@ -1018,7 +1020,8 @@ BpmVmxProcessDebugExceptionEvent(
     // NOTE If this exception occurred outside of the target process then
     //  we must still consume the exception and return success.
     //
-    if (PsVmxGetCurrentProcessId() == pBpmDebugRegister->Breakpoint.ProcessId)
+    if ((ULONG_PTR)PsGetProcessId(PsGetCurrentProcess()) ==
+        pBpmDebugRegister->Breakpoint.ProcessId)
     {
         //
         // Ignore breakpoints which occur outside of user space.
@@ -1205,7 +1208,6 @@ BpmiSetHardwareBreakpoint(
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
     // Allocate nonpaged memory for the IPI context.
-#pragma warning(suppress : 30030) // NonPagedPoolNx is only available in Win8+.
     pIpiContext = (PSETHARDWAREBREAKPOINT_IPI_CONTEXT)ExAllocatePoolWithTag(
         NonPagedPool,
         sizeof(*pIpiContext),
@@ -1215,6 +1217,8 @@ BpmiSetHardwareBreakpoint(
         ntstatus = STATUS_NO_MEMORY;
         goto exit;
     }
+    //
+    RtlSecureZeroMemory(pIpiContext, sizeof(*pIpiContext));
 
     // Initialize the IPI context.
     pIpiContext->ReturnStatus = STATUS_SUCCESS;

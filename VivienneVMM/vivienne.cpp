@@ -20,8 +20,6 @@ Environment:
 
 #include "vivienne.h"
 
-#include <ntstrsafe.h>
-
 #include "breakpoint_manager.h"
 #include "capture_execution_context.h"
 #include "config.h"
@@ -49,6 +47,7 @@ VvmmInitialization(
     PDEVICE_OBJECT pDeviceObject = NULL;
     UNICODE_STRING DeviceName = {};
     UNICODE_STRING SymlinkName = {};
+    BOOLEAN fSymlinkCreated = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
     UNREFERENCED_PARAMETER(pRegistryPath);
@@ -56,12 +55,7 @@ VvmmInitialization(
     info_print("Initializing %ls.", VVMM_DRIVER_NAME_W);
 
     // Initialize the driver.
-    ntstatus = RtlUnicodeStringInit(&DeviceName, VVMM_NT_DEVICE_NAME_W);
-    if (!NT_SUCCESS(ntstatus))
-    {
-        err_print("RtlUnicodeStringInit failed: 0x%08X", ntstatus);
-        goto exit;
-    }
+    DeviceName = RTL_CONSTANT_STRING(VVMM_NT_DEVICE_NAME_W);
 
     ntstatus = IoCreateDevice(
         pDriverObject,
@@ -74,24 +68,21 @@ VvmmInitialization(
         &pDeviceObject);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("IoCreateDevice failed: 0x%08X", ntstatus);
+        err_print("IoCreateDevice failed: 0x%X", ntstatus);
         goto exit;
     }
 
-    ntstatus = RtlUnicodeStringInit(&SymlinkName, VVMM_SYMLINK_NAME_W);
-    if (!NT_SUCCESS(ntstatus))
-    {
-        err_print("RtlUnicodeStringInit failed: 0x%08X", ntstatus);
-        goto exit;
-    }
+    SymlinkName = RTL_CONSTANT_STRING(VVMM_SYMLINK_NAME_W);
 
     // Create a symlink for the user mode client to open.
     ntstatus = IoCreateSymbolicLink(&SymlinkName, &DeviceName);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("IoCreateSymbolicLink failed: 0x%08X", ntstatus);
+        err_print("IoCreateSymbolicLink failed: 0x%X", ntstatus);
         goto exit;
     }
+    //
+    fSymlinkCreated = TRUE;
 
 // Accessing undocumented members of a DRIVER_OBJECT structure outside of
 //  DriverEntry or DriverUnload.
@@ -128,6 +119,15 @@ VvmmInitialization(
 exit:
     if (!NT_SUCCESS(ntstatus))
     {
+        if (fSymlinkCreated)
+        {
+            NTSTATUS UnwindStatus = IoDeleteSymbolicLink(&SymlinkName);
+            if (!NT_SUCCESS(UnwindStatus))
+            {
+                err_print("IoDeleteSymbolicLink failed: 0x%X", UnwindStatus);
+            }
+        }
+
         if (pDeviceObject)
         {
             IoDeleteDevice(pDeviceObject);
@@ -163,18 +163,12 @@ VvmmTermination(
     }
 
     // Release our symbolic link.
-    ntstatus = RtlUnicodeStringInit(&SymlinkName, VVMM_SYMLINK_NAME_W);
-    if (NT_SUCCESS(ntstatus))
+    SymlinkName = RTL_CONSTANT_STRING(VVMM_SYMLINK_NAME_W);
+
+    ntstatus = IoDeleteSymbolicLink(&SymlinkName);
+    if (!NT_SUCCESS(ntstatus))
     {
-        ntstatus = IoDeleteSymbolicLink(&SymlinkName);
-        if (!NT_SUCCESS(ntstatus))
-        {
-            err_print("IoDeleteSymbolicLink failed: 0x%X", ntstatus);
-        }
-    }
-    else
-    {
-        err_print("RtlUnicodeStringInit failed: 0x%X", ntstatus);
+        err_print("IoDeleteSymbolicLink failed: 0x%X", ntstatus);
     }
 
     // Release our device object.

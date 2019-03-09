@@ -22,6 +22,7 @@
     <ConfigurationType>Driver</ConfigurationType>
     <DriverType>WDM</DriverType>
     <DriverTargetPlatform>Desktop</DriverTargetPlatform>
+    <SpectreMitigation>false</SpectreMitigation>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <TargetVersion>Windows7</TargetVersion>
@@ -30,6 +31,7 @@
     <ConfigurationType>Driver</ConfigurationType>
     <DriverType>WDM</DriverType>
     <DriverTargetPlatform>Desktop</DriverTargetPlatform>
+    <SpectreMitigation>false</SpectreMitigation>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -54,14 +56,14 @@
       <WarningLevel>Level4</WarningLevel>
       <AdditionalIncludeDirectories>$(SolutionDir)VivienneVMM\HyperPlatform\;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <DisableSpecificWarnings>5040;4603;4627;4986;4987;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>30030;5040;4603;4627;4986;4987;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)VivienneVMM\HyperPlatform\;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <DisableSpecificWarnings>5040;4748;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>30030;5040;4748;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -95,7 +97,6 @@
     <ClInclude Include="HyperPlatform\HyperPlatform\vmm.h" />
     <ClInclude Include="ioctl_validation.h" />
     <ClInclude Include="log_util.h" />
-    <ClInclude Include="process.h" />
     <ClInclude Include="register_util.h" />
     <ClInclude Include="vivienne.h" />
   </ItemGroup>
@@ -118,7 +119,6 @@
     <ClCompile Include="HyperPlatform\HyperPlatform\vm.cpp" />
     <ClCompile Include="HyperPlatform\HyperPlatform\vmm.cpp" />
     <ClCompile Include="ioctl_validation.cpp" />
-    <ClCompile Include="process.cpp" />
     <ClCompile Include="register_util.cpp" />
     <ClCompile Include="vivienne.cpp" />
   </ItemGroup>
