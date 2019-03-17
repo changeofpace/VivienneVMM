@@ -400,7 +400,7 @@ _Use_decl_annotations_ static void VmmpHandleException(
       NTSTATUS ntstatus = BpmVmxProcessDebugExceptionEvent(
         guest_context->gp_regs,
         &guest_context->flag_reg,
-        guest_context->ip);
+        &guest_context->ip);
       if (!NT_SUCCESS(ntstatus))
       {
         // If the breakpoint manager did not handle the exception then
@@ -929,9 +929,7 @@ _Use_decl_annotations_ static void VmmpHandleDrAccess(
     }
   }
 
-  //
   // TODO Use the Dr6 and Dr7 reserved-bits enforcement below in BPM and FCD.
-  //
 #ifdef CFG_ENABLE_DEBUGREGISTERFACADE
   NTSTATUS ntstatus = STATUS_SUCCESS;
 

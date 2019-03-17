@@ -74,12 +74,12 @@ typedef struct _DB_CONDITION
 //
 // Event tracking.
 //
-typedef struct _BREAKPOINT_MANAGER_STATISTICS
+typedef struct _BPM_STATISTICS
 {
     volatile LONG64 HandledDebugExceptions;
     volatile LONG64 UnhandledDebugExceptions;
     volatile LONG64 UnownedBreakpointsSeen;
-} BREAKPOINT_MANAGER_STATISTICS, *PBREAKPOINT_MANAGER_STATISTICS;
+} BPM_STATISTICS, *PBPM_STATISTICS;
 
 //
 // A bookkeeping entry used to associate callbacks with installed breakpoints.
@@ -112,12 +112,12 @@ typedef struct _BPM_PROCESSOR_STATE
 //
 // Each BPM-managed breakpoint is (un)installed via the following protocol:
 //
-//      1: Validate breakpoint parameters and construct a hardware breakpoint.
+//      1. Validate breakpoint parameters and construct a hardware breakpoint.
 //
-//      2: Issue an IPI broadcast to synchronously execute the (un)install
+//      2. Issue an IPI broadcast to synchronously execute the (un)install
 //          routine on all logical processors.
 //
-//      3: The broadcast routine executes the vmcall for setting a breakpoint.
+//      3. The broadcast routine executes the vmcall for setting a breakpoint.
 //          This routine modifies the debug registers of the guest to reflect
 //          the desired hardware breakpoint. We must modify the guest's debug
 //          registers in VMX root mode so that we do not trigger MovDr VM
@@ -137,7 +137,7 @@ typedef struct _BPM_PROCESSOR_STATE
 //
 typedef struct _BREAKPOINT_MANAGER_STATE
 {
-    BREAKPOINT_MANAGER_STATISTICS Statistics;
+    BPM_STATISTICS Statistics;
     BOOLEAN ProcessCallbackInstalled;
 
     //
@@ -227,7 +227,17 @@ BpmiVmxIsValidConditionForBreakpoint(
 _IRQL_requires_(HIGH_LEVEL)
 _Check_return_
 static
-NTSTATUS
+VOID
+BpmiVmxInvokeBreakpointCallback(
+    _In_ PBPM_DEBUG_ADDRESS_REGISTER pBpmDebugRegister,
+    _Inout_ GpRegisters* pGuestRegisters,
+    _Inout_ FlagRegister* pGuestFlags,
+    _Inout_ PULONG_PTR pGuestIp
+);
+
+_IRQL_requires_(HIGH_LEVEL)
+static
+VOID
 BpmiVmxConsumeDebugException(
     _In_ FlagRegister* GuestFlags
 );
@@ -422,7 +432,8 @@ BpmQuerySystemDebugState(
 
         for (ULONG j = 0; j < DAR_COUNT; ++j)
         {
-            pQuery[j].ProcessId = pBpmDebugRegisters[j].Breakpoint.ProcessId;
+            pQuery[j].ProcessId =
+                (ULONG_PTR)pBpmDebugRegisters[j].Breakpoint.ProcessId;
             pQuery[j].Address = pBpmDebugRegisters[j].Breakpoint.Address;
             pQuery[j].Type = pBpmDebugRegisters[j].Breakpoint.Type;
             pQuery[j].Size = pBpmDebugRegisters[j].Breakpoint.Size;
@@ -518,8 +529,8 @@ BpmInitializeBreakpoint(
     //
     // Validate Size.
     //
-    // Intel Manual: Breakpoint Field Recognition
-    // ------------------------------------------
+    // 17.2.5 Breakpoint Field Recognition
+    //
     // "The LENn fields permit specification of a 1-, 2-, 4- or 8-byte range,
     //  beginning at the linear address specified in the corresponding debug
     //  register (DRn). Two-byte ranges must be aligned on word boundaries;
@@ -535,10 +546,8 @@ BpmInitializeBreakpoint(
         case HWBP_SIZE::Qword:  cbCondition = 8; break;
         case HWBP_SIZE::Dword:  cbCondition = 4; break;
         default:
-        {
             ntstatus = STATUS_INVALID_PARAMETER_5;
             goto exit;
-        }
     }
 
     // Enforce address alignment for data breakpoints.
@@ -550,7 +559,7 @@ BpmInitializeBreakpoint(
     }
 
     // Set out parameters.
-    pBreakpoint->ProcessId = ProcessId;
+    pBreakpoint->ProcessId = (HANDLE)ProcessId;
     pBreakpoint->Index = Index;
     pBreakpoint->Address = Address;
     pBreakpoint->Type = Type;
@@ -649,7 +658,10 @@ BpmSetHardwareBreakpoint(
         goto exit;
     }
 
-    ntstatus = BpmSetHardwareBreakpoint(&Breakpoint, pCallbackFn, pCallbackCtx);
+    ntstatus = BpmSetHardwareBreakpoint(
+        &Breakpoint,
+        pCallbackFn,
+        pCallbackCtx);
     if (!NT_SUCCESS(ntstatus))
     {
         err_print("BpmSetHardwareBreakpoint failed: 0x%X", ntstatus);
@@ -748,68 +760,77 @@ BpmVmxSetHardwareBreakpoint(
     PSETHARDWAREBREAKPOINT_IPI_CONTEXT pIpiContext =
         (PSETHARDWAREBREAKPOINT_IPI_CONTEXT)pVmxContext;
     PHARDWARE_BREAKPOINT pBreakpoint = &pIpiContext->Breakpoint;
-    ULONG Index = pBreakpoint->Index;
-    DR7 NewDr7 = {UtilVmRead(VmcsField::kGuestDr7)};
     DR7 PreviousDr7 = {UtilVmRead(VmcsField::kGuestDr7)};
+    DR7 NewDr7 = PreviousDr7;
+    ULONG Index = pBreakpoint->Index;
     VmxStatus vmxstatus = VmxStatus::kOk;
-    BOOLEAN UndoGuestModifications = FALSE;
-    ULONG_PTR PreviousDarValue = 0;
+    BOOLEAN fRevertDr7 = FALSE;
     ULONG nProcessor = 0;
     PBPM_DEBUG_ADDRESS_REGISTER pBpmDebugRegister = NULL;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
+    //
     // Store the current value of the target debug address register and
     //  configure the new DR7 value.
+    //
     switch (Index)
     {
+        //
+        // Dr0
+        //
         case 0:
-        {
-            // Dr0.
-            PreviousDarValue = __readdr(0);
             NewDr7.G0 = pIpiContext->Enable;
             NewDr7.RW0 = (ULONG_PTR)pBreakpoint->Type;
             NewDr7.Len0 = (ULONG_PTR)pBreakpoint->Size;
             break;
-        }
+
+        //
+        // Dr1
+        //
         case 1:
-        {
-            // Dr1.
-            PreviousDarValue = __readdr(1);
             NewDr7.G1 = pIpiContext->Enable;
             NewDr7.RW1 = (ULONG_PTR)pBreakpoint->Type;
             NewDr7.Len1 = (ULONG_PTR)pBreakpoint->Size;
             break;
-        }
+
+        //
+        // Dr2
+        //
         case 2:
-        {
-            // Dr2.
-            PreviousDarValue = __readdr(2);
             NewDr7.G2 = pIpiContext->Enable;
             NewDr7.RW2 = (ULONG_PTR)pBreakpoint->Type;
             NewDr7.Len2 = (ULONG_PTR)pBreakpoint->Size;
             break;
-        }
+
+        //
+        // Dr3
+        //
         case 3:
-        {
-            // Dr3.
-            PreviousDarValue = __readdr(3);
             NewDr7.G3 = pIpiContext->Enable;
             NewDr7.RW3 = (ULONG_PTR)pBreakpoint->Type;
             NewDr7.Len3 = (ULONG_PTR)pBreakpoint->Size;
             break;
-        }
+
+        //
+        // Invalid debug address register index.
+        //
         default:
-        {
             ntstatus = STATUS_INVALID_TASK_INDEX;
             goto exit;
-        }
     }
 
-    // Write the new DR7 value to the guest's context.
+    //
+    // Indicate that we must now revert the guest Dr7 VMCS field if we fail
+    //  after the following line.
+    //
+    fRevertDr7 = TRUE;
+
+    //
+    // Write the new DR7 value to the guest's VMCS.
+    //
     vmxstatus = UtilVmWrite(VmcsField::kGuestDr7, NewDr7.All);
     if (VmxStatus::kOk != vmxstatus)
     {
-        UndoGuestModifications = TRUE;
         ntstatus = STATUS_HV_OPERATION_DENIED;
         goto exit;
     }
@@ -821,7 +842,8 @@ BpmVmxSetHardwareBreakpoint(
     //
     // NOTE Installing a hardware breakpoint from kernel code causes the
     //  breakpoint to apply to every process on the system. This is unlike
-    //  breakpoints set from user code which only affect the current thread.
+    //  breakpoints set from user mode code which only affect the current
+    //  thread.
     //
     switch (Index)
     {
@@ -830,11 +852,8 @@ BpmVmxSetHardwareBreakpoint(
         case 2: __writedr(2, pBreakpoint->Address); break;
         case 3: __writedr(3, pBreakpoint->Address); break;
         default:
-        {
-            UndoGuestModifications = TRUE;
             ntstatus = STATUS_HV_INVALID_VP_STATE;
             goto exit;
-        }
     }
 
     // Update the breakpoint manager's internal state.
@@ -852,37 +871,27 @@ BpmVmxSetHardwareBreakpoint(
     pBpmDebugRegister->CallbackCtx = pIpiContext->CallbackCtx;
 
 exit:
-    if (UndoGuestModifications)
+    if (!NT_SUCCESS(ntstatus))
     {
         //
-        // We encountered an error which has corrupted the debug registers in
-        //  the guest's context. Attempt to revert any changes we may have
-        //  made. If we fail at any point during this reset then the values of
-        //  the affected debug address registers in the guest become undefined
-        //  for this processor. Expect random behavior, e.g., processes
-        //  crashing if they trigger a breakpoint.
+        // Attempt to revert the guest Dr7 VMCS field to its previous value. If
+        //  we fail during this unwind then system behavior is undefined on VM
+        //  entry.
         //
-        vmxstatus = UtilVmWrite(VmcsField::kGuestDr7, NewDr7.All);
-        if (VmxStatus::kOk != vmxstatus)
+        if (fRevertDr7)
         {
-            ntstatus = STATUS_HV_INVALID_VP_STATE;
-        }
-
-        switch (Index)
-        {
-            case 0: __writedr(0, pBreakpoint->Address); break;
-            case 1: __writedr(1, pBreakpoint->Address); break;
-            case 2: __writedr(2, pBreakpoint->Address); break;
-            case 3: __writedr(3, pBreakpoint->Address); break;
-            default:
+            vmxstatus = UtilVmWrite(VmcsField::kGuestDr7, NewDr7.All);
+            if (VmxStatus::kOk != vmxstatus)
             {
                 ntstatus = STATUS_HV_INVALID_VP_STATE;
             }
         }
     }
 
+    //
     // The context's return-ntstatus must only be updated to a failing status
     //  code in the event of a failure.
+    //
     if (!NT_SUCCESS(ntstatus) &&
         STATUS_HV_INVALID_VP_STATE != pIpiContext->ReturnStatus)
     {
@@ -912,12 +921,24 @@ exit:
 //  non-BPM-managed breakpoint conditions as pending debug exceptions. If the
 //  debug register facade is enabled then this scenario will never happen.
 //
+// TODO Analyze the exit qualification when a #DB is triggered for the
+//  following scenarios:
+//
+//      1. Multiple debug address registers have the same breakpoint address
+//          and corresponding breakpoint condition.
+//
+//      2. An execution breakpoint and a data-read breakpoint have the same
+//          breakpoint address.
+//
+//      3. A data-read breakpoint and a data-write breakpoint have the same
+//          breakpoint address.
+//
 _Use_decl_annotations_
 NTSTATUS
 BpmVmxProcessDebugExceptionEvent(
     GpRegisters* pGuestRegisters,
     FlagRegister* pGuestFlags,
-    ULONG_PTR GuestIp
+    PULONG_PTR pGuestIp
 )
 {
     DebugExceptionQualification ExitQualification =
@@ -926,24 +947,28 @@ BpmVmxProcessDebugExceptionEvent(
     ULONG nProcessor = 0;
     DB_CONDITION Condition = {};
     PBPM_DEBUG_ADDRESS_REGISTER pBpmDebugRegister = NULL;
-    BOOLEAN ConsumeThisException = FALSE;
+    BOOLEAN fHandleThisException = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    bpm_verbose_print("Entering #DB VM exit handler.");
+    bpm_verbose_print("BPM: Entering #DB VM exit handler.");
 
-    // Forward irrelevant exception causes to the guest.
+    //
+    // Forward irrelevant debug exceptions to the guest.
+    //
     if (ExitQualification.fields.debug_register_access)
     {
         bpm_verbose_print("BPM: Observed debug register access during #DB.");
-        ntstatus = STATUS_INVALID_PARAMETER_1;
+        ntstatus = STATUS_UNSUCCESSFUL;
         goto exit;
     }
     else if (ExitQualification.fields.single_step_or_branch)
     {
+        //
         // NOTE If this occurs then a process may be attempting some type of
         //  anti-debug technique.
+        //
         bpm_verbose_print("BPM: Observed single step or branch during #DB.");
-        ntstatus = STATUS_INVALID_PARAMETER_2;
+        ntstatus = STATUS_UNSUCCESSFUL;
         goto exit;
     }
 
@@ -957,8 +982,10 @@ BpmVmxProcessDebugExceptionEvent(
     //
     for (ULONG i = 0; i < DAR_COUNT; ++i)
     {
+        //
         // Skip debug address registers with unmet conditions.
-        if (!(ExitQualification.fields.dar_bitmap & DAR_INDEX_TO_BITMAP(i)))
+        //
+        if (!(ExitQualification.fields.condition_bitmap & DAR_INDEX_TO_BITMAP(i)))
         {
             continue;
         }
@@ -984,13 +1011,17 @@ BpmVmxProcessDebugExceptionEvent(
         pBpmDebugRegister =
             &g_BreakpointManager.Processors[nProcessor].DebugRegisters[i];
 
+        //
         // Does the BPM-managed breakpoint in Dr[i] match the condition?
-        ConsumeThisException = BpmiVmxIsValidConditionForBreakpoint(
+        //
+        fHandleThisException = BpmiVmxIsValidConditionForBreakpoint(
             pBpmDebugRegister,
             &Condition);
-        if (!ConsumeThisException)
+        if (!fHandleThisException)
         {
+            //
             // The breakpoint manager is not responsible for this condition.
+            //
             InterlockedIncrement64(
                 &g_BreakpointManager.Statistics.UnownedBreakpointsSeen);
 
@@ -998,74 +1029,65 @@ BpmVmxProcessDebugExceptionEvent(
                 "BPM: Encountered #DB caused by unowned breakpoint (%lld).",
                 g_BreakpointManager.Statistics.UnownedBreakpointsSeen);
 
+            //
             // Continue enumerating the dar_bitmap.
+            //
             continue;
         }
 
+        //
         // The breakpoint manager is responsible for this condition.
+        //
         break;
     }
     //
-    if (!ConsumeThisException)
+    if (!fHandleThisException)
     {
-        bpm_verbose_print("BPM: Forwarding #DB to guest.");
-        ntstatus = STATUS_INVALID_PARAMETER_3;
+        ntstatus = STATUS_UNSUCCESSFUL;
         goto exit;
     }
+
+    //-------------------------------------------------------------------------
+    // NOTE We must now return a succeeding status code so that the exception
+    //  is not forwarded to the guest on VM entry.
+    //-------------------------------------------------------------------------
 
     //
     // If the breakpoint occurred in the target process then execute the
     //  registered callback.
     //
-    // NOTE If this exception occurred outside of the target process then
-    //  we must still consume the exception and return success.
-    //
-    if ((ULONG_PTR)PsGetProcessId(PsGetCurrentProcess()) ==
+    if (PsGetProcessId(PsGetCurrentProcess()) ==
         pBpmDebugRegister->Breakpoint.ProcessId)
     {
-        //
-        // Ignore breakpoints which occur outside of user space.
-        //
-        // NOTE This logic must remain synchronized with the address validation
-        //  logic in BpmInitializeBreakpoint.
-        //
-        if ((ULONG_PTR)MM_HIGHEST_USER_ADDRESS > GuestIp)
-        {
-            pBpmDebugRegister->CallbackFn(
-                Condition.Index,
-                pGuestRegisters,
-                pGuestFlags,
-                GuestIp,
-                pBpmDebugRegister->CallbackCtx);
-        }
+        BpmiVmxInvokeBreakpointCallback(
+            pBpmDebugRegister,
+            pGuestRegisters,
+            pGuestFlags,
+            pGuestIp);
     }
 
-    // Consume the exception.
-    ntstatus = BpmiVmxConsumeDebugException(pGuestFlags);
-    if (!NT_SUCCESS(ntstatus))
-    {
-        // Failing to consume this exception will cause undefined behavior on
-        //  VM entry.
-        err_print("BpmiVmxConsumeDebugException failed: 0x%X", ntstatus);
-        ntstatus = STATUS_HV_INVALID_VP_STATE;
-        goto exit;
-    }
+    //
+    // TODO We currently always consume the debug exception because we do not
+    //  handle the scenario where a debug exception was triggered by multiple
+    //  debug address registers (i.e., the exit qualification indicates that
+    //  multiple conditions were met). Technically, we should only consume the
+    //  exception if it is a fault (i.e., an execution breakpoint).
+    //
+    BpmiVmxConsumeDebugException(pGuestFlags);
+
+    //
+    // Update statistics.
+    //
+    InterlockedIncrement64(
+        &g_BreakpointManager.Statistics.HandledDebugExceptions);
 
 exit:
-    // Update statistics.
-    if (NT_SUCCESS(ntstatus))
-    {
-        InterlockedIncrement64(
-            &g_BreakpointManager.Statistics.HandledDebugExceptions);
-
-        bpm_verbose_print("BPM: Consuming this exception.");
-    }
-    else
+    if (!NT_SUCCESS(ntstatus))
     {
         InterlockedIncrement64(
             &g_BreakpointManager.Statistics.UnhandledDebugExceptions);
 
-        bpm_verbose_print("BPM: Ignoring this exception.");
+        bpm_verbose_print("BPM: Forwarding #DB to guest.");
     }
 
     return ntstatus;
@@ -1114,7 +1136,7 @@ BpmiCreateProcessNotifyRoutine(
             pBreakpoint =
                 &g_BreakpointManager.Processors[p].DebugRegisters[i].Breakpoint;
 
-            if (hProcessId == (HANDLE)pBreakpoint->ProcessId)
+            if (hProcessId == pBreakpoint->ProcessId)
             {
                 ntstatus = BpmiClearHardwareBreakpoint(i);
                 if (!NT_SUCCESS(ntstatus))
@@ -1277,7 +1299,7 @@ BpmiClearHardwareBreakpoint(
 
     // Initialize the breakpoint here instead of using the constructor function
     //  to avoid unnecessary validation.
-    Breakpoint.ProcessId = 0;
+    Breakpoint.ProcessId = NULL;
     Breakpoint.Index = Index;
     Breakpoint.Address = 0;
     Breakpoint.Type = (HWBP_TYPE)0;
@@ -1355,6 +1377,8 @@ BpmiCleanupBreakpoints()
 // Params
 //  Index: Debug address register number from DebugExceptionQualification.
 //
+// See: Table 17-2. Debug Exception Conditions
+//
 _Use_decl_annotations_
 static
 NTSTATUS
@@ -1371,9 +1395,10 @@ BpmiVmxInterpretBreakpointCondition(
 
     switch (Index)
     {
+        //
+        // Dr0
+        //
         case 0:
-        {
-            // Dr0.
             pCondition->Index = 0;
             pCondition->Address = __readdr(0);
             pCondition->Local = Dr7.L0;
@@ -1381,10 +1406,11 @@ BpmiVmxInterpretBreakpointCondition(
             pCondition->Type = (HWBP_TYPE)Dr7.RW0;
             pCondition->Size = (HWBP_SIZE)Dr7.Len0;
             break;
-        }
+
+        //
+        // Dr1
+        //
         case 1:
-        {
-            // Dr1.
             pCondition->Index = 1;
             pCondition->Address = __readdr(1);
             pCondition->Local = Dr7.L1;
@@ -1392,10 +1418,11 @@ BpmiVmxInterpretBreakpointCondition(
             pCondition->Type = (HWBP_TYPE)Dr7.RW1;
             pCondition->Size = (HWBP_SIZE)Dr7.Len1;
             break;
-        }
+
+        //
+        // Dr2
+        //
         case 2:
-        {
-            // Dr2.
             pCondition->Index = 2;
             pCondition->Address = __readdr(2);
             pCondition->Local = Dr7.L2;
@@ -1403,10 +1430,11 @@ BpmiVmxInterpretBreakpointCondition(
             pCondition->Type = (HWBP_TYPE)Dr7.RW2;
             pCondition->Size = (HWBP_SIZE)Dr7.Len2;
             break;
-        }
+
+        //
+        // Dr3
+        //
         case 3:
-        {
-            // Dr3.
             pCondition->Index = 3;
             pCondition->Address = __readdr(3);
             pCondition->Local = Dr7.L3;
@@ -1414,12 +1442,13 @@ BpmiVmxInterpretBreakpointCondition(
             pCondition->Type = (HWBP_TYPE)Dr7.RW3;
             pCondition->Size = (HWBP_SIZE)Dr7.Len3;
             break;
-        }
+
+        //
+        // Invalid debug address register index.
+        //
         default:
-        {
-            ntstatus = STATUS_INVALID_TASK_INDEX;
+            ntstatus = STATUS_INVALID_PARAMETER_1;
             goto exit;
-        }
     }
 
 exit:
@@ -1435,7 +1464,8 @@ exit:
 // NOTE We do not compare the L0-L3 or G0-G3 fields because they are not
 //  guaranteed to reflect the debug exception exit qualification.
 //  
-//  See: Exit Qualification for Debug Exceptions (Intel Manual).
+// See: Table 17-2. Debug Exception Conditions
+// See: Table 27-1. Exit Qualification for Debug Exceptions
 //
 _Use_decl_annotations_
 static
@@ -1456,32 +1486,142 @@ BpmiVmxIsValidConditionForBreakpoint(
 
 
 //
-// BpmiVmxConsumeDebugException
-//
-// Set the resume flag in the RFLAGS of the guest context so that the guest can
-//  successfully re-execute the original instruction on VM entry without
-//  causing a second debug exception.
+// BpmiVmxInvokeBreakpointCallback
 //
 _Use_decl_annotations_
 static
-NTSTATUS
+VOID
+BpmiVmxInvokeBreakpointCallback(
+    PBPM_DEBUG_ADDRESS_REGISTER pBpmDebugRegister,
+    GpRegisters* pGuestRegisters,
+    FlagRegister* pGuestFlags,
+    PULONG_PTR pGuestIp
+)
+{
+    ULONG_PTR GuestIpOriginal = 0;
+    FlagRegister GuestFlagsOriginal = {};
+    VmxStatus vmxstatus = VmxStatus::kOk;
+
+    //
+    // Ignore breakpoints which occur outside of user space.
+    //
+    // NOTE This logic must remain synchronized with the address validation
+    //  logic in BpmInitializeBreakpoint.
+    //
+    if ((ULONG_PTR)MM_HIGHEST_USER_ADDRESS <= (*pGuestIp))
+    {
+        warn_print("Unexpected breakpoint address: 0x%IX", (*pGuestIp));
+        goto exit;
+    }
+
+    //
+    // Store the values of the guest instruction pointer and FLAGS register
+    //  so that we can determine if the callback modified these variables.
+    //
+    GuestIpOriginal = *pGuestIp;
+    GuestFlagsOriginal.all = pGuestFlags->all;
+
+    //
+    // Invoke the callback.
+    //
+    pBpmDebugRegister->CallbackFn(
+        pBpmDebugRegister->Breakpoint.Index,
+        pGuestRegisters,
+        pGuestFlags,
+        pGuestIp,
+        pBpmDebugRegister->CallbackCtx);
+
+    //
+    // If the callback modified the guest instruction pointer or FLAGS register
+    //  then we must update the guest VMCS to reflect these changes. We must
+    //  manually modify the guest VMCS because HyperPlatform does not update
+    //  these VMCS fields on VM entry.
+    //
+    if (GuestIpOriginal != (*pGuestIp))
+    {
+        bpm_verbose_print(
+            "BPM: Modifying guest instruction pointer: 0x%IX -> 0x%IX",
+            GuestIpOriginal,
+            *pGuestIp);
+
+        vmxstatus = UtilVmWrite(VmcsField::kGuestRip, (*pGuestIp));
+        if (VmxStatus::kOk != vmxstatus)
+        {
+            err_print("Failed to set guest instruction pointer to 0x%IX",
+                *pGuestIp);
+        }
+    }
+
+    if (GuestFlagsOriginal.all != pGuestFlags->all)
+    {
+        bpm_verbose_print(
+            "BPM: Modifying guest flags register: 0x%IX -> 0x%IX",
+            GuestFlagsOriginal.all,
+            pGuestFlags->all);
+
+        vmxstatus = UtilVmWrite(VmcsField::kGuestRflags, pGuestFlags->all);
+        if (VmxStatus::kOk != vmxstatus)
+        {
+            err_print("Failed to set guest flags register to 0x%IX",
+                GuestFlagsOriginal);
+        }
+    }
+
+exit:
+    return;
+}
+
+
+//
+// BpmiVmxConsumeDebugException
+//
+// Set the resume flag in the guest flags VMCS field so that the guest can
+//  successfully re-execute the original instruction on VM entry.
+//
+// NOTE The guest is unable to use the resume flag as a detection vector
+//  because the 'PUSHFD' and 'PUSHFQ' instructions clear the value of the RF
+//  flag in the FLAGS image stored on the stack.
+//
+//  See: PUSHF/PUSHFD/PUSHFQ - Push EFLAGS Register onto the Stack
+//
+_Use_decl_annotations_
+static
+VOID
 BpmiVmxConsumeDebugException(
     FlagRegister* pGuestFlags
 )
 {
-    VmxStatus vmxstatus = VmxStatus::kErrorWithoutStatus;
-    NTSTATUS ntstatus = STATUS_SUCCESS;
+    ULONG_PTR VmxErrorCode = 0;
+    VmxStatus vmxstatus = VmxStatus::kOk;
 
+    //
     // Set the resume flag.
+    //
     pGuestFlags->fields.rf = 1;
 
-    // NOTE We must manually perform the write here because the guest flags
-    //  variable is not written to the guest state on VM entry.
+    //
+    // We manually update the guest flags VMCS field because HyperPlatform does
+    //  not apply changes to the flags variable to the guest state before VM
+    //  entry.
+    //
     vmxstatus = UtilVmWrite(VmcsField::kGuestRflags, pGuestFlags->all);
-    if (VmxStatus::kOk == vmxstatus)
-    {
-        ntstatus = STATUS_SUCCESS;
-    }
 
-    return ntstatus;
+    //
+    // If we fail to set the resume flag then the guest will enter an infinite
+    //  #DB trigger loop if this is an execution breakpoint.
+    //
+    if (VmxStatus::kOk != vmxstatus)
+    {
+        if (VmxStatus::kErrorWithStatus == vmxstatus)
+        {
+            VmxErrorCode = UtilVmRead(VmcsField::kVmInstructionError);
+        }
+
+        KeBugCheckEx(
+            MANUALLY_INITIATED_CRASH,
+            __readeflags(),
+            (ULONG_PTR)vmxstatus,
+            VmxErrorCode,
+            0);
+    }
 }

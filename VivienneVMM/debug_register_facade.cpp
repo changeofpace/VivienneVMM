@@ -330,8 +330,11 @@ FcdVmxLogMovDrEvent(
             err_print(
                 "FCD: Unexpected MovDrDirection: %d",
                 ExitQualification.fields.direction);
-            break;
+            goto exit;
     }
+
+exit:
+    return;
 }
 
 

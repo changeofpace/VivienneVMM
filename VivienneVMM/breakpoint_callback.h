@@ -2,7 +2,7 @@
 
 Module Name:
     
-    breakpoint_callbacks.h
+    breakpoint_callback.h
 
 Abstract:
 
@@ -34,12 +34,19 @@ Environment:
 //  will execute in VMX root mode inside the process which caused the
 //  exception.
 //
+// Callbacks can modify guest state using the guest registers, rflags, and
+//  instruction pointer parameters. All guest state changes are applied to the
+//  guest on VM entry.
+//
+// NOTE The breakpoint manager does not configure host CR3 before invoking
+//  callbacks.
+//
 typedef NTSTATUS (FASTCALL* FPBREAKPOINT_CALLBACK)(
     _In_ ULONG OwnerIndex,
     _Inout_ GpRegisters* pGuestRegisters,
     _Inout_ FlagRegister* pGuestFlags,
-    _In_ ULONG_PTR GuestIp,
-    _In_ PVOID pCallbackCtx
+    _Inout_ PULONG_PTR pGuestIp,
+    _Inout_ PVOID pCallbackCtx
     );
 
 //=============================================================================
@@ -52,6 +59,6 @@ BpcVmxLogGeneralPurposeRegisters(
     _In_ ULONG OwnerIndex,
     _Inout_ GpRegisters* pGuestRegisters,
     _Inout_ FlagRegister* pGuestFlags,
-    _In_ ULONG_PTR GuestIp,
-    _In_ PVOID pCallbackCtx
+    _Inout_ PULONG_PTR pGuestIp,
+    _Inout_ PVOID pCallbackCtx
 );

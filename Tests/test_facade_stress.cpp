@@ -72,12 +72,16 @@ GenerateRandomThreadLocalBreakpointParameters(
     *pType = {};
     *pSize = {};
 
+    //
     // Address must be a valid userspace address.
+    //
     *pAddress = (ULONG_PTR)GenerateBoundedRandomValue(
         MIN_VALID_USER_ADDRESS,
         MAX_VALID_USER_ADDRESS);
 
+    //
     // Type.
+    //
     switch ((HWBP_TYPE)(RANDOM_ULONG % 3))
     {
         case HWBP_TYPE::Execute: Type = HWBP_TYPE::Execute; break;
@@ -86,38 +90,34 @@ GenerateRandomThreadLocalBreakpointParameters(
         default:                 Type = HWBP_TYPE::Access;  break;
     }
 
+    //
     // Size.
     //
     // NOTE Data breakpoints must be aligned based on the size-condition.
+    //
     switch ((HWBP_SIZE)(RANDOM_ULONG % 4))
     {
         case HWBP_SIZE::Byte:
-        {
             Size = HWBP_SIZE::Byte;
             break;
-        }
+
         case HWBP_SIZE::Word:
-        {
             Size = HWBP_SIZE::Word;
             ALIGN_DOWN_POINTER_BY(pAddress, sizeof(WORD));
             break;
-        }
+
         case HWBP_SIZE::Qword:
-        {
             Size = HWBP_SIZE::Qword;
             ALIGN_DOWN_POINTER_BY(pAddress, sizeof(DWORD64));
             break;
-        }
+
         case HWBP_SIZE::Dword:
-        {
             __fallthrough;
-        }
+
         default:
-        {
             Size = HWBP_SIZE::Dword;
             ALIGN_DOWN_POINTER_BY(pAddress, sizeof(DWORD));
             break;
-        }
     }
 
     // Set out parameters.

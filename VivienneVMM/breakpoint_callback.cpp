@@ -2,7 +2,7 @@
 
 Module Name:
 
-    breakpoint_callbacks.cpp
+    breakpoint_callback.cpp
 
 Abstract:
 
@@ -18,7 +18,7 @@ Environment:
 
 --*/
 
-#include "breakpoint_callbacks.h"
+#include "breakpoint_callback.h"
 
 #include "log_util.h"
 
@@ -40,7 +40,7 @@ BpcVmxLogGeneralPurposeRegisters(
     ULONG OwnerIndex,
     GpRegisters* pGuestRegisters,
     FlagRegister* pGuestFlags,
-    ULONG_PTR GuestIp,
+    PULONG_PTR pGuestIp,
     PVOID pCallbackCtx
 )
 {
@@ -49,19 +49,22 @@ BpcVmxLogGeneralPurposeRegisters(
     UNREFERENCED_PARAMETER(pGuestFlags);
     UNREFERENCED_PARAMETER(pCallbackCtx);
 
+    //
     // Print the debug address register which caused this debug exception.
+    //
     info_print("#DB: Dr%u", OwnerIndex);
 
+    //
     // Raw print the guest register context to keep the message buffer size
     //  below 512 bytes.
-#pragma warning(suppress : 6066) // Passing uint64 with '%p' format specifier.
+    //
     raw_info_print(
-        "rip: %p\r\n"
-        "rax: %p rbx: %p rbp: %p rsp: %p\r\n"
-        "rcx: %p rdx: %p r8:  %p r9:  %p\r\n"
-        "rdi: %p rsi: %p r10: %p r11: %p\r\n"
-        "r12: %p r13: %p r14: %p r15: %p\r\n",
-        GuestIp,
+        "  rip: %p\r\n"
+        "  rax: %p rbx: %p rbp: %p rsp: %p\r\n"
+        "  rcx: %p rdx: %p r8:  %p r9:  %p\r\n"
+        "  rdi: %p rsi: %p r10: %p r11: %p\r\n"
+        "  r12: %p r13: %p r14: %p r15: %p\r\n",
+        *pGuestIp,
         pGuestRegisters->ax, pGuestRegisters->bx, pGuestRegisters->bp,
         pGuestRegisters->sp, pGuestRegisters->cx, pGuestRegisters->dx,
         pGuestRegisters->r8, pGuestRegisters->r9, pGuestRegisters->di,

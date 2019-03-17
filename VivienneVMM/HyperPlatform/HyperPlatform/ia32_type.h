@@ -1360,7 +1360,7 @@ union PendingDebugExceptions
   ULONG_PTR all;
   struct
   {
-    ULONG_PTR dar_bitmap : 4;           //!< [0:3]
+    ULONG_PTR condition_bitmap : 4;     //!< [0:3]
     ULONG_PTR reserved1  : 8;           //!< [4:11]
     ULONG_PTR enabled_breakpoint : 1;   //!< [12]
     ULONG_PTR reserved2  : 1;           //!< [13]
@@ -1377,7 +1377,7 @@ union DebugExceptionQualification
   ULONG_PTR all;
   struct
   {
-    ULONG_PTR dar_bitmap : 4;           //!< [0:3]
+    ULONG_PTR condition_bitmap : 4;     //!< [0:3]
     ULONG_PTR reserved1  : 9;           //!< [4:12]
     ULONG_PTR debug_register_access : 1;//!< [13]
     ULONG_PTR single_step_or_branch : 1;//!< [14]

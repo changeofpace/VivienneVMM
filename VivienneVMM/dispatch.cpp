@@ -20,7 +20,7 @@ Environment:
 
 #include "dispatch.h"
 
-#include "breakpoint_callbacks.h"
+#include "breakpoint_callback.h"
 #include "breakpoint_manager.h"
 #include "capture_execution_context.h"
 #include "log_util.h"

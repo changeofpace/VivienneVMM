@@ -147,7 +147,7 @@ CeciVmxRegisterBreakpointCallback(
     _In_ ULONG OwnerIndex,
     _Inout_ GpRegisters* pGuestRegisters,
     _Inout_ FlagRegister* pGuestFlags,
-    _In_ ULONG_PTR GuestIp,
+    _Inout_ PULONG_PTR pGuestIp,
     _Inout_ PVOID pCallbackCtx
 );
 
@@ -180,7 +180,7 @@ CeciVmxMemoryBreakpointCallback(
     _In_ ULONG OwnerIndex,
     _Inout_ GpRegisters* pGuestRegisters,
     _Inout_ FlagRegister* pGuestFlags,
-    _In_ ULONG_PTR GuestIp,
+    _Inout_ PULONG_PTR pGuestIp,
     _Inout_ PVOID pCallbackCtx
 );
 
@@ -502,12 +502,8 @@ CecCaptureMemoryValues(
 #if defined(CFG_VERBOSE_CAPTUREEXECUTIONCONTEXT)
     if (pCallbackCtx->MemoryDescription.IsIndirectAddress)
     {
-        //
-        // TODO The memory description displacement is printed as an unsigned
-        //  hex value.
-        //
         cec_verbose_print(
-            "CEC: Memory request (ind): dr%u, pid=0x%IX, bpaddr=0x%IX, bptype=%c, bpsize=%c, mdt=%c, bsreg=%s, ixreg=%s, sf=%u, disp=0x%IX, time=%u",
+            "CEC: Memory request (ind): dr%u, pid=0x%IX, bpaddr=0x%IX, bptype=%c, bpsize=%c, mdt=%c, bsreg=%s, ixreg=%s, sf=%u, disp=%Id, time=%u",
             Breakpoint.Index,
             Breakpoint.ProcessId,
             Breakpoint.Address,
@@ -730,7 +726,7 @@ CeciVmxRegisterBreakpointCallback(
     ULONG OwnerIndex,
     GpRegisters* pGuestRegisters,
     FlagRegister* pGuestFlags,
-    ULONG_PTR GuestIp,
+    PULONG_PTR pGuestIp,
     PVOID pCallbackCtx
 )
 {
@@ -776,7 +772,7 @@ CeciVmxRegisterBreakpointCallback(
     ntstatus = ReadGuestGpRegisterValue(
         pCecCtx->Register,
         pGuestRegisters,
-        GuestIp,
+        *pGuestIp,
         &RegisterValue);
     if (!NT_SUCCESS(ntstatus))
     {
@@ -903,7 +899,7 @@ CeciVmxMemoryBreakpointCallback(
     ULONG OwnerIndex,
     GpRegisters* pGuestRegisters,
     FlagRegister* pGuestFlags,
-    ULONG_PTR GuestIp,
+    PULONG_PTR pGuestIp,
     PVOID pCallbackCtx
 )
 {
@@ -953,7 +949,7 @@ CeciVmxMemoryBreakpointCallback(
         ntstatus = ReadGuestGpRegisterValue(
             pIndirectAddress->BaseRegister,
             pGuestRegisters,
-            GuestIp,
+            *pGuestIp,
             &BaseRegisterValue);
         if (!NT_SUCCESS(ntstatus))
         {
@@ -968,7 +964,7 @@ CeciVmxMemoryBreakpointCallback(
             ntstatus = ReadGuestGpRegisterValue(
                 pIndirectAddress->IndexRegister,
                 pGuestRegisters,
-                GuestIp,
+                *pGuestIp,
                 &IndexRegisterValue);
             if (!NT_SUCCESS(ntstatus))
             {

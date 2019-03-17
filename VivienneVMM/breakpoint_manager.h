@@ -22,7 +22,7 @@ Environment:
 
 #include <fltKernel.h>
 
-#include "breakpoint_callbacks.h"
+#include "breakpoint_callback.h"
 
 #include "..\common\arch_x64.h"
 #include "..\common\driver_io_types.h"
@@ -34,7 +34,7 @@ Environment:
 //=============================================================================
 typedef struct _HARDWARE_BREAKPOINT
 {
-    ULONG_PTR ProcessId;
+    HANDLE ProcessId;
     ULONG Index;
     ULONG_PTR Address;
     HWBP_TYPE Type;
@@ -73,6 +73,15 @@ BpmInitializeBreakpoint(
     _Out_ PHARDWARE_BREAKPOINT pBreakpoint
 );
 
+//
+// TODO Add support for automatically setting host CR3 to the directory table
+//  of the target process. The 'set breakpoint' functions should accept a
+//  boolean parameter which indicates if the host CR3 should be updated before
+//  the callback is invoked.
+//
+// TODO Research the side effects of modifying host CR3.
+//  See: 4.10.4.1 Operations that Invalidate TLBs and Paging-Structure Caches
+//
 _Check_return_
 NTSTATUS
 BpmSetHardwareBreakpoint(
@@ -119,5 +128,5 @@ NTSTATUS
 BpmVmxProcessDebugExceptionEvent(
     _Inout_ GpRegisters* pGuestRegisters,
     _Inout_ FlagRegister* pGuestFlags,
-    _In_ ULONG_PTR GuestIp
+    _In_ PULONG_PTR pGuestIp
 );

@@ -191,48 +191,53 @@ iSetThreadLocalHardwareBreakpoint(
 
     switch (Index)
     {
+        //
+        // Dr0
+        //
         case 0:
-        {
-            // Dr0.
             Context.Dr0 = Address;
             NewDr7.L0 = Enable;
             NewDr7.RW0 = (UCHAR)Type;
             NewDr7.Len0 = (UCHAR)Size;
             break;
-        }
+
+        //
+        // Dr1
+        //
         case 1:
-        {
-            // Dr1.
             Context.Dr1 = Address;
             NewDr7.L1 = Enable;
             NewDr7.RW1 = (UCHAR)Type;
             NewDr7.Len1 = (UCHAR)Size;
             break;
-        }
+
+        //
+        // Dr2
+        //
         case 2:
-        {
-            // Dr2.
             Context.Dr2 = Address;
             NewDr7.L2 = Enable;
             NewDr7.RW2 = (UCHAR)Type;
             NewDr7.Len2 = (UCHAR)Size;
             break;
-        }
+
+        //
+        // Dr3
+        //
         case 3:
-        {
-            // Dr3.
             Context.Dr3 = Address;
             NewDr7.L3 = Enable;
             NewDr7.RW3 = (UCHAR)Type;
             NewDr7.Len3 = (UCHAR)Size;
             break;
-        }
+
+        //
+        // Invalid debug address register index.
+        //
         default:
-        {
             printf("Invalid debug address register index.\n");
             status = FALSE;
             goto exit;
-        }
     }
 
     Context.Dr7 = NewDr7.All;
@@ -340,9 +345,10 @@ VerifyThreadLocalBreakpointByIndex(
 
     switch (Index)
     {
+        //
+        // Dr0
+        //
         case 0:
-        {
-            // Dr0.
             if (Address != Context.Dr0 ||
                 Type != (HWBP_TYPE)ActualDr7.RW0 ||
                 Size != (HWBP_SIZE)ActualDr7.Len0)
@@ -352,10 +358,11 @@ VerifyThreadLocalBreakpointByIndex(
             }
 
             break;
-        }
+
+        //
+        // Dr1
+        //
         case 1:
-        {
-            // Dr1.
             if (Address != Context.Dr1 ||
                 Type != (HWBP_TYPE)ActualDr7.RW1 ||
                 Size != (HWBP_SIZE)ActualDr7.Len1)
@@ -365,10 +372,11 @@ VerifyThreadLocalBreakpointByIndex(
             }
 
             break;
-        }
+
+        //
+        // Dr2
+        //
         case 2:
-        {
-            // Dr2.
             if (Address != Context.Dr2 ||
                 Type != (HWBP_TYPE)ActualDr7.RW2 ||
                 Size != (HWBP_SIZE)ActualDr7.Len2)
@@ -378,10 +386,11 @@ VerifyThreadLocalBreakpointByIndex(
             }
 
             break;
-        }
+
+        //
+        // Dr3
+        //
         case 3:
-        {
-            // Dr3.
             if (Address != Context.Dr3 ||
                 Type != (HWBP_TYPE)ActualDr7.RW3 ||
                 Size != (HWBP_SIZE)ActualDr7.Len3)
@@ -391,13 +400,14 @@ VerifyThreadLocalBreakpointByIndex(
             }
 
             break;
-        }
+
+        //
+        // Invalid debug address register index.
+        //
         default:
-        {
             printf("Invalid index: %u\n", Index);
             status = FALSE;
             goto exit;
-        }
     }
 
 exit:

@@ -44,9 +44,6 @@
     <ClInclude Include="dispatch.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="breakpoint_callbacks.h">
-      <Filter>VivienneVMM\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="register_util.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
@@ -110,6 +107,9 @@
     <ClInclude Include="ioctl_validation.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="breakpoint_callback.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\time_util.cpp">
@@ -119,9 +119,6 @@
       <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="register_util.cpp">
-      <Filter>VivienneVMM\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="breakpoint_callbacks.cpp">
       <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="breakpoint_manager.cpp">
@@ -170,6 +167,9 @@
       <Filter>HyperPlatform\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ioctl_validation.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="breakpoint_callback.cpp">
       <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
   </ItemGroup>

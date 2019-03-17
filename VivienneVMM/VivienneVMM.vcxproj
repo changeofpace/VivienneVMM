@@ -56,14 +56,14 @@
       <WarningLevel>Level4</WarningLevel>
       <AdditionalIncludeDirectories>$(SolutionDir)VivienneVMM\HyperPlatform\;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <DisableSpecificWarnings>30030;5040;4603;4627;4986;4987;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4201;6066;30030;5040;4603;4627;4986;4987;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>$(SolutionDir)VivienneVMM\HyperPlatform\;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <DisableSpecificWarnings>30030;5040;4748;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4201;6066;30030;5040;4748;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -74,7 +74,7 @@
     <ClInclude Include="..\common\driver_io_types.h" />
     <ClInclude Include="..\common\kdebug.h" />
     <ClInclude Include="..\common\time_util.h" />
-    <ClInclude Include="breakpoint_callbacks.h" />
+    <ClInclude Include="breakpoint_callback.h" />
     <ClInclude Include="breakpoint_manager.h" />
     <ClInclude Include="capture_execution_context.h" />
     <ClInclude Include="config.h" />
@@ -102,7 +102,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\time_util.cpp" />
-    <ClCompile Include="breakpoint_callbacks.cpp" />
+    <ClCompile Include="breakpoint_callback.cpp" />
     <ClCompile Include="breakpoint_manager.cpp" />
     <ClCompile Include="capture_execution_context.cpp" />
     <ClCompile Include="debug_register_facade.cpp" />

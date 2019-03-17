@@ -199,10 +199,8 @@ InitializeStressTestContext(
         case 1: pContext->Exerciser = StressTest2; break;
         case 2: pContext->Exerciser = StressTest3; break;
         default:
-        {
             status = FALSE;
             goto exit;
-        }
     }
 
 exit:

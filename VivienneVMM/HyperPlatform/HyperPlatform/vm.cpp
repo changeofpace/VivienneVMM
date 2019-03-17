@@ -684,6 +684,10 @@ _Use_decl_annotations_ static bool VmpSetupVmcs(
   vm_procctl_requested.fields.mwait_exiting = false;
   vm_procctl_requested.fields.rdpmc_exiting = false;
   vm_procctl_requested.fields.rdtsc_exiting = false;
+  //
+  // TODO Determine if we can disable this setting without impacting
+  //  HyperPlatform because we do not support x86.
+  //
   vm_procctl_requested.fields.cr3_load_exiting = true;
   vm_procctl_requested.fields.cr3_store_exiting = false;
   vm_procctl_requested.fields.cr8_load_exiting = false;
