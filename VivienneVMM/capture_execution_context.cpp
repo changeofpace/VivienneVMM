@@ -27,15 +27,15 @@ Environment:
 #include "breakpoint_manager.h"
 #include "config.h"
 #include "ioctl_validation.h"
-#include "log_util.h"
+#include "log.h"
 #include "register_util.h"
 
 #include "..\common\kdebug.h"
 #include "..\common\time_util.h"
 
-#include "HyperPlatform\log.h"
-#include "HyperPlatform\util.h"
-#include "HyperPlatform\vmm.h"
+#include "HyperPlatform\HyperPlatform\log.h"
+#include "HyperPlatform\HyperPlatform\util.h"
+#include "HyperPlatform\HyperPlatform\vmm.h"
 
 
 //=============================================================================
@@ -46,7 +46,7 @@ Environment:
 #define CEC_MAX_DURATION_MS     (SECONDS_TO_MILLISECONDS(10))
 
 #ifdef CFG_VERBOSE_CAPTUREEXECUTIONCONTEXT
-#define cec_verbose_print       info_print
+#define cec_verbose_print       INF_PRINT
 #else
 #define cec_verbose_print(Format, ...) ((VOID)0)
 #endif
@@ -98,7 +98,7 @@ typedef struct _CEC_MANAGER_STATE
     //  via the breakpoint manager interface, in a debug address register which
     //  is being used to complete a CEC request.
     //
-    KGUARDED_MUTEX DarMutexes[DAR_COUNT];
+    POINTER_ALIGNMENT KGUARDED_MUTEX DarMutexes[DAR_COUNT];
 
 } CEC_MANAGER_STATE, *PCEC_MANAGER_STATE;
 
@@ -198,7 +198,7 @@ CecInitialization()
 {
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    info_print("Initializing capture execution context.");
+    INF_PRINT("Initializing capture execution context.");
 
     for (ULONG i = 0; i < DAR_COUNT; ++i)
     {
@@ -254,7 +254,7 @@ CecCaptureRegisterValues(
         &Breakpoint);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmInitializeBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmInitializeBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -266,14 +266,14 @@ CecCaptureRegisterValues(
     ntstatus = IvValidateDebugRegisterIndex(Index);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("IvValidateDebugRegisterIndex failed: 0x%X", ntstatus);
+        ERR_PRINT("IvValidateDebugRegisterIndex failed: 0x%X", ntstatus);
         goto exit;
     }
 
     ntstatus = IvValidateGeneralPurposeRegister(Register);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("IvValidateGeneralPurposeRegister failed: 0x%X", ntstatus);
+        ERR_PRINT("IvValidateGeneralPurposeRegister failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -283,7 +283,7 @@ CecCaptureRegisterValues(
     ntstatus = CeciInitializeInterval(DurationInMilliseconds, &DelayInterval);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("CeciInitializeInterval failed: 0x%X", ntstatus);
+        ERR_PRINT("CeciInitializeInterval failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -293,7 +293,7 @@ CecCaptureRegisterValues(
         CEC_TAG);
     if (!pCallbackCtx)
     {
-        err_print("Out of memory.");
+        ERR_PRINT("Out of memory.");
         ntstatus = STATUS_NO_MEMORY;
         goto exit;
     }
@@ -307,7 +307,7 @@ CecCaptureRegisterValues(
         Register);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print(
+        ERR_PRINT(
             "CeciInitializeRegisterCallbackContext failed: 0x%X",
             ntstatus);
         goto exit;
@@ -344,7 +344,7 @@ CecCaptureRegisterValues(
         pCallbackCtx);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmSetHardwareBreakpoint failed: 0x%X (CECR)", ntstatus);
+        ERR_PRINT("BpmSetHardwareBreakpoint failed: 0x%X (CECR)", ntstatus);
         goto exit;
     }
 
@@ -356,7 +356,7 @@ CecCaptureRegisterValues(
     ntstatus = KeDelayExecutionThread(KernelMode, FALSE, &DelayInterval);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print(
+        ERR_PRINT(
             "KeDelayExecutionThread returned unexpected status: 0x%X (CECR)",
             ntstatus);
     }
@@ -367,7 +367,7 @@ CecCaptureRegisterValues(
     ntstatus = BpmClearHardwareBreakpoint(Index);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmClearHardwareBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmClearHardwareBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -431,7 +431,7 @@ CecCaptureMemoryValues(
         &Breakpoint);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmInitializeBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmInitializeBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -443,14 +443,14 @@ CecCaptureMemoryValues(
     ntstatus = IvValidateDebugRegisterIndex(Index);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("IvValidateDebugRegisterIndex failed: 0x%X", ntstatus);
+        ERR_PRINT("IvValidateDebugRegisterIndex failed: 0x%X", ntstatus);
         goto exit;
     }
 
     ntstatus = IvValidateMemoryDescription(pMemoryDescription);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("IvValidateMemoryDescription failed: 0x%X", ntstatus);
+        ERR_PRINT("IvValidateMemoryDescription failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -460,7 +460,7 @@ CecCaptureMemoryValues(
     ntstatus = CeciInitializeInterval(DurationInMilliseconds, &DelayInterval);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("CeciInitializeInterval failed: 0x%X", ntstatus);
+        ERR_PRINT("CeciInitializeInterval failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -470,7 +470,7 @@ CecCaptureMemoryValues(
         CEC_TAG);
     if (!pCallbackCtx)
     {
-        err_print("Out of memory.");
+        ERR_PRINT("Out of memory.");
         ntstatus = STATUS_NO_MEMORY;
         goto exit;
     }
@@ -484,7 +484,7 @@ CecCaptureMemoryValues(
         pMemoryDescription);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print(
+        ERR_PRINT(
             "CeciInitializeMemoryCallbackContext failed: 0x%X",
             ntstatus);
         goto exit;
@@ -550,7 +550,7 @@ CecCaptureMemoryValues(
         pCallbackCtx);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmSetHardwareBreakpoint failed: 0x%X (CECM)", ntstatus);
+        ERR_PRINT("BpmSetHardwareBreakpoint failed: 0x%X (CECM)", ntstatus);
         goto exit;
     }
 
@@ -562,7 +562,7 @@ CecCaptureMemoryValues(
     ntstatus = KeDelayExecutionThread(KernelMode, FALSE, &DelayInterval);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print(
+        ERR_PRINT(
             "KeDelayExecutionThread returned unexpected status: 0x%X (CECR)",
             ntstatus);
     }
@@ -573,7 +573,7 @@ CecCaptureMemoryValues(
     ntstatus = BpmClearHardwareBreakpoint(Index);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmClearHardwareBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmClearHardwareBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 

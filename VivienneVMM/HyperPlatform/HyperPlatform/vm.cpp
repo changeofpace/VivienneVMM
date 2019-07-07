@@ -15,8 +15,8 @@
 #include "util.h"
 #include "vmm.h"
 
-#include "..\config.h"
-#include "..\debug_register_facade.h"
+#include "..\..\config.h"
+#include "..\..\debug_register_facade.h"
 
 extern "C" {
 ////////////////////////////////////////////////////////////////////////////////
@@ -512,6 +512,7 @@ _Use_decl_annotations_ static void VmpInitializeVm(
 #endif
 
   // Do virtualize the processor
+#pragma warning(suppress : 28123) // Call not permitted at high IRQ level.
   VmpLaunchVm();
 
   // Here is not be executed with successful vmlaunch. Instead, the context
@@ -519,6 +520,7 @@ _Use_decl_annotations_ static void VmpInitializeVm(
 
 Exit:;
   __vmx_off();
+#pragma warning(suppress : 28123) // Call not permitted at high IRQ level.
   VmpFreeProcessorData(processor_data);
 }
 

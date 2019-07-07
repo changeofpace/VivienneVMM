@@ -176,6 +176,8 @@ typedef enum _X64_REGISTER
 
 } X64_REGISTER, *PX64_REGISTER;
 
+#pragma warning(push)
+#pragma warning(disable : 4201) // Nonstandard extension: nameless struct/union
 typedef struct _RFLAGS
 {
     union
@@ -209,6 +211,7 @@ typedef struct _RFLAGS
         } DUMMYSTRUCTNAME;
     } DUMMYUNIONNAME;
 } RFLAGS, *PRFLAGS;
+#pragma warning(pop)
 
 //=============================================================================
 // Instructions
@@ -303,6 +306,8 @@ HwBpSizeToBytes(
 //  (except bit 16, which they should set) before returning to the interrupted
 //  task.
 //
+#pragma warning(push)
+#pragma warning(disable : 4201) // Nonstandard extension: nameless struct/union
 typedef struct _DR6
 {
     union
@@ -403,9 +408,12 @@ typedef struct _DR6
         } DUMMYSTRUCTNAME;
     } DUMMYUNIONNAME;
 } DR6, *PDR6;
+#pragma warning(pop)
 
 static_assert(sizeof(DR6) == sizeof(ULONG_PTR), "Unexpected DR6 size.");
 
+#pragma warning(push)
+#pragma warning(disable : 4201) // Nonstandard extension: nameless struct/union
 typedef struct _DR7
 {
     union
@@ -561,5 +569,6 @@ typedef struct _DR7
         } DUMMYSTRUCTNAME;
     } DUMMYUNIONNAME;
 } DR7, *PDR7;
+#pragma warning(pop)
 
 static_assert(sizeof(DR7) == sizeof(ULONG_PTR), "Unexpected DR7 size.");

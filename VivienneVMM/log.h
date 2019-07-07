@@ -2,7 +2,7 @@
 
 Module Name:
     
-    log_util.h
+    log.h
 
 Abstract:
 
@@ -23,13 +23,13 @@ Environment:
 #include "..\common\arch_x64.h"
 #include "..\common\driver_io_types.h"
 
-#include "HyperPlatform\log.h"
+#include "HyperPlatform\HyperPlatform\log.h"
 
 //=============================================================================
 // Logging Interface
 //=============================================================================
 #ifdef DBG
-#define dbg_print(Format, ...)              \
+#define DBG_PRINT(Format, ...)              \
     LogpPrint(                              \
         kLogpLevelDebug | kLogpLevelOptSafe,\
         __FUNCTION__,                       \
@@ -37,39 +37,41 @@ Environment:
         __VA_ARGS__)
 #else
 // Debug level messages are disabled in release builds.
-#define dbg_print(Format, ...) ((VOID)0)
+#define DBG_PRINT(Format, ...) ((VOID)0)
 #endif
 
-#define info_print(Format, ...)             \
+#define INF_PRINT(Format, ...)              \
     LogpPrint(                              \
         kLogpLevelInfo | kLogpLevelOptSafe, \
         __FUNCTION__,                       \
         (Format),                           \
         __VA_ARGS__)
 
-#define warn_print(Format, ...)             \
+#define WRN_PRINT(Format, ...)             \
     LogpPrint(                              \
         kLogpLevelWarn | kLogpLevelOptSafe, \
         __FUNCTION__,                       \
         (Format),                           \
         __VA_ARGS__)
 
-#define err_print(Format, ...)              \
+#define ERR_PRINT(Format, ...)              \
     LogpPrint(                              \
         kLogpLevelError | kLogpLevelOptSafe,\
         __FUNCTION__,                       \
         (Format),                           \
         __VA_ARGS__)
 
+//
 // Log message without prefix text.
-#define raw_dbg_print(Format, ...)                                  \
+//
+#define DBG_PRINT_RAW(Format, ...)                                  \
     LogpPrint(                                                      \
         kLogpLevelDebug | kLogpLevelOptSafe | kLogpLevelNoPrefix,   \
         __FUNCTION__,                                               \
         (Format),                                                   \
         __VA_ARGS__)
 
-#define raw_info_print(Format, ...)                                 \
+#define INF_PRINT_RAW(Format, ...)                                  \
     LogpPrint(                                                      \
         kLogpLevelInfo | kLogpLevelOptSafe | kLogpLevelNoPrefix,    \
         __FUNCTION__,                                               \

@@ -25,13 +25,13 @@ Environment:
 #include <intrin.h>
 
 #include "config.h"
-#include "log_util.h"
+#include "log.h"
 #include "process.h"
 
 #include "..\common\kdebug.h"
 
-#include "HyperPlatform\util.h"
-#include "HyperPlatform\vmm.h"
+#include "HyperPlatform\HyperPlatform\util.h"
+#include "HyperPlatform\HyperPlatform\vmm.h"
 
 
 //=============================================================================
@@ -40,7 +40,7 @@ Environment:
 #define BPM_TAG 'TmpB'
 
 #ifdef CFG_VERBOSE_BREAKPOINTMANAGER
-#define bpm_verbose_print   info_print
+#define bpm_verbose_print   INF_PRINT
 #else
 #define bpm_verbose_print(Format, ...) ((VOID)0)
 #endif
@@ -152,8 +152,9 @@ typedef struct _BREAKPOINT_MANAGER_STATE
     //  processor state is only modified inside of a VM exit handler, we choose
     //  to acquire and release the mutex in VMX non-root operation.
     //
-    KGUARDED_MUTEX Mutex;
+    POINTER_ALIGNMENT KGUARDED_MUTEX Mutex;
     _Guarded_by_(Mutex) PBPM_PROCESSOR_STATE Processors;
+
 } BREAKPOINT_MANAGER_STATE, *PBREAKPOINT_MANAGER_STATE;
 
 
@@ -261,7 +262,7 @@ BpmInitialization()
     BOOLEAN ProcessCallbackInstalled = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    info_print("Initializing breakpoint manager.");
+    INF_PRINT("Initializing breakpoint manager.");
 
     // Allocate and initialize processor state.
     pProcessorStates = (PBPM_PROCESSOR_STATE)ExAllocatePoolWithTag(
@@ -283,7 +284,7 @@ BpmInitialization()
         FALSE);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("PsSetCreateProcessNotifyRoutine failed: 0x%X", ntstatus);
+        ERR_PRINT("PsSetCreateProcessNotifyRoutine failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -307,7 +308,7 @@ exit:
                 TRUE);
             if (!NT_SUCCESS(_ntstatus))
             {
-                err_print(
+                ERR_PRINT(
                     "PsSetCreateProcessNotifyRoutine failed: 0x%X",
                     _ntstatus);
             }
@@ -335,7 +336,7 @@ BpmTermination()
     BOOLEAN Failed = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    info_print("Terminating breakpoint manager.");
+    INF_PRINT("Terminating breakpoint manager.");
 
     KeAcquireGuardedMutex(&g_BreakpointManager.Mutex);
 
@@ -343,7 +344,7 @@ BpmTermination()
     ntstatus = BpmiCleanupBreakpoints();
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmiCleanupBreakpoints failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmiCleanupBreakpoints failed: 0x%X", ntstatus);
         Failed = TRUE;
     }
 
@@ -355,7 +356,7 @@ BpmTermination()
             TRUE);
         if (!NT_SUCCESS(ntstatus))
         {
-            err_print(
+            ERR_PRINT(
                 "PsSetCreateProcessNotifyRoutine failed: 0x%X",
                 ntstatus);
             Failed = TRUE;
@@ -610,7 +611,7 @@ BpmSetHardwareBreakpoint(
         pCallbackCtx);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmiSetHardwareBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmiSetHardwareBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -654,7 +655,7 @@ BpmSetHardwareBreakpoint(
         &Breakpoint);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmInitializeBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmInitializeBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -664,7 +665,7 @@ BpmSetHardwareBreakpoint(
         pCallbackCtx);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmSetHardwareBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmSetHardwareBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -691,7 +692,7 @@ BpmClearHardwareBreakpoint(
     ntstatus = BpmiClearHardwareBreakpoint(Index);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmiClearHardwareBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmiClearHardwareBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -720,7 +721,7 @@ BpmCleanupBreakpoints()
     ntstatus = BpmiCleanupBreakpoints();
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmiCleanupBreakpoints failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmiCleanupBreakpoints failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -993,7 +994,7 @@ BpmVmxProcessDebugExceptionEvent(
         ntstatus = BpmiVmxInterpretBreakpointCondition(i, Dr7, &Condition);
         if (!NT_SUCCESS(ntstatus))
         {
-            err_print(
+            ERR_PRINT(
                 "BpmiVmxInterpretBreakpointCondition failed: 0x%X",
                 ntstatus);
             goto exit;
@@ -1149,7 +1150,7 @@ BpmiCreateProcessNotifyRoutine(
                     //  attempt to cleanup any remaining breakpoints assigned
                     //  to this terminating process.
                     //
-                    err_print(
+                    ERR_PRINT(
                         "BpmiClearHardwareBreakpoint failed: 0x%X (term pid: 0x%IX)",
                         ntstatus,
                         (ULONG_PTR)hProcessId);
@@ -1174,12 +1175,12 @@ static
 VOID
 BpmiLogStatistics()
 {
-    info_print("Breakpoint Manager Statistics");
-    info_print("%16lld debug exceptions handled.",
+    INF_PRINT("Breakpoint Manager Statistics");
+    INF_PRINT("%16lld debug exceptions handled.",
         g_BreakpointManager.Statistics.HandledDebugExceptions);
-    info_print("%16lld debug exceptions unhandled.",
+    INF_PRINT("%16lld debug exceptions unhandled.",
         g_BreakpointManager.Statistics.UnhandledDebugExceptions);
-    info_print("%16lld unowned breakpoints observed.",
+    INF_PRINT("%16lld unowned breakpoints observed.",
         g_BreakpointManager.Statistics.UnownedBreakpointsSeen);
 }
 
@@ -1203,7 +1204,7 @@ BpmiIpiSetHardwareBreakpoint(
         (PVOID)Argument);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("UtilVmCall (kSetHardwareBreakpoint) failed: 0x%X", ntstatus);
+        ERR_PRINT("UtilVmCall (kSetHardwareBreakpoint) failed: 0x%X", ntstatus);
     }
 
     return 0;
@@ -1260,12 +1261,12 @@ BpmiSetHardwareBreakpoint(
     {
         if (STATUS_HV_INVALID_VP_STATE == ntstatus)
         {
-            err_print(
+            ERR_PRINT(
                 "A failure during BpmiIpiSetHardwareBreakpoint has corrupted the guest's debug registers.");
         }
         else
         {
-            err_print("BpmiIpiSetHardwareBreakpoint failed: 0x%X", ntstatus);
+            ERR_PRINT("BpmiIpiSetHardwareBreakpoint failed: 0x%X", ntstatus);
         }
 
         goto exit;
@@ -1308,7 +1309,7 @@ BpmiClearHardwareBreakpoint(
     ntstatus = BpmiSetHardwareBreakpoint(FALSE, &Breakpoint, NULL, NULL);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmiSetHardwareBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmiSetHardwareBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -1348,7 +1349,7 @@ BpmiCleanupBreakpoints()
                 {
                     // Do not breakout on failure so that we can cleanup as
                     //  many breakpoints as possible.
-                    err_print(
+                    ERR_PRINT(
                         "BpmiClearHardwareBreakpoint failed: 0x%X, proc=%u, dr%u",
                         ntstatus,
                         p,
@@ -1510,7 +1511,7 @@ BpmiVmxInvokeBreakpointCallback(
     //
     if ((ULONG_PTR)MM_HIGHEST_USER_ADDRESS <= (*pGuestIp))
     {
-        warn_print("Unexpected breakpoint address: 0x%IX", (*pGuestIp));
+        WRN_PRINT("Unexpected breakpoint address: 0x%IX", (*pGuestIp));
         goto exit;
     }
 
@@ -1547,7 +1548,7 @@ BpmiVmxInvokeBreakpointCallback(
         vmxstatus = UtilVmWrite(VmcsField::kGuestRip, (*pGuestIp));
         if (VmxStatus::kOk != vmxstatus)
         {
-            err_print("Failed to set guest instruction pointer to 0x%IX",
+            ERR_PRINT("Failed to set guest instruction pointer to 0x%IX",
                 *pGuestIp);
         }
     }
@@ -1562,7 +1563,7 @@ BpmiVmxInvokeBreakpointCallback(
         vmxstatus = UtilVmWrite(VmcsField::kGuestRflags, pGuestFlags->all);
         if (VmxStatus::kOk != vmxstatus)
         {
-            err_print("Failed to set guest flags register to 0x%IX",
+            ERR_PRINT("Failed to set guest flags register to 0x%IX",
                 GuestFlagsOriginal);
         }
     }

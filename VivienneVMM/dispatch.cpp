@@ -23,7 +23,7 @@ Environment:
 #include "breakpoint_callback.h"
 #include "breakpoint_manager.h"
 #include "capture_execution_context.h"
-#include "log_util.h"
+#include "log.h"
 #include "process.h"
 #include "vivienne.h"
 
@@ -45,7 +45,7 @@ DispatchCreate(
 )
 {
     UNREFERENCED_PARAMETER(pDeviceObject);
-    dbg_print("Processing IRP_MJ_CREATE.");
+    DBG_PRINT("Processing IRP_MJ_CREATE.");
     IoCompleteRequest(pIrp, IO_NO_INCREMENT);
     return STATUS_SUCCESS;
 }
@@ -67,12 +67,12 @@ DispatchClose(
 
     UNREFERENCED_PARAMETER(pDeviceObject);
 
-    dbg_print("Processing IRP_MJ_CLOSE.");
+    DBG_PRINT("Processing IRP_MJ_CLOSE.");
 
     ntstatus = BpmCleanupBreakpoints();
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmCleanupBreakpoints failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmCleanupBreakpoints failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -96,7 +96,7 @@ DispatchCleanup(
 )
 {
     UNREFERENCED_PARAMETER(pDeviceObject);
-    dbg_print("Processing IRP_MJ_CLEANUP.");
+    DBG_PRINT("Processing IRP_MJ_CLEANUP.");
     IoCompleteRequest(pIrp, IO_NO_INCREMENT);
     return STATUS_SUCCESS;
 }
@@ -124,7 +124,7 @@ DispatchDeviceControl(
     switch (pIrpStack->Parameters.DeviceIoControl.IoControlCode)
     {
         case IOCTL_QUERYSYSTEMDEBUGSTATE:
-            dbg_print("Processing IOCTL_QUERYSYSTEMDEBUGSTATE.");
+            DBG_PRINT("Processing IOCTL_QUERYSYSTEMDEBUGSTATE.");
 
             if (sizeof(QUERYSYSTEMDEBUGSTATE_REPLY) <= cbOutput &&
                 pSystemBuffer)
@@ -145,7 +145,7 @@ DispatchDeviceControl(
                 }
                 else
                 {
-                    err_print(
+                    ERR_PRINT(
                         "BpmQuerySystemDebugState failed: 0x%X",
                         ntstatus);
                 }
@@ -158,7 +158,7 @@ DispatchDeviceControl(
             break;
 
         case IOCTL_SETHARDWAREBREAKPOINT:
-            dbg_print("Processing IOCTL_SETHARDWAREBREAKPOINT.");
+            DBG_PRINT("Processing IOCTL_SETHARDWAREBREAKPOINT.");
 
             if (sizeof(SETHARDWAREBREAKPOINT_REQUEST) == cbInput &&
                 pSystemBuffer)
@@ -176,7 +176,7 @@ DispatchDeviceControl(
                     NULL);
                 if (!NT_SUCCESS(ntstatus))
                 {
-                    err_print(
+                    ERR_PRINT(
                         "BpmSetHardwareBreakpoint failed: 0x%X",
                         ntstatus);
                 }
@@ -189,7 +189,7 @@ DispatchDeviceControl(
             break;
 
         case IOCTL_CLEARHARDWAREBREAKPOINT:
-            dbg_print("Processing IOCTL_CLEARHARDWAREBREAKPOINT.");
+            DBG_PRINT("Processing IOCTL_CLEARHARDWAREBREAKPOINT.");
 
             if (sizeof(CLEARHARDWAREBREAKPOINT_REQUEST) == cbInput &&
                 pSystemBuffer)
@@ -200,7 +200,7 @@ DispatchDeviceControl(
                 ntstatus = BpmClearHardwareBreakpoint(pRequest->Index);
                 if (!NT_SUCCESS(ntstatus))
                 {
-                    err_print(
+                    ERR_PRINT(
                         "BpmClearHardwareBreakpoint failed: 0x%X",
                         ntstatus);
                 }
@@ -213,7 +213,7 @@ DispatchDeviceControl(
             break;
 
         case IOCTL_CEC_REGISTER:
-            dbg_print("Processing IOCTL_CEC_REGISTER.");
+            DBG_PRINT("Processing IOCTL_CEC_REGISTER.");
 
             if (sizeof(CEC_REGISTER_REQUEST) == cbInput &&
                 sizeof(CEC_REGISTER_REPLY) <= cbOutput &&
@@ -240,7 +240,7 @@ DispatchDeviceControl(
                 }
                 else
                 {
-                    err_print(
+                    ERR_PRINT(
                         "CecCaptureRegisterValues failed: 0x%X",
                         ntstatus);
                 }
@@ -253,7 +253,7 @@ DispatchDeviceControl(
             break;
 
         case IOCTL_CEC_MEMORY:
-            dbg_print("Processing IOCTL_CEC_MEMORY.");
+            DBG_PRINT("Processing IOCTL_CEC_MEMORY.");
 
             if (sizeof(CEC_MEMORY_REQUEST) == cbInput &&
                 sizeof(CEC_MEMORY_REPLY) <= cbOutput &&
@@ -280,7 +280,7 @@ DispatchDeviceControl(
                 }
                 else
                 {
-                    err_print(
+                    ERR_PRINT(
                         "CecCaptureRegisterValues failed: 0x%X",
                         ntstatus);
                 }
@@ -294,7 +294,7 @@ DispatchDeviceControl(
 
         default:
             ntstatus = STATUS_NOINTERFACE;
-            err_print("Unhandled IOCTL: 0x%X.", pIrpStack->MajorFunction);
+            ERR_PRINT("Unhandled IOCTL: 0x%X.", pIrpStack->MajorFunction);
             break;
     }
 

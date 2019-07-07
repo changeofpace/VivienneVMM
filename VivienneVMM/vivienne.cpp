@@ -24,7 +24,7 @@ Environment:
 #include "capture_execution_context.h"
 #include "config.h"
 #include "dispatch.h"
-#include "log_util.h"
+#include "log.h"
 
 #include "..\common\driver_io_types.h"
 #include "..\common\time_util.h"
@@ -52,7 +52,7 @@ VvmmInitialization(
 
     UNREFERENCED_PARAMETER(pRegistryPath);
 
-    info_print("Initializing %ls.", VVMM_DRIVER_NAME_W);
+    INF_PRINT("Initializing %ls.", VVMM_DRIVER_NAME_W);
 
     // Initialize the driver.
     DeviceName = RTL_CONSTANT_STRING(VVMM_NT_DEVICE_NAME_W);
@@ -68,7 +68,7 @@ VvmmInitialization(
         &pDeviceObject);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("IoCreateDevice failed: 0x%X", ntstatus);
+        ERR_PRINT("IoCreateDevice failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -78,7 +78,7 @@ VvmmInitialization(
     ntstatus = IoCreateSymbolicLink(&SymlinkName, &DeviceName);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("IoCreateSymbolicLink failed: 0x%X", ntstatus);
+        ERR_PRINT("IoCreateSymbolicLink failed: 0x%X", ntstatus);
         goto exit;
     }
     //
@@ -98,21 +98,21 @@ VvmmInitialization(
     ntstatus = TiInitialization();
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("TiInitialization failed: 0x%X", ntstatus);
+        ERR_PRINT("TiInitialization failed: 0x%X", ntstatus);
         goto exit;
     }
 
     ntstatus = BpmInitialization();
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmInitialization failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmInitialization failed: 0x%X", ntstatus);
         goto exit;
     }
 
     ntstatus = CecInitialization();
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("CecInitialization failed: 0x%X", ntstatus);
+        ERR_PRINT("CecInitialization failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -124,7 +124,7 @@ exit:
             NTSTATUS UnwindStatus = IoDeleteSymbolicLink(&SymlinkName);
             if (!NT_SUCCESS(UnwindStatus))
             {
-                err_print("IoDeleteSymbolicLink failed: 0x%X", UnwindStatus);
+                ERR_PRINT("IoDeleteSymbolicLink failed: 0x%X", UnwindStatus);
             }
         }
 
@@ -153,12 +153,12 @@ VvmmTermination(
     BOOLEAN Failed = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    info_print("Terminating %ls.", VVMM_DRIVER_NAME_W);
+    INF_PRINT("Terminating %ls.", VVMM_DRIVER_NAME_W);
 
     ntstatus = BpmTermination();
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("BpmTermination failed: 0x%X", ntstatus);
+        ERR_PRINT("BpmTermination failed: 0x%X", ntstatus);
         Failed = TRUE;
     }
 
@@ -168,7 +168,7 @@ VvmmTermination(
     ntstatus = IoDeleteSymbolicLink(&SymlinkName);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("IoDeleteSymbolicLink failed: 0x%X", ntstatus);
+        ERR_PRINT("IoDeleteSymbolicLink failed: 0x%X", ntstatus);
     }
 
     // Release our device object.

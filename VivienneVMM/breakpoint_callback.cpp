@@ -20,7 +20,7 @@ Environment:
 
 #include "breakpoint_callback.h"
 
-#include "log_util.h"
+#include "log.h"
 
 
 //=============================================================================
@@ -52,13 +52,13 @@ BpcVmxLogGeneralPurposeRegisters(
     //
     // Print the debug address register which caused this debug exception.
     //
-    info_print("#DB: Dr%u", OwnerIndex);
+    INF_PRINT("#DB: Dr%u", OwnerIndex);
 
     //
     // Raw print the guest register context to keep the message buffer size
     //  below 512 bytes.
     //
-    raw_info_print(
+    INF_PRINT_RAW(
         "  rip: %p\r\n"
         "  rax: %p rbx: %p rbp: %p rsp: %p\r\n"
         "  rcx: %p rdx: %p r8:  %p r9:  %p\r\n"

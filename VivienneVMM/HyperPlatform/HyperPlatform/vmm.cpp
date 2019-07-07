@@ -14,10 +14,10 @@
 #include "util.h"
 #include "performance.h"
 
-#include "..\breakpoint_manager.h"
-#include "..\config.h"
-#include "..\debug_register_facade.h"
-#include "..\log_util.h"
+#include "..\..\breakpoint_manager.h"
+#include "..\..\config.h"
+#include "..\..\debug_register_facade.h"
+#include "..\..\log.h"
 
 extern "C" {
 ////////////////////////////////////////////////////////////////////////////////
@@ -936,7 +936,7 @@ _Use_decl_annotations_ static void VmmpHandleDrAccess(
   ntstatus = FcdVmxProcessMovDrEvent(exit_qualification, register_used);
   if (!NT_SUCCESS(ntstatus))
   {
-    err_print("FcdVmxProcessMovDrEvent failed: 0x%X", ntstatus);
+    ERR_PRINT("FcdVmxProcessMovDrEvent failed: 0x%X", ntstatus);
   }
 #else
   switch (direction) {

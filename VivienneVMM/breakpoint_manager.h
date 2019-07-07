@@ -27,7 +27,7 @@ Environment:
 #include "..\common\arch_x64.h"
 #include "..\common\driver_io_types.h"
 
-#include "HyperPlatform\ia32_type.h"
+#include "HyperPlatform\HyperPlatform\ia32_type.h"
 
 //=============================================================================
 // Types

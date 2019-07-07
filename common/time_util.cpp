@@ -21,7 +21,7 @@ Environment:
 #include "time_util.h"
 
 #ifdef _KERNEL_MODE
-#include "..\VivienneVMM\log_util.h"
+#include "..\VivienneVMM\log.h"
 #else
 #include <cstdio>
 #endif
@@ -49,7 +49,7 @@ TiInitialization()
     LARGE_INTEGER Frequency = {};
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    info_print("Initializing time util.");
+    INF_PRINT("Initializing time util.");
 
     (VOID)KeQueryPerformanceCounter(&Frequency);
     if (!Frequency.QuadPart)
@@ -60,7 +60,7 @@ TiInitialization()
 
     g_ProcessorFrequency.QuadPart = Frequency.QuadPart;
 
-    info_print(
+    INF_PRINT(
         "Processor frequency: %lld (0x%llX)",
         g_ProcessorFrequency.QuadPart,
         g_ProcessorFrequency.QuadPart);

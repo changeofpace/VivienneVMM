@@ -25,12 +25,12 @@ Environment:
 #include <intrin.h>
 
 #include "config.h"
-#include "log_util.h"
+#include "log.h"
 
 #include "..\common\arch_x64.h"
 #include "..\common\kdebug.h"
 
-#include "HyperPlatform\util.h"
+#include "HyperPlatform\HyperPlatform\util.h"
 
 
 //=============================================================================
@@ -110,7 +110,7 @@ FcdInitialization()
     PFCD_PROCESSOR_STATE pProcessorStates = NULL;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    info_print("Initializing debug register facade.");
+    INF_PRINT("Initializing debug register facade.");
 
     // Allocate and initialize processor state.
     pProcessorStates = (PFCD_PROCESSOR_STATE)ExAllocatePoolWithTag(
@@ -151,7 +151,7 @@ FcdTermination()
 {
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    info_print("Terminating debug register facade.");
+    INF_PRINT("Terminating debug register facade.");
 
     // Release processor state resources.
     if (g_FacadeManager.Processors)
@@ -277,7 +277,7 @@ FcdVmxTermination()
     vmxstatus = UtilVmWrite(VmcsField::kGuestDr7, pFacade->DebugRegisters[7]);
     if (VmxStatus::kOk != vmxstatus)
     {
-        err_print(
+        ERR_PRINT(
             "Failed to restore Dr7 during facade teardown, val=0x%IX",
             pFacade->DebugRegisters[7]);
     }
@@ -312,7 +312,7 @@ FcdVmxLogMovDrEvent(
     switch ((MovDrDirection)ExitQualification.fields.direction)
     {
         case MovDrDirection::kMoveToDr:
-            info_print(
+            INF_PRINT(
                 "FCD: MovDr write dr%u, new=0x%IX, old=0x%IX",
                 Index,
                 *pRegisterUsed,
@@ -320,14 +320,14 @@ FcdVmxLogMovDrEvent(
             break;
 
         case MovDrDirection::kMoveFromDr:
-            info_print(
+            INF_PRINT(
                 "FCD: MovDr read  dr%u, val=0x%IX",
                 Index,
                 pFacade->DebugRegisters[Index]);
             break;
 
         default:
-            err_print(
+            ERR_PRINT(
                 "FCD: Unexpected MovDrDirection: %d",
                 ExitQualification.fields.direction);
             goto exit;
@@ -398,9 +398,9 @@ static
 VOID
 FcdiLogStatistics()
 {
-    info_print("Facade Manager Statistics");
-    info_print("%16lld Write DR events.",
+    INF_PRINT("Facade Manager Statistics");
+    INF_PRINT("%16lld Write DR events.",
         g_FacadeManager.Statistics.WriteEvents);
-    info_print("%16lld Read DR events.",
+    INF_PRINT("%16lld Read DR events.",
         g_FacadeManager.Statistics.ReadEvents);
 }

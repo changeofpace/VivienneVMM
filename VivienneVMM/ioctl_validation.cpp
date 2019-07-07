@@ -1,6 +1,6 @@
 #include "ioctl_validation.h"
 
-#include "log_util.h"
+#include "log.h"
 
 
 //=============================================================================
@@ -109,7 +109,7 @@ IvValidateMemoryDescription(
     ntstatus = IviValidateMemoryDataType(pMemoryDescription->DataType);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print("IviValidateMemoryDataType failed: 0x%X", ntstatus);
+        ERR_PRINT("IviValidateMemoryDataType failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -119,7 +119,7 @@ IvValidateMemoryDescription(
             &pMemoryDescription->u.IndirectAddress);
         if (!NT_SUCCESS(ntstatus))
         {
-            err_print("IviValidateIndirectAddress failed: 0x%X", ntstatus);
+            ERR_PRINT("IviValidateIndirectAddress failed: 0x%X", ntstatus);
             goto exit;
         }
     }
@@ -130,7 +130,7 @@ IvValidateMemoryDescription(
         //
         if (!pMemoryDescription->u.VirtualAddress)
         {
-            err_print(
+            ERR_PRINT(
                 "IV: Invalid virtual address: 0x%IX",
                 pMemoryDescription->u.VirtualAddress);
             ntstatus = STATUS_INVALID_ADDRESS;
@@ -143,7 +143,7 @@ IvValidateMemoryDescription(
         if ((ULONG_PTR)MM_HIGHEST_USER_ADDRESS <=
                 pMemoryDescription->u.VirtualAddress)
         {
-            err_print(
+            ERR_PRINT(
                 "IV: Invalid virtual address: 0x%IX",
                 pMemoryDescription->u.VirtualAddress);
             ntstatus = STATUS_INVALID_ADDRESS;
@@ -239,7 +239,7 @@ IviValidateIndirectAddress(
         pIndirectAddress->BaseRegister);
     if (!NT_SUCCESS(ntstatus))
     {
-        err_print(
+        ERR_PRINT(
             "IvValidateGeneralPurposeRegister failed: 0x%X (base register)",
             ntstatus);
         goto exit;
@@ -254,7 +254,7 @@ IviValidateIndirectAddress(
             pIndirectAddress->IndexRegister);
         if (!NT_SUCCESS(ntstatus))
         {
-            err_print(
+            ERR_PRINT(
                 "IvValidateGeneralPurposeRegister failed: 0x%X (index register)",
                 ntstatus);
             goto exit;
@@ -265,7 +265,7 @@ IviValidateIndirectAddress(
             ntstatus = IviValidateScaleFactor(pIndirectAddress->ScaleFactor);
             if (!NT_SUCCESS(ntstatus))
             {
-                err_print("IviValidateScaleFactor failed: 0x%X", ntstatus);
+                ERR_PRINT("IviValidateScaleFactor failed: 0x%X", ntstatus);
                 goto exit;
             }
         }
@@ -275,7 +275,7 @@ IviValidateIndirectAddress(
         //
         // Scale factors must be paired with a valid index register.
         //
-        err_print(
+        ERR_PRINT(
             "IV: Invalid index register (%d) / scale factor (%d).",
             pIndirectAddress->IndexRegister,
             pIndirectAddress->ScaleFactor);

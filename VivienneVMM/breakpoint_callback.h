@@ -23,7 +23,7 @@ Environment:
 
 #include <fltKernel.h>
 
-#include "HyperPlatform\ia32_type.h"
+#include "HyperPlatform\HyperPlatform\ia32_type.h"
 
 //=============================================================================
 // Types

@@ -54,16 +54,14 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
-      <AdditionalIncludeDirectories>$(SolutionDir)VivienneVMM\HyperPlatform\;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <DisableSpecificWarnings>4201;6066;30030;5040;4603;4627;4986;4987;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>6066;30030;5040;4603;4627;4986;4987;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SolutionDir)VivienneVMM\HyperPlatform\;$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <DisableSpecificWarnings>4201;6066;30030;5040;4748;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>6066;30030;5040;4748;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -96,7 +94,7 @@
     <ClInclude Include="HyperPlatform\HyperPlatform\vm.h" />
     <ClInclude Include="HyperPlatform\HyperPlatform\vmm.h" />
     <ClInclude Include="ioctl_validation.h" />
-    <ClInclude Include="log_util.h" />
+    <ClInclude Include="log.h" />
     <ClInclude Include="register_util.h" />
     <ClInclude Include="vivienne.h" />
   </ItemGroup>

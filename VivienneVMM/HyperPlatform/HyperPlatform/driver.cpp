@@ -18,10 +18,10 @@
 #include "vm.h"
 #include "performance.h"
 
-#include "..\config.h"
-#include "..\debug_register_facade.h"
-#include "..\log_util.h"
-#include "..\vivienne.h"
+#include "..\..\config.h"
+#include "..\..\debug_register_facade.h"
+#include "..\..\log.h"
+#include "..\..\vivienne.h"
 
 extern "C" {
 ////////////////////////////////////////////////////////////////////////////////
@@ -149,7 +149,7 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
   status = VvmmInitialization(driver_object, registry_path);
   if (!NT_SUCCESS(status))
   {
-    err_print("VvmmInitialization failed: 0x%X", status);
+    ERR_PRINT("VvmmInitialization failed: 0x%X", status);
     HotplugCallbackTermination();
     PowerCallbackTermination();
     UtilTermination();
@@ -164,7 +164,7 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
   status = FcdInitialization();
   if (!NT_SUCCESS(status))
   {
-    err_print("FcdInitialization failed: 0x%X", status);
+    ERR_PRINT("FcdInitialization failed: 0x%X", status);
     (VOID)VvmmTermination(driver_object);
     HotplugCallbackTermination();
     PowerCallbackTermination();
@@ -219,7 +219,7 @@ _Use_decl_annotations_ static void DriverpDriverUnload(
   ntstatus = VvmmTermination(driver_object);
   if (!NT_SUCCESS(ntstatus))
   {
-    err_print("VvmmTermination failed: 0x%X", ntstatus);
+    ERR_PRINT("VvmmTermination failed: 0x%X", ntstatus);
   }
 
   VmTermination();
@@ -233,7 +233,7 @@ _Use_decl_annotations_ static void DriverpDriverUnload(
   ntstatus = FcdTermination();
   if (!NT_SUCCESS(ntstatus))
   {
-    err_print("FcdTermination failed: 0x%X", ntstatus);
+    ERR_PRINT("FcdTermination failed: 0x%X", ntstatus);
   }
 #endif
 
