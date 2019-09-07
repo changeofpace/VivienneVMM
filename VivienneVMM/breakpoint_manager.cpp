@@ -76,9 +76,9 @@ typedef struct _DB_CONDITION
 //
 typedef struct _BPM_STATISTICS
 {
-    volatile LONG64 HandledDebugExceptions;
-    volatile LONG64 UnhandledDebugExceptions;
-    volatile LONG64 UnownedBreakpointsSeen;
+    volatile POINTER_ALIGNMENT LONG64 HandledDebugExceptions;
+    volatile POINTER_ALIGNMENT LONG64 UnhandledDebugExceptions;
+    volatile POINTER_ALIGNMENT LONG64 UnownedBreakpointsSeen;
 } BPM_STATISTICS, *PBPM_STATISTICS;
 
 //

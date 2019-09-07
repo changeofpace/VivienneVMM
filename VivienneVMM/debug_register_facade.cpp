@@ -48,8 +48,8 @@ Environment:
 //
 typedef struct _FACADE_MANAGER_STATISTICS
 {
-    volatile LONG64 WriteEvents;
-    volatile LONG64 ReadEvents;
+    volatile POINTER_ALIGNMENT LONG64 WriteEvents;
+    volatile POINTER_ALIGNMENT LONG64 ReadEvents;
 } FACADE_MANAGER_STATISTICS, *PFACADE_MANAGER_STATISTICS;
 
 //
