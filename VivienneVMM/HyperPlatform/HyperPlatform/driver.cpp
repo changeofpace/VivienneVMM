@@ -165,7 +165,7 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
   if (!NT_SUCCESS(status))
   {
     ERR_PRINT("FcdInitialization failed: 0x%X", status);
-    (VOID)VvmmTermination(driver_object);
+    VvmmTermination(driver_object);
     HotplugCallbackTermination();
     PowerCallbackTermination();
     UtilTermination();
@@ -180,9 +180,9 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
   status = VmInitialization();
   if (!NT_SUCCESS(status)) {
 #ifdef CFG_ENABLE_DEBUGREGISTERFACADE
-    (VOID)FcdTermination();
+    FcdTermination();
 #endif
-    (VOID)VvmmTermination(driver_object);
+    VvmmTermination(driver_object);
     HotplugCallbackTermination();
     PowerCallbackTermination();
     UtilTermination();
@@ -205,22 +205,16 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
 _Use_decl_annotations_ static void DriverpDriverUnload(
     PDRIVER_OBJECT driver_object) {
 
-  NTSTATUS ntstatus = STATUS_SUCCESS;
-
   UNREFERENCED_PARAMETER(driver_object);
   PAGED_CODE();
 
-  HYPERPLATFORM_COMMON_DBG_BREAK();
+  //HYPERPLATFORM_COMMON_DBG_BREAK();
 
   //
   // We must terminate VivienneVMM before devirtualization because we must be
   //  able to enter VMX root mode to perform cleanup.
   //
-  ntstatus = VvmmTermination(driver_object);
-  if (!NT_SUCCESS(ntstatus))
-  {
-    ERR_PRINT("VvmmTermination failed: 0x%X", ntstatus);
-  }
+  VvmmTermination(driver_object);
 
   VmTermination();
 
@@ -230,11 +224,7 @@ _Use_decl_annotations_ static void DriverpDriverUnload(
   //  the DebugRegisterFacade performs internal cleanup in VMX root mode during
   //  VM teardown.
   //
-  ntstatus = FcdTermination();
-  if (!NT_SUCCESS(ntstatus))
-  {
-    ERR_PRINT("FcdTermination failed: 0x%X", ntstatus);
-  }
+  FcdTermination();
 #endif
 
   HotplugCallbackTermination();

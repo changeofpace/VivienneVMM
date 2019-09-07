@@ -70,12 +70,12 @@
   <ItemGroup>
     <ClInclude Include="..\common\arch_x64.h" />
     <ClInclude Include="..\common\driver_io_types.h" />
-    <ClInclude Include="..\common\kdebug.h" />
     <ClInclude Include="..\common\time_util.h" />
     <ClInclude Include="breakpoint_callback.h" />
     <ClInclude Include="breakpoint_manager.h" />
     <ClInclude Include="capture_execution_context.h" />
     <ClInclude Include="config.h" />
+    <ClInclude Include="debug.h" />
     <ClInclude Include="debug_register_facade.h" />
     <ClInclude Include="dispatch.h" />
     <ClInclude Include="HyperPlatform\HyperPlatform\asm.h" />

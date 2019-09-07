@@ -30,7 +30,6 @@ Environment:
 #include "log.h"
 #include "register_util.h"
 
-#include "..\common\kdebug.h"
 #include "..\common\time_util.h"
 
 #include "HyperPlatform\HyperPlatform\log.h"
@@ -192,20 +191,15 @@ CeciVmxMemoryBreakpointCallback(
 //
 // CecInitialization
 //
-_Use_decl_annotations_
-NTSTATUS
+VOID
 CecInitialization()
 {
-    NTSTATUS ntstatus = STATUS_SUCCESS;
-
     INF_PRINT("Initializing capture execution context.");
 
     for (ULONG i = 0; i < DAR_COUNT; ++i)
     {
         KeInitializeGuardedMutex(&g_CecManager.DarMutexes[i]);
     }
-
-    return ntstatus;
 }
 
 

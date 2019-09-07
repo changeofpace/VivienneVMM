@@ -172,7 +172,7 @@ _Check_return_
 static
 BOOL
 ReleaseTrapPageContext(
-    _Inout_ PTRAP_PAGE_CONTEXT pContext
+    _In_ PTRAP_PAGE_CONTEXT pContext
 )
 {
     BOOL status = TRUE;
@@ -462,6 +462,7 @@ exit:
     {
         if (hThreads[i])
         {
+#pragma warning(suppress : 6001) // Using uninitialized memory.
             if (!CloseHandle(hThreads[i]))
             {
                 printf("CloseHandle failed: %u\n", GetLastError());

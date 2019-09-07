@@ -212,6 +212,7 @@ TestCaptureRegisterValues()
     // Close thread handles.
     for (ULONG i = 0; i < ARRAYSIZE(hThreads); ++i)
     {
+#pragma warning(suppress : 6001) // Using uninitialized memory.
         status = CloseHandle(hThreads[i]);
         if (!status)
         {

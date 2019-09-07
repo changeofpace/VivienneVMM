@@ -28,8 +28,6 @@ Environment:
 #include "log.h"
 #include "process.h"
 
-#include "..\common\kdebug.h"
-
 #include "HyperPlatform\HyperPlatform\util.h"
 #include "HyperPlatform\HyperPlatform\vmm.h"
 
@@ -327,13 +325,9 @@ exit:
 //
 // BpmTermination
 //
-// NOTE Failing functions should not trigger an early exit.
-//
-_Use_decl_annotations_
-NTSTATUS
+VOID
 BpmTermination()
 {
-    BOOLEAN Failed = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
     INF_PRINT("Terminating breakpoint manager.");
@@ -345,7 +339,6 @@ BpmTermination()
     if (!NT_SUCCESS(ntstatus))
     {
         ERR_PRINT("BpmiCleanupBreakpoints failed: 0x%X", ntstatus);
-        Failed = TRUE;
     }
 
     if (g_BreakpointManager.ProcessCallbackInstalled)
@@ -359,8 +352,9 @@ BpmTermination()
             ERR_PRINT(
                 "PsSetCreateProcessNotifyRoutine failed: 0x%X",
                 ntstatus);
-            Failed = TRUE;
         }
+        //
+        g_BreakpointManager.ProcessCallbackInstalled = FALSE;
     }
 
     // Release processor state resources.
@@ -373,13 +367,6 @@ BpmTermination()
     BpmiLogStatistics();
 
     KeReleaseGuardedMutex(&g_BreakpointManager.Mutex);
-
-    if (Failed)
-    {
-        ntstatus = STATUS_UNSUCCESSFUL;
-    }
-
-    return ntstatus;
 }
 
 

@@ -185,7 +185,7 @@ _Check_return_
 static
 BOOL
 ReleaseAbsoluteAddressContext(
-    _Inout_ PABSOLUTE_ADDRESS_CONTEXT pContext
+    _In_ PABSOLUTE_ADDRESS_CONTEXT pContext
 )
 {
     BOOL status = TRUE;
@@ -628,7 +628,7 @@ _Check_return_
 static
 BOOL
 ReleaseIndirectAddressContext(
-    _Inout_ PINDIRECT_ADDRESS_CONTEXT pContext
+    _In_ PINDIRECT_ADDRESS_CONTEXT pContext
 )
 {
     BOOL status = TRUE;
@@ -1052,7 +1052,7 @@ _Check_return_
 static
 BOOL
 ReleaseResultsOverflowContext(
-    _Inout_ PRESULTS_OVERFLOW_CONTEXT pContext
+    _In_ PRESULTS_OVERFLOW_CONTEXT pContext
 )
 {
     BOOL status = TRUE;
@@ -1458,7 +1458,7 @@ _Check_return_
 static
 BOOL
 ReleaseInvalidAddressContext(
-    _Inout_ PINVALID_ADDRESS_CONTEXT pContext
+    _In_ PINVALID_ADDRESS_CONTEXT pContext
 )
 {
     BOOL status = TRUE;

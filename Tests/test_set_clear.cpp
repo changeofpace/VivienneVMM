@@ -58,7 +58,7 @@ ExerciseBreakpoints()
     temp = g_AccessTarget;
 
     // Exercise write breakpoint.
-    g_WriteTarget = temp + 2;
+    g_WriteTarget = (ULONGLONG)temp + 2;
 }
 
 

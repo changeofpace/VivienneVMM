@@ -23,6 +23,7 @@ Environment:
 #include "breakpoint_manager.h"
 #include "capture_execution_context.h"
 #include "config.h"
+#include "debug.h"
 #include "dispatch.h"
 #include "log.h"
 
@@ -48,6 +49,7 @@ VvmmInitialization(
     UNICODE_STRING DeviceName = {};
     UNICODE_STRING SymlinkName = {};
     BOOLEAN fSymlinkCreated = FALSE;
+    BOOLEAN fBpmInitialized = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
     UNREFERENCED_PARAMETER(pRegistryPath);
@@ -108,24 +110,22 @@ VvmmInitialization(
         ERR_PRINT("BpmInitialization failed: 0x%X", ntstatus);
         goto exit;
     }
+    //
+    fBpmInitialized = TRUE;
 
-    ntstatus = CecInitialization();
-    if (!NT_SUCCESS(ntstatus))
-    {
-        ERR_PRINT("CecInitialization failed: 0x%X", ntstatus);
-        goto exit;
-    }
+    CecInitialization();
 
 exit:
     if (!NT_SUCCESS(ntstatus))
     {
+        if (fBpmInitialized)
+        {
+            BpmTermination();
+        }
+
         if (fSymlinkCreated)
         {
-            NTSTATUS UnwindStatus = IoDeleteSymbolicLink(&SymlinkName);
-            if (!NT_SUCCESS(UnwindStatus))
-            {
-                ERR_PRINT("IoDeleteSymbolicLink failed: 0x%X", UnwindStatus);
-            }
+            VERIFY(IoDeleteSymbolicLink(&SymlinkName));
         }
 
         if (pDeviceObject)
@@ -144,43 +144,25 @@ exit:
 // NOTE Failing functions should not trigger an early exit.
 //
 _Use_decl_annotations_
-NTSTATUS
+VOID
 VvmmTermination(
     PDRIVER_OBJECT pDriverObject
 )
 {
     UNICODE_STRING SymlinkName = {};
-    BOOLEAN Failed = FALSE;
-    NTSTATUS ntstatus = STATUS_SUCCESS;
 
     INF_PRINT("Terminating %ls.", VVMM_DRIVER_NAME_W);
 
-    ntstatus = BpmTermination();
-    if (!NT_SUCCESS(ntstatus))
-    {
-        ERR_PRINT("BpmTermination failed: 0x%X", ntstatus);
-        Failed = TRUE;
-    }
+    BpmTermination();
 
     // Release our symbolic link.
     SymlinkName = RTL_CONSTANT_STRING(VVMM_SYMLINK_NAME_W);
 
-    ntstatus = IoDeleteSymbolicLink(&SymlinkName);
-    if (!NT_SUCCESS(ntstatus))
-    {
-        ERR_PRINT("IoDeleteSymbolicLink failed: 0x%X", ntstatus);
-    }
+    VERIFY(IoDeleteSymbolicLink(&SymlinkName));
 
     // Release our device object.
     if (pDriverObject->DeviceObject)
     {
         IoDeleteDevice(pDriverObject->DeviceObject);
     }
-
-    if (Failed)
-    {
-        ntstatus = STATUS_UNSUCCESSFUL;
-    }
-
-    return ntstatus;
 }

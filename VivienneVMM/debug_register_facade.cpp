@@ -28,7 +28,6 @@ Environment:
 #include "log.h"
 
 #include "..\common\arch_x64.h"
-#include "..\common\kdebug.h"
 
 #include "HyperPlatform\HyperPlatform\util.h"
 
@@ -145,12 +144,9 @@ exit:
 //
 // FcdTermination
 //
-_Use_decl_annotations_
-NTSTATUS
+VOID
 FcdTermination()
 {
-    NTSTATUS ntstatus = STATUS_SUCCESS;
-
     INF_PRINT("Terminating debug register facade.");
 
     // Release processor state resources.
@@ -161,8 +157,6 @@ FcdTermination()
     }
 
     FcdiLogStatistics();
-
-    return ntstatus;
 }
 
 

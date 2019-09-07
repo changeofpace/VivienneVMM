@@ -48,8 +48,7 @@ _Check_return_
 NTSTATUS
 BpmInitialization();
 
-_Check_return_
-NTSTATUS
+VOID
 BpmTermination();
 
 //=============================================================================

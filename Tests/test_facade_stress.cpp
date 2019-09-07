@@ -43,9 +43,9 @@ typedef struct _FACADE_STRESS_CONTEXT
 // Module Globals
 //=============================================================================
 static HANDLE g_BarrierEvent = NULL;
-static volatile LONGLONG g_ThreadLocalIterations = 0;
-static volatile LONGLONG g_VvmmManagedIterations = 0;
-static volatile LONGLONG g_ThreadStopCondition = 0;
+static volatile LONG64 g_ThreadLocalIterations = 0;
+static volatile LONG64 g_VvmmManagedIterations = 0;
+static volatile LONG64 g_ThreadStopCondition = 0;
 
 
 //=============================================================================
@@ -138,6 +138,7 @@ InstallThreadLocalBreakpoints(
 )
 {
     PFACADE_STRESS_CONTEXT pContext = (PFACADE_STRESS_CONTEXT)lpParameter;
+    LONG64 nIterations = 0;
     DWORD waitstatus = 0;
     DWORD threadstatus = ERROR_SUCCESS;
 
@@ -150,7 +151,7 @@ InstallThreadLocalBreakpoints(
 
     // NOTE This check should be atomic, but the presence of a race condition
     //  here will not negatively impact the test.
-    while (NUMBER_OF_ITERATIONS > g_ThreadStopCondition)
+    while (NUMBER_OF_ITERATIONS > nIterations)
     {
         ULONG_PTR Address = 0;
         HWBP_TYPE Type = {};
@@ -158,7 +159,7 @@ InstallThreadLocalBreakpoints(
         ULONG SleepDuration = 0;
         BOOL status = TRUE;
 
-        InterlockedIncrement64(&g_ThreadLocalIterations);
+        nIterations = InterlockedIncrement64(&g_ThreadStopCondition);
         
         // Set a random thread-local breakpoint.
         // NOTE This breakpoint will not (and cannot) be triggered.
@@ -213,6 +214,7 @@ InstallVvmmBreakpoints(
     _In_ LPVOID lpParameter
 )
 {
+    LONG64 nIterations = 0;
     DWORD waitstatus = 0;
     DWORD status = ERROR_SUCCESS;
 
@@ -227,7 +229,7 @@ InstallVvmmBreakpoints(
 
     // Atomic operations are not required because only one thread will write
     //  to the stop-condition global. This laziness is to reduce complexity.
-    while (NUMBER_OF_ITERATIONS > g_ThreadStopCondition)
+    while (NUMBER_OF_ITERATIONS > nIterations)
     {
         ULONG Index = RANDOM_ULONG % DAR_COUNT;
         ULONG_PTR Address = 0;
@@ -271,7 +273,7 @@ InstallVvmmBreakpoints(
 
         Sleep(SleepDuration);
 
-        InterlockedIncrement64(&g_ThreadStopCondition);
+        nIterations = InterlockedIncrement64(&g_ThreadStopCondition);
     }
 
     return status;
@@ -385,6 +387,7 @@ TestDebugRegisterFacadeStress()
     // Close thread handles.
     for (ULONG i = 0; i < ARRAYSIZE(hThreads); ++i)
     {
+#pragma warning(suppress : 6001) // Using uninitialized memory.
         status = CloseHandle(hThreads[i]);
         if (!status)
         {

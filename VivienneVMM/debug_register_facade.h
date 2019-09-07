@@ -31,8 +31,7 @@ _Check_return_
 NTSTATUS
 FcdInitialization();
 
-_Check_return_
-NTSTATUS
+VOID
 FcdTermination();
 
 _IRQL_requires_(HIGH_LEVEL)

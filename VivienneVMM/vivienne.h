@@ -32,8 +32,7 @@ VvmmInitialization(
     _In_ PUNICODE_STRING pRegistryPath
 );
 
-_Check_return_
-NTSTATUS
+VOID
 VvmmTermination(
     _In_ PDRIVER_OBJECT pDriverObject
 );
