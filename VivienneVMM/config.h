@@ -49,6 +49,11 @@ Environment:
 #define CFG_LOGFILE_NTPATH_W L"\\SystemRoot\\vivienne.log"
 
 /*
+ * Delete the log file, if it exists, when the driver is loaded.
+ */
+//#define CFG_DELETE_EXISTING_LOGFILE
+
+/*
  * Enable logging of MovDr VM exit events.
  *
  * WARNING This can generate an excessive amount of prints and degrade

@@ -9,6 +9,8 @@
 #define NTSTRSAFE_NO_CB_FUNCTIONS
 #include <ntstrsafe.h>
 
+#include "..\..\config.h"
+
 // See common.h for details
 #pragma prefast(disable : 30030)
 
@@ -273,8 +275,18 @@ _Use_decl_annotations_ static NTSTATUS LogpInitializeLogFile(
                              OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE, nullptr,
                              nullptr);
 
+  NTSTATUS status = STATUS_SUCCESS;
+
+#if defined(CFG_DELETE_EXISTING_LOGFILE)
+  status = ZwDeleteFile(&oa);
+  if (!NT_SUCCESS(status) && STATUS_OBJECT_NAME_NOT_FOUND != status)
+  {
+    return status;
+  }
+#endif
+
   IO_STATUS_BLOCK io_status = {};
-  auto status = ZwCreateFile(
+  status = ZwCreateFile(
       &info->log_file_handle, FILE_APPEND_DATA | SYNCHRONIZE, &oa, &io_status,
       nullptr, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN_IF,
       FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE, nullptr, 0);
