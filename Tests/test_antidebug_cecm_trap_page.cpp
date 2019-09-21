@@ -471,6 +471,15 @@ exit:
         }
     }
 
+    if (pValuesCtx)
+    {
+        if (!HeapFree(GetProcessHeap(), 0, pValuesCtx))
+        {
+            printf("HeapFree failed: %u\n", GetLastError());
+            status = FALSE;
+        }
+    }
+
     if (!ReleaseTrapPageContext(&Context))
     {
         printf("ReleaseTrapPageContext failed: %u\n", GetLastError());

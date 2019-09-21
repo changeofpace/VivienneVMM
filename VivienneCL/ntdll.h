@@ -80,6 +80,12 @@ typedef _Return_type_success_(return >= 0) LONG NTSTATUS;
     ((((ULONG_PTR) (_pointer)) & ((_alignment) - 1)) == 0)
 
 //=============================================================================
+// Utility Macros
+//=============================================================================
+#define OFFSET_POINTER(Pointer, Offset, Type) \
+    ((Type*)(((PUCHAR)(Pointer)) + (Offset)))
+
+//=============================================================================
 // Objects
 //=============================================================================
 #define OBJ_CASE_INSENSITIVE    0x00000040L
@@ -495,6 +501,15 @@ RtlCompareUnicodeString(
     _In_ PCUNICODE_STRING String1,
     _In_ PCUNICODE_STRING String2,
     _In_ BOOLEAN          CaseInSensitive
+);
+
+EXTERN_C
+BOOLEAN
+NTAPI
+RtlEqualUnicodeString(
+    _In_ PCUNICODE_STRING   String1,
+    _In_ PCUNICODE_STRING   String2,
+    _In_ BOOLEAN            CaseInSensitive
 );
 
 EXTERN_C

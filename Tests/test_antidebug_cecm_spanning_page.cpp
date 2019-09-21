@@ -593,6 +593,15 @@ exit:
         }
     }
 
+    if (pValuesCtx)
+    {
+        if (!HeapFree(GetProcessHeap(), 0, pValuesCtx))
+        {
+            printf("HeapFree failed: %u\n", GetLastError());
+            status = FALSE;
+        }
+    }
+
     if (!ReleaseSpanningPageContext(&Context))
     {
         printf("ReleaseSpanningPageContext failed: %u\n", GetLastError());

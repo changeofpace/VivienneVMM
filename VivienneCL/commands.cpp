@@ -209,8 +209,7 @@ CmdQuerySystemDebugState(
 exit:
     if (pSystemDebugState)
     {
-        status = HeapFree(GetProcessHeap(), 0, pSystemDebugState);
-        if (!status)
+        if (!HeapFree(GetProcessHeap(), 0, pSystemDebugState))
         {
             printf("HeapFree failed: %u\n", GetLastError());
         }
@@ -490,7 +489,6 @@ exit:
         if (!HeapFree(GetProcessHeap(), 0, pValuesCtx))
         {
             printf("HeapFree failed: %u\n", GetLastError());
-            status = FALSE;
         }
     }
 
@@ -787,7 +785,6 @@ exit:
         if (!HeapFree(GetProcessHeap(), 0, pValuesCtx))
         {
             printf("HeapFree failed: %u\n", GetLastError());
-            status = FALSE;
         }
     }
 

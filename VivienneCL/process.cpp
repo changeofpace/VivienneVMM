@@ -98,14 +98,20 @@ PsLookupProcessIdByName(
     fAllocatedString = TRUE;
 
     // Search the process list for matching process names.
-    for (PSYSTEM_PROCESS_INFORMATION Next = pSystemProcessInfo;
-        Next->NextEntryOffset;
-        Next = (PSYSTEM_PROCESS_INFORMATION)
-        ((ULONG_PTR)Next + Next->NextEntryOffset))
+    for (PSYSTEM_PROCESS_INFORMATION pEntry = pSystemProcessInfo;;
+        pEntry = OFFSET_POINTER(
+            pEntry,
+            pEntry->NextEntryOffset,
+            SYSTEM_PROCESS_INFORMATION))
     {
-        if (!RtlCompareUnicodeString(&usProcessName, &Next->ImageName, TRUE))
+        if (RtlEqualUnicodeString(&usProcessName, &pEntry->ImageName, TRUE))
         {
-            ProcessIds.emplace_back((ULONG_PTR)Next->UniqueProcessId);
+            ProcessIds.emplace_back((ULONG_PTR)pEntry->UniqueProcessId);
+        }
+
+        if (!pEntry->NextEntryOffset)
+        {
+            break;
         }
     }
 
@@ -117,8 +123,7 @@ exit:
 
     if (pSystemProcessInfo)
     {
-        status = HeapFree(GetProcessHeap(), 0, pSystemProcessInfo);
-        if (!status)
+        if (!HeapFree(GetProcessHeap(), 0, pSystemProcessInfo))
         {
             printf("HeapFree failed: %u\n", GetLastError());
         }
