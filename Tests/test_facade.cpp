@@ -102,7 +102,7 @@ TestDebugRegisterFacade()
 
     // Install a real hardware breakpoint in the same debug address register
     //  with different parameters.
-    status = DrvSetHardwareBreakpoint(
+    status = VivienneIoSetHardwareBreakpoint(
         GetCurrentProcessId(),
         SHARED_BREAKPOINT_INDEX,
         VVMMGLOBAL_BREAKPOINT_ADDRESS,
@@ -110,7 +110,8 @@ TestDebugRegisterFacade()
         VVMMGLOBAL_BREAKPOINT_SIZE);
     if (!status)
     {
-        FAIL_TEST("DrvSetHardwareBreakpoint failed: %u\n", GetLastError());
+        FAIL_TEST("VivienneIoSetHardwareBreakpoint failed: %u\n",
+            GetLastError());
     }
 
     status = VerifyThreadLocalBreakpointByIndex(
@@ -145,10 +146,11 @@ TestDebugRegisterFacade()
     }
 
     // Clear the VVMM-managed breakpoint.
-    status = DrvClearHardwareBreakpoint(SHARED_BREAKPOINT_INDEX);
+    status = VivienneIoClearHardwareBreakpoint(SHARED_BREAKPOINT_INDEX);
     if (!status)
     {
-        FAIL_TEST("DrvClearHardwareBreakpoint failed: %u\n", GetLastError());
+        FAIL_TEST("VivienneIoClearHardwareBreakpoint failed: %u\n",
+            GetLastError());
     }
 
     // Verify that all debug registers on all processors were cleared.

@@ -38,9 +38,6 @@
     <ClInclude Include="capture_execution_context.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="dispatch.h">
-      <Filter>VivienneVMM\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="register_util.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
@@ -113,9 +110,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\time_util.cpp">
-      <Filter>VivienneVMM\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dispatch.cpp">
       <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="register_util.cpp">

@@ -180,7 +180,7 @@ TestCaptureRegisterValues()
         (ULONG_PTR)&g_AcCecrCaptureAddress);
 
     // Issue the synchronous CECR request.
-    status = DrvCaptureRegisterValues(
+    status = VivienneIoCaptureRegisterValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
         (ULONG_PTR)&g_AcCecrCaptureAddress,
@@ -192,7 +192,8 @@ TestCaptureRegisterValues()
         CONTEXT_BUFFER_SIZE);
     if (!status)
     {
-        FAIL_TEST("DrvCaptureRegisterValues failed: %u\n", GetLastError());
+        FAIL_TEST("VivienneIoCaptureRegisterValues failed: %u\n",
+            GetLastError());
     }
 
     // Lazily signal that all threads should terminate.

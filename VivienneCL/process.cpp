@@ -1,13 +1,19 @@
+/*++
+
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
+--*/
+
 #include "process.h"
 
-#include <cstdio>
+#include "debug.h"
+#include "log.h"
 
 #include "..\VivienneCL\ntdll.h"
 
-
-//=============================================================================
-// Client Interface
-//=============================================================================
 
 //
 // PsLookupProcessIdByName
@@ -25,7 +31,7 @@ PsLookupProcessIdByName(
 )
 {
     PSYSTEM_PROCESS_INFORMATION pSystemProcessInfo = NULL;
-    ULONG cbSystemProcessInfo = NULL;
+    ULONG cbSystemProcessInfo = 0;
     ULONG cbReturnLength = 0;
     NTSTATUS ntstatus = STATUS_SUCCESS;
     ANSI_STRING asProcessName = {};
@@ -33,10 +39,14 @@ PsLookupProcessIdByName(
     BOOLEAN fAllocatedString = FALSE;
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     ProcessIds.clear();
 
+    //
     // Initial allocation size.
+    //
     cbSystemProcessInfo = sizeof(*pSystemProcessInfo);
 
     for (;;)
@@ -62,26 +72,32 @@ PsLookupProcessIdByName(
         }
         else if (STATUS_INFO_LENGTH_MISMATCH != ntstatus)
         {
-            printf("NtQuerySystemInformation failed: 0x%X\n", ntstatus);
+            ERR_PRINT("NtQuerySystemInformation failed: 0x%X", ntstatus);
             status = FALSE;
             goto exit;
         }
 
+        //
         // Update the allocation size to the last required size.
+        //
         cbSystemProcessInfo = cbReturnLength;
 
+        //
         // Release the inadequate buffer.
+        //
         status = HeapFree(GetProcessHeap(), 0, pSystemProcessInfo);
         if (!status)
         {
-            printf("HeapFree failed: %u\n", GetLastError());
+            ERR_PRINT("HeapFree failed: %u", GetLastError());
             goto exit;
         }
 
         pSystemProcessInfo = NULL;
     }
 
+    //
     // Initialize a unicode string from the process name parameter.
+    //
     RtlInitAnsiString(&asProcessName, pszProcessName);
 
     ntstatus = RtlAnsiStringToUnicodeString(
@@ -90,14 +106,16 @@ PsLookupProcessIdByName(
         TRUE);
     if (!NT_SUCCESS(ntstatus))
     {
-        printf("RtlAnsiStringToUnicodeString failed: 0x%X\n", ntstatus);
+        ERR_PRINT("RtlAnsiStringToUnicodeString failed: 0x%X", ntstatus);
         status = FALSE;
         goto exit;
     }
 
     fAllocatedString = TRUE;
 
+    //
     // Search the process list for matching process names.
+    //
     for (PSYSTEM_PROCESS_INFORMATION pEntry = pSystemProcessInfo;;
         pEntry = OFFSET_POINTER(
             pEntry,
@@ -123,10 +141,7 @@ exit:
 
     if (pSystemProcessInfo)
     {
-        if (!HeapFree(GetProcessHeap(), 0, pSystemProcessInfo))
-        {
-            printf("HeapFree failed: %u\n", GetLastError());
-        }
+        VERIFY(HeapFree(GetProcessHeap(), 0, pSystemProcessInfo));
     }
 
     return status;

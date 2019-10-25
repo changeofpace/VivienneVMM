@@ -451,7 +451,7 @@ AreAllHardwareBreakpointsCleared()
 
     // Multi-processor systems will fail the initial query to obtain the
     //  required struct size.
-    if (!DrvQuerySystemDebugState(pSystemDebugState, cbSystemDebugState))
+    if (!VivienneIoQuerySystemDebugState(pSystemDebugState, cbSystemDebugState))
     {
         RequiredSize = pSystemDebugState->Size;
 
@@ -473,11 +473,12 @@ AreAllHardwareBreakpointsCleared()
             goto exit;
         }
 
-        status = DrvQuerySystemDebugState(pSystemDebugState, RequiredSize);
+        status =
+            VivienneIoQuerySystemDebugState(pSystemDebugState, RequiredSize);
         if (!status)
         {
             printf(
-                "DrvQuerySystemDebugState failed twice: %u\n",
+                "VivienneIoQuerySystemDebugState failed twice: %u\n",
                 GetLastError());
             goto exit;
         }

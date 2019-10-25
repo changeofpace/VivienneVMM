@@ -1,5 +1,10 @@
 /*++
 
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
 Module Name:
 
     debug_register_facade.cpp
@@ -39,14 +44,13 @@ Environment:
 
 
 //=============================================================================
-// Internal Types
+// Private Types
 //=============================================================================
 
 //
 // Event tracking.
 //
-typedef struct _FACADE_MANAGER_STATISTICS
-{
+typedef struct _FACADE_MANAGER_STATISTICS {
     volatile POINTER_ALIGNMENT LONG64 WriteEvents;
     volatile POINTER_ALIGNMENT LONG64 ReadEvents;
 } FACADE_MANAGER_STATISTICS, *PFACADE_MANAGER_STATISTICS;
@@ -59,8 +63,7 @@ typedef struct _FACADE_MANAGER_STATISTICS
 //  BPM-managed breakpoint via NtSetContextThread and direct debug register
 //  access.
 //
-typedef struct _FCD_PROCESSOR_STATE
-{
+typedef struct _FCD_PROCESSOR_STATE {
     BOOLEAN Initialized;
     ULONG_PTR DebugRegisters[DR_COUNT];
 } FCD_PROCESSOR_STATE, *PFCD_PROCESSOR_STATE;
@@ -72,8 +75,7 @@ typedef struct _FCD_PROCESSOR_STATE
 //  each logical processor will only modify its own processor state inside VMX
 //  root mode.
 //
-typedef struct _FACADE_MANAGER_STATE
-{
+typedef struct _FACADE_MANAGER_STATE {
     FACADE_MANAGER_STATISTICS Statistics;
     PFCD_PROCESSOR_STATE Processors;
 } FACADE_MANAGER_STATE, *PFACADE_MANAGER_STATE;
@@ -86,7 +88,7 @@ static FACADE_MANAGER_STATE g_FacadeManager = {};
 
 
 //=============================================================================
-// Internal Prototypes
+// Private Prototypes
 //=============================================================================
 static
 VOID
@@ -96,13 +98,9 @@ FcdiLogStatistics();
 //=============================================================================
 // Meta Interface
 //=============================================================================
-
-//
-// FcdInitialization
-//
 _Use_decl_annotations_
 NTSTATUS
-FcdInitialization()
+FcdDriverEntry()
 {
     ULONG cProcessors = KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
     SIZE_T cbProcessorStates = cProcessors * sizeof(*g_FacadeManager.Processors);
@@ -111,7 +109,9 @@ FcdInitialization()
 
     INF_PRINT("Initializing debug register facade.");
 
+    //
     // Allocate and initialize processor state.
+    //
     pProcessorStates = (PFCD_PROCESSOR_STATE)ExAllocatePoolWithTag(
         NonPagedPool,
         cbProcessorStates,
@@ -124,11 +124,12 @@ FcdInitialization()
     //
     RtlSecureZeroMemory(pProcessorStates, cbProcessorStates);
 
+    //
     // Initialize module globals.
+    //
     g_FacadeManager.Processors = pProcessorStates;
 
 exit:
-    // Release resources on failure.
     if (!NT_SUCCESS(ntstatus))
     {
         if (pProcessorStates)
@@ -141,20 +142,15 @@ exit:
 }
 
 
-//
-// FcdTermination
-//
 VOID
-FcdTermination()
+FcdDriverUnload()
 {
     INF_PRINT("Terminating debug register facade.");
 
+    //
     // Release processor state resources.
-    if (g_FacadeManager.Processors)
-    {
-        ExFreePoolWithTag(g_FacadeManager.Processors, FCD_TAG);
-        g_FacadeManager.Processors = NULL;
-    }
+    //
+    ExFreePoolWithTag(g_FacadeManager.Processors, FCD_TAG);
 
     FcdiLogStatistics();
 }
@@ -165,7 +161,7 @@ FcdTermination()
 //=============================================================================
 
 //
-// FcdVmxInitialization
+// FcdVmxDriverEntry
 //
 // Initialize the fake debug registers using the current state of the guest's
 //  debug registers.
@@ -179,9 +175,11 @@ FcdTermination()
 //
 _Use_decl_annotations_
 VOID
-FcdVmxInitialization()
+FcdVmxDriverEntry()
 {
+    //
     // Use the CR4 of the host in case the guest CR4 is being virtualized.
+    //
     Cr4 HostCr4 = {UtilVmRead(VmcsField::kHostCr4)};
     ULONG CurrentProcessor = KeGetCurrentProcessorNumberEx(NULL);
     PFCD_PROCESSOR_STATE pFacade = NULL;
@@ -199,8 +197,10 @@ FcdVmxInitialization()
     // TODO Refactor this code to reflect the updates to VmmpHandleDrAccess.
     //
 
+    //
     // If debug extensions are enabled (CR4.DE = 1), accessing DR4 and/or DR5
     //  cause an invalid-opcode exception.
+    //
     if (HostCr4.fields.de)
     {
         pFacade->DebugRegisters[4] = 0;
@@ -220,7 +220,7 @@ FcdVmxInitialization()
 
 
 //
-// FcdVmxTermination
+// FcdVmxDriverUnload
 //
 // Copy the state of the fake debug registers to the guest's actual debug
 //  registers.
@@ -231,9 +231,11 @@ FcdVmxInitialization()
 //
 _Use_decl_annotations_
 VOID
-FcdVmxTermination()
+FcdVmxDriverUnload()
 {
+    //
     // Use the CR4 of the host in case the guest CR4 is being virtualized.
+    //
     Cr4 HostCr4 = {UtilVmRead(VmcsField::kHostCr4)};
     ULONG CurrentProcessor = KeGetCurrentProcessorNumberEx(NULL);
     PFCD_PROCESSOR_STATE pFacade = NULL;
@@ -243,7 +245,9 @@ FcdVmxTermination()
 
     pFacade = &g_FacadeManager.Processors[CurrentProcessor];
 
+    //
     // Skip uninitialized facades.
+    //
     if (!pFacade->Initialized)
     {
         goto exit;
@@ -258,8 +262,10 @@ FcdVmxTermination()
     // TODO Refactor this code to reflect the updates to VmmpHandleDrAccess.
     //
 
+    //
     // If debug extensions are enabled (CR4.DE = 1), accessing DR4 and/or DR5
     //  cause an invalid-opcode exception.
+    //
     if (!HostCr4.fields.de)
     {
         __writedr(4, pFacade->DebugRegisters[4]);
@@ -281,9 +287,6 @@ exit:
 }
 
 
-//
-// FcdVmxLogMovDrEvent
-//
 _Use_decl_annotations_
 VOID
 FcdVmxLogMovDrEvent(
@@ -358,7 +361,9 @@ FcdVmxProcessMovDrEvent(
 
     NT_ASSERT(DR_COUNT > Index);
 
+    //
     // Emulate the debug register access using the fake debug registers.
+    //
     switch ((MovDrDirection)ExitQualification.fields.direction)
     {
         case MovDrDirection::kMoveToDr:
@@ -382,12 +387,8 @@ exit:
 
 
 //=============================================================================
-// Internal Interface
+// Private Interface
 //=============================================================================
-
-//
-// FcdiLogStatistics
-//
 static
 VOID
 FcdiLogStatistics()

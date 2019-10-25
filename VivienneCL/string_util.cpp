@@ -1,3 +1,12 @@
+/*++
+
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
+--*/
+
 #include "string_util.h"
 
 #include <strsafe.h>
@@ -10,10 +19,6 @@
 //=============================================================================
 // To String Interface
 //=============================================================================
-
-//
-// StrUnsignedLongToString
-//
 _Use_decl_annotations_
 BOOL
 StrUnsignedLongToString(
@@ -43,9 +48,6 @@ exit:
 }
 
 
-//
-// StrUnsignedLongLongToString
-//
 _Use_decl_annotations_
 BOOL
 StrUnsignedLongLongToString(
@@ -78,10 +80,6 @@ exit:
 //=============================================================================
 // From String Interface
 //=============================================================================
-
-//
-// StrUnsignedLongFromString
-//
 _Use_decl_annotations_
 BOOL
 StrUnsignedLongFromString(
@@ -94,7 +92,9 @@ StrUnsignedLongFromString(
     ULONG Value = 0;
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     *pValue = 0;
 
     try
@@ -107,7 +107,9 @@ StrUnsignedLongFromString(
         goto exit;
     }
 
+    //
     // Set out parameters.
+    //
     *pValue = Value;
 
 exit:
@@ -115,9 +117,6 @@ exit:
 }
 
 
-//
-// StrUnsignedLongLongFromString
-//
 _Use_decl_annotations_
 BOOL
 StrUnsignedLongLongFromString(
@@ -130,7 +129,9 @@ StrUnsignedLongLongFromString(
     ULONGLONG Value = 0;
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     *pValue = 0;
 
     try
@@ -143,7 +144,9 @@ StrUnsignedLongLongFromString(
         goto exit;
     }
 
+    //
     // Set out parameters.
+    //
     *pValue = Value;
 
 exit:
@@ -154,10 +157,6 @@ exit:
 //=============================================================================
 // Tokenizer Interface
 //=============================================================================
-
-//
-// StrSplitStringByDelimiter
-//
 _Use_decl_annotations_
 SIZE_T
 StrSplitStringByDelimiter(
@@ -169,7 +168,9 @@ StrSplitStringByDelimiter(
     std::string Token = {};
     std::stringstream Stream(Input);
 
+    //
     // Zero out parameters.
+    //
     Output.clear();
 
     while (std::getline(Stream, Token, Delimiter))
@@ -181,9 +182,6 @@ StrSplitStringByDelimiter(
 }
 
 
-//
-// StrSplitStringByWhitespace
-//
 _Use_decl_annotations_
 SIZE_T
 StrSplitStringByWhitespace(

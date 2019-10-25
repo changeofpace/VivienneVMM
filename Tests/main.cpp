@@ -116,7 +116,7 @@ static
 __cdecl
 ProcessTerminationHandler()
 {
-    (VOID)DrvTermination();
+    VivienneIoTermination();
 }
 
 
@@ -131,9 +131,9 @@ main(
 {
     int mainstatus = TEST_FAILURE;
 
-    if (!DrvInitialization())
+    if (!VivienneIoInitialization())
     {
-        printf("DrvInitialization failed: %u\n", GetLastError());
+        printf("VivienneIoInitialization failed: %u\n", GetLastError());
         goto exit;
     }
 

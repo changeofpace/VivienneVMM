@@ -1,5 +1,10 @@
 /*++
 
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
 Module Name:
 
     register_util.cpp
@@ -41,7 +46,9 @@ ReadGuestGpRegisterValue(
 {
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
+    //
     // Zero out parameters.
+    //
     *pRegisterValue = 0;
 
     switch (Register)

@@ -1,10 +1,35 @@
+/*++
+
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
+Module Name:
+
+    ioctl_validation.h
+
+Abstract:
+
+    This module implements the IO validation routines.
+
+Author:
+
+    changeofpace
+
+Environment:
+
+    Kernel mode only.
+
+--*/
+
 #include "ioctl_validation.h"
 
 #include "log.h"
 
 
 //=============================================================================
-// Internal Prototypes
+// Private Prototypes
 //=============================================================================
 _Check_return_
 static
@@ -31,10 +56,6 @@ IviValidateIndirectAddress(
 //=============================================================================
 // Public Interface
 //=============================================================================
-
-//
-// IvValidateGeneralPurposeRegister
-//
 _Use_decl_annotations_
 NTSTATUS
 IvValidateGeneralPurposeRegister(
@@ -73,9 +94,6 @@ exit:
 }
 
 
-//
-// IvValidateDebugRegisterIndex
-//
 _Use_decl_annotations_
 NTSTATUS
 IvValidateDebugRegisterIndex(
@@ -95,9 +113,6 @@ exit:
 }
 
 
-//
-// IvValidateMemoryDescription
-//
 _Use_decl_annotations_
 NTSTATUS
 IvValidateMemoryDescription(
@@ -141,7 +156,7 @@ IvValidateMemoryDescription(
         // NOTE Restrict absolute virtual addresses to user space for now.
         //
         if ((ULONG_PTR)MM_HIGHEST_USER_ADDRESS <=
-                pMemoryDescription->u.VirtualAddress)
+            pMemoryDescription->u.VirtualAddress)
         {
             ERR_PRINT(
                 "IV: Invalid virtual address: 0x%IX",
@@ -157,12 +172,8 @@ exit:
 
 
 //=============================================================================
-// Internal Interface
+// Private Interface
 //=============================================================================
-
-//
-// IviValidateMemoryDataType
-//
 _Use_decl_annotations_
 static
 NTSTATUS
@@ -191,9 +202,6 @@ exit:
 }
 
 
-//
-// IviValidateScaleFactor
-//
 _Use_decl_annotations_
 static
 NTSTATUS
@@ -220,9 +228,6 @@ exit:
 }
 
 
-//
-// IviValidateIndirectAddress
-//
 _Use_decl_annotations_
 static
 NTSTATUS
@@ -255,7 +260,8 @@ IviValidateIndirectAddress(
         if (!NT_SUCCESS(ntstatus))
         {
             ERR_PRINT(
-                "IvValidateGeneralPurposeRegister failed: 0x%X (index register)",
+                "IvValidateGeneralPurposeRegister failed: 0x%X"
+                " (index register)",
                 ntstatus);
             goto exit;
         }

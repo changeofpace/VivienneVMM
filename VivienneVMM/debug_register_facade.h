@@ -1,7 +1,12 @@
 /*++
 
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
 Module Name:
-    
+
     debug_register_facade.h
 
 Abstract:
@@ -29,18 +34,18 @@ Environment:
 //=============================================================================
 _Check_return_
 NTSTATUS
-FcdInitialization();
+FcdDriverEntry();
 
 VOID
-FcdTermination();
-
-_IRQL_requires_(HIGH_LEVEL)
-VOID
-FcdVmxInitialization();
+FcdDriverUnload();
 
 _IRQL_requires_(HIGH_LEVEL)
 VOID
-FcdVmxTermination();
+FcdVmxDriverEntry();
+
+_IRQL_requires_(HIGH_LEVEL)
+VOID
+FcdVmxDriverUnload();
 
 //=============================================================================
 // Vmx Interface

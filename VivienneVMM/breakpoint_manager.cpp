@@ -1,5 +1,10 @@
 /*++
 
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
 Module Name:
 
     breakpoint_manager.cpp
@@ -25,6 +30,7 @@ Environment:
 #include <intrin.h>
 
 #include "config.h"
+#include "debug.h"
 #include "log.h"
 #include "process.h"
 
@@ -38,17 +44,16 @@ Environment:
 #define BPM_TAG 'TmpB'
 
 #ifdef CFG_VERBOSE_BREAKPOINTMANAGER
-#define bpm_verbose_print   INF_PRINT
+#define BPM_VERBOSE_PRINT   INF_PRINT
 #else
-#define bpm_verbose_print(Format, ...) ((VOID)0)
+#define BPM_VERBOSE_PRINT(Format, ...)
 #endif
 
 
 //=============================================================================
-// Internal Types
+// Private Types
 //=============================================================================
-typedef struct _SETHARDWAREBREAKPOINT_IPI_CONTEXT
-{
+typedef struct _SETHARDWAREBREAKPOINT_IPI_CONTEXT {
     NTSTATUS ReturnStatus;
     BOOLEAN Enable;
     HARDWARE_BREAKPOINT Breakpoint;
@@ -59,8 +64,7 @@ typedef struct _SETHARDWAREBREAKPOINT_IPI_CONTEXT
 //
 // A description of a triggered hardware breakpoint.
 //
-typedef struct _DB_CONDITION
-{
+typedef struct _DB_CONDITION {
     ULONG Index;        // Debug address register number (#).
     ULONG_PTR Address;  // Dr# value.
     BOOLEAN Local;      // DR7.L#
@@ -72,8 +76,7 @@ typedef struct _DB_CONDITION
 //
 // Event tracking.
 //
-typedef struct _BPM_STATISTICS
-{
+typedef struct _BPM_STATISTICS {
     volatile POINTER_ALIGNMENT LONG64 HandledDebugExceptions;
     volatile POINTER_ALIGNMENT LONG64 UnhandledDebugExceptions;
     volatile POINTER_ALIGNMENT LONG64 UnownedBreakpointsSeen;
@@ -82,8 +85,7 @@ typedef struct _BPM_STATISTICS
 //
 // A bookkeeping entry used to associate callbacks with installed breakpoints.
 //
-typedef struct _BPM_DEBUG_ADDRESS_REGISTER
-{
+typedef struct _BPM_DEBUG_ADDRESS_REGISTER {
     BOOLEAN Enabled;
     HARDWARE_BREAKPOINT Breakpoint;
     FPBREAKPOINT_CALLBACK CallbackFn;
@@ -93,8 +95,7 @@ typedef struct _BPM_DEBUG_ADDRESS_REGISTER
 //
 // Bookkeeping for a logical processor used to track installed breakpoints.
 //
-typedef struct _BPM_PROCESSOR_STATE
-{
+typedef struct _BPM_PROCESSOR_STATE {
     BPM_DEBUG_ADDRESS_REGISTER DebugRegisters[DAR_COUNT];
 } BPM_PROCESSOR_STATE, *PBPM_PROCESSOR_STATE;
 
@@ -133,10 +134,8 @@ typedef struct _BPM_PROCESSOR_STATE
 //
 // NOTE See capture_execution_context for a breakpoint callback example.
 //
-typedef struct _BREAKPOINT_MANAGER_STATE
-{
+typedef struct _BREAKPOINT_MANAGER_STATE {
     BPM_STATISTICS Statistics;
-    BOOLEAN ProcessCallbackInstalled;
 
     //
     // Constant after initialization.
@@ -163,7 +162,7 @@ static BREAKPOINT_MANAGER_STATE g_BreakpointManager = {};
 
 
 //=============================================================================
-// Internal Prototypes
+// Private Prototypes
 //=============================================================================
 static
 VOID
@@ -245,13 +244,9 @@ BpmiVmxConsumeDebugException(
 //=============================================================================
 // Meta Interface
 //=============================================================================
-
-//
-// BpmInitialization
-//
 _Use_decl_annotations_
 NTSTATUS
-BpmInitialization()
+BpmDriverEntry()
 {
     ULONG cProcessors = KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
     SIZE_T cbProcessorStates =
@@ -262,7 +257,9 @@ BpmInitialization()
 
     INF_PRINT("Initializing breakpoint manager.");
 
+    //
     // Allocate and initialize processor state.
+    //
     pProcessorStates = (PBPM_PROCESSOR_STATE)ExAllocatePoolWithTag(
         NonPagedPool,
         cbProcessorStates,
@@ -275,8 +272,10 @@ BpmInitialization()
     //
     RtlSecureZeroMemory(pProcessorStates, cbProcessorStates);
 
+    //
     // NOTE We must install the callback after allocating memory for the
     //  internal processor state because the callback may access this data.
+    //
     ntstatus = PsSetCreateProcessNotifyRoutine(
         BpmiCreateProcessNotifyRoutine,
         FALSE);
@@ -285,31 +284,24 @@ BpmInitialization()
         ERR_PRINT("PsSetCreateProcessNotifyRoutine failed: 0x%X", ntstatus);
         goto exit;
     }
-
+    //
     ProcessCallbackInstalled = TRUE;
 
+    //
     // Initialize module globals.
+    //
     KeInitializeGuardedMutex(&g_BreakpointManager.Mutex);
-    g_BreakpointManager.ProcessCallbackInstalled = ProcessCallbackInstalled;
     g_BreakpointManager.NumberOfProcessors = cProcessors;
     g_BreakpointManager.Processors = pProcessorStates;
 
 exit:
-    // Remove callbacks and free resources on failure. The order of operations
-    //  must mirror the order performed above for a successful unwind.
     if (!NT_SUCCESS(ntstatus))
     {
         if (ProcessCallbackInstalled)
         {
-            NTSTATUS _ntstatus = PsSetCreateProcessNotifyRoutine(
+            VERIFY(PsSetCreateProcessNotifyRoutine(
                 BpmiCreateProcessNotifyRoutine,
-                TRUE);
-            if (!NT_SUCCESS(_ntstatus))
-            {
-                ERR_PRINT(
-                    "PsSetCreateProcessNotifyRoutine failed: 0x%X",
-                    _ntstatus);
-            }
+                TRUE));
         }
 
         if (pProcessorStates)
@@ -322,47 +314,28 @@ exit:
 }
 
 
-//
-// BpmTermination
-//
 VOID
-BpmTermination()
+BpmDriverUnload()
 {
-    NTSTATUS ntstatus = STATUS_SUCCESS;
-
     INF_PRINT("Terminating breakpoint manager.");
 
     KeAcquireGuardedMutex(&g_BreakpointManager.Mutex);
 
+    //
     // Uninstall owned breakpoints.
-    ntstatus = BpmiCleanupBreakpoints();
-    if (!NT_SUCCESS(ntstatus))
-    {
-        ERR_PRINT("BpmiCleanupBreakpoints failed: 0x%X", ntstatus);
-    }
+    //
+    VERIFY(BpmiCleanupBreakpoints());
 
-    if (g_BreakpointManager.ProcessCallbackInstalled)
-    {
-        // Uninstall the process notification callback.
-        ntstatus = PsSetCreateProcessNotifyRoutine(
-            BpmiCreateProcessNotifyRoutine,
-            TRUE);
-        if (!NT_SUCCESS(ntstatus))
-        {
-            ERR_PRINT(
-                "PsSetCreateProcessNotifyRoutine failed: 0x%X",
-                ntstatus);
-        }
-        //
-        g_BreakpointManager.ProcessCallbackInstalled = FALSE;
-    }
+    //
+    // Uninstall the process notification callback.
+    //
+    VERIFY(
+        PsSetCreateProcessNotifyRoutine(BpmiCreateProcessNotifyRoutine, TRUE));
 
+    //
     // Release processor state resources.
-    if (g_BreakpointManager.Processors)
-    {
-        ExFreePoolWithTag(g_BreakpointManager.Processors, BPM_TAG);
-        g_BreakpointManager.Processors = NULL;
-    }
+    //
+    ExFreePoolWithTag(g_BreakpointManager.Processors, BPM_TAG);
 
     BpmiLogStatistics();
 
@@ -391,7 +364,9 @@ BpmQuerySystemDebugState(
     PDEBUG_REGISTER_STATE pQuery = NULL;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
+    //
     // Zero out parameters.
+    //
     RtlSecureZeroMemory(pSystemDebugState, cbSystemDebugState);
 
     KeAcquireGuardedMutex(&g_BreakpointManager.Mutex);
@@ -403,7 +378,9 @@ BpmQuerySystemDebugState(
 
     if (cbSystemDebugState < RequiredSize)
     {
+        //
         // The client is likely querying the required size.
+        //
         ntstatus = STATUS_BUFFER_OVERFLOW;
         goto exit;
     }
@@ -411,7 +388,9 @@ BpmQuerySystemDebugState(
     pSystemDebugState->NumberOfProcessors =
         g_BreakpointManager.NumberOfProcessors;
 
+    //
     // Copy the current state of the debug registers for all processors.
+    //
     for (ULONG i = 0; i < g_BreakpointManager.NumberOfProcessors; ++i)
     {
         pBpmDebugRegisters =
@@ -431,7 +410,9 @@ BpmQuerySystemDebugState(
 exit:
     KeReleaseGuardedMutex(&g_BreakpointManager.Mutex);
 
+    //
     // Always set the required size.
+    //
     pSystemDebugState->Size = RequiredSize;
 
     return ntstatus;
@@ -459,7 +440,9 @@ BpmInitializeBreakpoint(
     ULONG cbCondition = 0;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
+    //
     // Zero out parameters.
+    //
     RtlSecureZeroMemory(pBreakpoint, sizeof(*pBreakpoint));
 
     //
@@ -479,7 +462,9 @@ BpmInitializeBreakpoint(
     //
     fHasProcessReference = TRUE;
 
+    //
     // Validate Index.
+    //
     if (DAR_COUNT <= Index)
     {
         ntstatus = STATUS_INVALID_PARAMETER_2;
@@ -498,7 +483,9 @@ BpmInitializeBreakpoint(
         goto exit;
     }
 
+    //
     // Validate Type.
+    //
     if (HWBP_TYPE::Execute != Type &&
         HWBP_TYPE::Write != Type &&
         HWBP_TYPE::Access != Type)
@@ -507,7 +494,9 @@ BpmInitializeBreakpoint(
         goto exit;
     }
 
+    //
     // Execution breakpoints must have size 1.
+    //
     if (HWBP_TYPE::Execute == Type &&
         HWBP_SIZE::Byte != Size)
     {
@@ -538,7 +527,9 @@ BpmInitializeBreakpoint(
             goto exit;
     }
 
+    //
     // Enforce address alignment for data breakpoints.
+    //
     if (HWBP_TYPE::Execute != Type &&
         !IS_ALIGNED(Address, cbCondition))
     {
@@ -546,7 +537,9 @@ BpmInitializeBreakpoint(
         goto exit;
     }
 
+    //
     // Set out parameters.
+    //
     pBreakpoint->ProcessId = (HANDLE)ProcessId;
     pBreakpoint->Index = Index;
     pBreakpoint->Address = Address;
@@ -579,7 +572,7 @@ BpmSetHardwareBreakpoint(
     BOOLEAN HasMutex = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    bpm_verbose_print(
+    BPM_VERBOSE_PRINT(
         "BPM: Setting bp: Dr%u, pid=0x%IX (%Iu), addr=0x%IX, type=%c, size=%c",
         pBreakpoint->Index,
         pBreakpoint->ProcessId,
@@ -672,7 +665,7 @@ BpmClearHardwareBreakpoint(
 {
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    bpm_verbose_print("BPM: Clearing Dr%u.", Index);
+    BPM_VERBOSE_PRINT("BPM: Clearing Dr%u.", Index);
 
     KeAcquireGuardedMutex(&g_BreakpointManager.Mutex);
 
@@ -701,7 +694,7 @@ BpmCleanupBreakpoints()
 {
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    bpm_verbose_print("BPM: Cleaning up breakpoints.");
+    BPM_VERBOSE_PRINT("BPM: Cleaning up breakpoints.");
 
     KeAcquireGuardedMutex(&g_BreakpointManager.Mutex);
 
@@ -844,7 +837,9 @@ BpmVmxSetHardwareBreakpoint(
             goto exit;
     }
 
+    //
     // Update the breakpoint manager's internal state.
+    //
     nProcessor = KeGetCurrentProcessorNumberEx(NULL);
 
     pBpmDebugRegister =
@@ -938,14 +933,14 @@ BpmVmxProcessDebugExceptionEvent(
     BOOLEAN fHandleThisException = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    bpm_verbose_print("BPM: Entering #DB VM exit handler.");
+    BPM_VERBOSE_PRINT("BPM: Entering #DB VM exit handler.");
 
     //
     // Forward irrelevant debug exceptions to the guest.
     //
     if (ExitQualification.fields.debug_register_access)
     {
-        bpm_verbose_print("BPM: Observed debug register access during #DB.");
+        BPM_VERBOSE_PRINT("BPM: Observed debug register access during #DB.");
         ntstatus = STATUS_UNSUCCESSFUL;
         goto exit;
     }
@@ -955,7 +950,7 @@ BpmVmxProcessDebugExceptionEvent(
         // NOTE If this occurs then a process may be attempting some type of
         //  anti-debug technique.
         //
-        bpm_verbose_print("BPM: Observed single step or branch during #DB.");
+        BPM_VERBOSE_PRINT("BPM: Observed single step or branch during #DB.");
         ntstatus = STATUS_UNSUCCESSFUL;
         goto exit;
     }
@@ -987,8 +982,9 @@ BpmVmxProcessDebugExceptionEvent(
             goto exit;
         }
 
-        bpm_verbose_print(
-            "BPM: #DB Condition: index=%u, addr=0x%IX, l=%u, g=%u, type=%c, size=%c",
+        BPM_VERBOSE_PRINT(
+            "BPM: #DB Condition: index=%u, addr=0x%IX, l=%u, g=%u, type=%c,"
+            " size=%c",
             Condition.Index,
             Condition.Address,
             Condition.Local,
@@ -1013,7 +1009,7 @@ BpmVmxProcessDebugExceptionEvent(
             InterlockedIncrement64(
                 &g_BreakpointManager.Statistics.UnownedBreakpointsSeen);
 
-            bpm_verbose_print(
+            BPM_VERBOSE_PRINT(
                 "BPM: Encountered #DB caused by unowned breakpoint (%lld).",
                 g_BreakpointManager.Statistics.UnownedBreakpointsSeen);
 
@@ -1075,7 +1071,7 @@ exit:
         InterlockedIncrement64(
             &g_BreakpointManager.Statistics.UnhandledDebugExceptions);
 
-        bpm_verbose_print("BPM: Forwarding #DB to guest.");
+        BPM_VERBOSE_PRINT("BPM: Forwarding #DB to guest.");
     }
 
     return ntstatus;
@@ -1083,7 +1079,7 @@ exit:
 
 
 //=============================================================================
-// Internal Interface
+// Private Interface
 //=============================================================================
 
 //
@@ -1102,12 +1098,13 @@ BpmiCreateProcessNotifyRoutine(
 )
 {
     PHARDWARE_BREAKPOINT pBreakpoint = NULL;
-    NTSTATUS ntstatus = STATUS_SUCCESS;
 
     UNREFERENCED_PARAMETER(hParentId);
     UNREFERENCED_PARAMETER(Create);
 
+    //
     // Ignore process creation.
+    //
     if (Create)
     {
         goto exit;
@@ -1115,8 +1112,10 @@ BpmiCreateProcessNotifyRoutine(
 
     KeAcquireGuardedMutex(&g_BreakpointManager.Mutex);
 
+    //
     // Determine if the breakpoint manager owns a breakpoint assigned to this
     //  terminating process.
+    //
     for (ULONG p = 0; p < g_BreakpointManager.NumberOfProcessors; ++p)
     {
         for (ULONG i = 0; i < DAR_COUNT; ++i)
@@ -1126,22 +1125,7 @@ BpmiCreateProcessNotifyRoutine(
 
             if (hProcessId == pBreakpoint->ProcessId)
             {
-                ntstatus = BpmiClearHardwareBreakpoint(i);
-                if (!NT_SUCCESS(ntstatus))
-                {
-                    //
-                    // NOTE If we fail here then behavior is undefined if a
-                    //  new process uses the terminating process's id.
-                    //
-                    // NOTE We do not exit the loop on failure so that we can
-                    //  attempt to cleanup any remaining breakpoints assigned
-                    //  to this terminating process.
-                    //
-                    ERR_PRINT(
-                        "BpmiClearHardwareBreakpoint failed: 0x%X (term pid: 0x%IX)",
-                        ntstatus,
-                        (ULONG_PTR)hProcessId);
-                }
+                VERIFY(BpmiClearHardwareBreakpoint(i));
             }
         }
     }
@@ -1191,7 +1175,8 @@ BpmiIpiSetHardwareBreakpoint(
         (PVOID)Argument);
     if (!NT_SUCCESS(ntstatus))
     {
-        ERR_PRINT("UtilVmCall (kSetHardwareBreakpoint) failed: 0x%X", ntstatus);
+        ERR_PRINT("UtilVmCall (kSetHardwareBreakpoint) failed: 0x%X",
+            ntstatus);
     }
 
     return 0;
@@ -1217,7 +1202,9 @@ BpmiSetHardwareBreakpoint(
     PSETHARDWAREBREAKPOINT_IPI_CONTEXT pIpiContext = NULL;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
+    //
     // Allocate nonpaged memory for the IPI context.
+    //
     pIpiContext = (PSETHARDWAREBREAKPOINT_IPI_CONTEXT)ExAllocatePoolWithTag(
         NonPagedPool,
         sizeof(*pIpiContext),
@@ -1230,7 +1217,9 @@ BpmiSetHardwareBreakpoint(
     //
     RtlSecureZeroMemory(pIpiContext, sizeof(*pIpiContext));
 
+    //
     // Initialize the IPI context.
+    //
     pIpiContext->ReturnStatus = STATUS_SUCCESS;
     pIpiContext->Enable = Enable;
     RtlCopyMemory(
@@ -1240,8 +1229,10 @@ BpmiSetHardwareBreakpoint(
     pIpiContext->CallbackFn = pCallbackFn;
     pIpiContext->CallbackCtx = pCallbackCtx;
 
+    //
     // Install the breakpoint.
-    (VOID)KeIpiGenericCall(BpmiIpiSetHardwareBreakpoint, (ULONG_PTR)pIpiContext);
+    //
+    KeIpiGenericCall(BpmiIpiSetHardwareBreakpoint, (ULONG_PTR)pIpiContext);
 
     ntstatus = pIpiContext->ReturnStatus;
     if (!NT_SUCCESS(ntstatus))
@@ -1249,7 +1240,8 @@ BpmiSetHardwareBreakpoint(
         if (STATUS_HV_INVALID_VP_STATE == ntstatus)
         {
             ERR_PRINT(
-                "A failure during BpmiIpiSetHardwareBreakpoint has corrupted the guest's debug registers.");
+                "A failure during BpmiIpiSetHardwareBreakpoint has corrupted"
+                " the guest's debug registers.");
         }
         else
         {
@@ -1285,8 +1277,10 @@ BpmiClearHardwareBreakpoint(
     HARDWARE_BREAKPOINT Breakpoint = {};
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
+    //
     // Initialize the breakpoint here instead of using the constructor function
     //  to avoid unnecessary validation.
+    //
     Breakpoint.ProcessId = NULL;
     Breakpoint.Index = Index;
     Breakpoint.Address = 0;
@@ -1305,9 +1299,6 @@ exit:
 }
 
 
-//
-// BpmiCleanupBreakpoints
-//
 _Use_decl_annotations_
 static
 NTSTATUS
@@ -1317,10 +1308,14 @@ BpmiCleanupBreakpoints()
     BOOLEAN Failed = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
+    //
     // Iterate all processors.
+    //
     for (ULONG p = 0; p < g_BreakpointManager.NumberOfProcessors; ++p)
     {
+        //
         // Iterate all debug address registers.
+        //
         for (ULONG i = 0;
             i < ARRAYSIZE(g_BreakpointManager.Processors[p].DebugRegisters);
             ++i)
@@ -1328,21 +1323,28 @@ BpmiCleanupBreakpoints()
             pBpmDebugRegister =
                 &g_BreakpointManager.Processors[p].DebugRegisters[i];
 
-            // Clear any installed breakpoints.
-            if (pBpmDebugRegister->Enabled)
+            //
+            // Skip unused registers.
+            //
+            if (!pBpmDebugRegister->Enabled)
             {
-                ntstatus = BpmiClearHardwareBreakpoint(i);
-                if (!NT_SUCCESS(ntstatus))
-                {
-                    // Do not breakout on failure so that we can cleanup as
-                    //  many breakpoints as possible.
-                    ERR_PRINT(
-                        "BpmiClearHardwareBreakpoint failed: 0x%X, proc=%u, dr%u",
-                        ntstatus,
-                        p,
-                        i);
-                    Failed = TRUE;
-                }
+                continue;
+            }
+
+            ntstatus = BpmiClearHardwareBreakpoint(i);
+            if (!NT_SUCCESS(ntstatus))
+            {
+                //
+                // Do not breakout on failure so that we can cleanup as
+                //  many breakpoints as possible.
+                //
+                ERR_PRINT(
+                    "BpmiClearHardwareBreakpoint failed: 0x%X, proc=%u,"
+                    " dr%u",
+                    ntstatus,
+                    p,
+                    i);
+                Failed = TRUE;
             }
         }
     }
@@ -1378,7 +1380,9 @@ BpmiVmxInterpretBreakpointCondition(
 {
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
+    //
     // Zero out parameters.
+    //
     RtlSecureZeroMemory(pCondition, sizeof(*pCondition));
 
     switch (Index)
@@ -1527,7 +1531,7 @@ BpmiVmxInvokeBreakpointCallback(
     //
     if (GuestIpOriginal != (*pGuestIp))
     {
-        bpm_verbose_print(
+        BPM_VERBOSE_PRINT(
             "BPM: Modifying guest instruction pointer: 0x%IX -> 0x%IX",
             GuestIpOriginal,
             *pGuestIp);
@@ -1542,7 +1546,7 @@ BpmiVmxInvokeBreakpointCallback(
 
     if (GuestFlagsOriginal.all != pGuestFlags->all)
     {
-        bpm_verbose_print(
+        BPM_VERBOSE_PRINT(
             "BPM: Modifying guest flags register: 0x%IX -> 0x%IX",
             GuestFlagsOriginal.all,
             pGuestFlags->all);

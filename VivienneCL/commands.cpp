@@ -1,15 +1,21 @@
-//
-// TODO Rewrite usage text.
-//
+/*++
+
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
+--*/
 
 #include "commands.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <memory>
 #include <sstream>
 
+#include "debug.h"
 #include "driver_io.h"
+#include "log.h"
 #include "ntdll.h"
 #include "process.h"
 #include "token_parser.h"
@@ -19,25 +25,21 @@
 
 
 //=============================================================================
-// Internal Interface
+// Private Interface
 //=============================================================================
-
-//
-// CmdpPrintCommandList
-//
 static
 VOID
 CmdpPrintCommandList()
 {
-    printf("    %s\n", CMD_CLEARHARDWAREBREAKPOINT);
-    printf("    %s\n", CMD_COMMANDS);
-    printf("    %s\n", CMD_CEC_REGISTER);
-    printf("    %s\n", CMD_CEC_MEMORY);
-    printf("    %s\n", CMD_EXITCLIENT);
-    printf("    %s\n", CMD_HELP);
-    printf("    %s\n", CMD_LOOKUPPROCESSIDBYNAME);
-    printf("    %s\n", CMD_QUERYSYSTEMDEBUGSTATE);
-    printf("    %s\n", CMD_SETHARDWAREBREAKPOINT);
+    INF_PRINT("    %s", CMD_CLEARHARDWAREBREAKPOINT);
+    INF_PRINT("    %s", CMD_COMMANDS);
+    INF_PRINT("    %s", CMD_CEC_REGISTER);
+    INF_PRINT("    %s", CMD_CEC_MEMORY);
+    INF_PRINT("    %s", CMD_EXITCLIENT);
+    INF_PRINT("    %s", CMD_HELP);
+    INF_PRINT("    %s", CMD_LOOKUPPROCESSIDBYNAME);
+    INF_PRINT("    %s", CMD_QUERYSYSTEMDEBUGSTATE);
+    INF_PRINT("    %s", CMD_SETHARDWAREBREAKPOINT);
 }
 
 
@@ -58,7 +60,7 @@ CmdDisplayCommands(
 {
     UNREFERENCED_PARAMETER(ArgTokens);
 
-    printf("Commands:\n");
+    INF_PRINT("Commands:");
 
     CmdpPrintCommandList();
 
@@ -94,7 +96,7 @@ CmdLookupProcessIdByName(
 
     if (LOOKUPPROCESSIDBYNAME_ARGC != ArgTokens.size())
     {
-        printf(LOOKUPPROCESSIDBYNAME_USAGE);
+        LogPrintDirect(LOOKUPPROCESSIDBYNAME_USAGE);
         status = FALSE;
         goto exit;
     }
@@ -109,7 +111,7 @@ CmdLookupProcessIdByName(
 
     for (SIZE_T i = 0; i < ProcessIds.size(); ++i)
     {
-        printf("    %Iu (0x%IX)\n", ProcessIds[i], ProcessIds[i]);
+        INF_PRINT("    %Iu (0x%IX)", ProcessIds[i], ProcessIds[i]);
     }
 
 exit:
@@ -136,7 +138,9 @@ CmdQuerySystemDebugState(
 
     UNREFERENCED_PARAMETER(ArgTokens);
 
+    //
     // Initial allocation size.
+    //
     cbSystemDebugState = sizeof(*pSystemDebugState);
 
     pSystemDebugState = (PSYSTEM_DEBUG_STATE)HeapAlloc(
@@ -145,21 +149,23 @@ CmdQuerySystemDebugState(
         cbSystemDebugState);
     if (!pSystemDebugState)
     {
-        printf("Out of memory.\n");
+        ERR_PRINT("Out of memory.");
         status = FALSE;
         goto exit;
     }
 
+    //
     // Multi-processor systems will fail the initial query to obtain the
     //  required struct size.
-    if (!DrvQuerySystemDebugState(pSystemDebugState, cbSystemDebugState))
+    //
+    if (!VivienneIoQuerySystemDebugState(pSystemDebugState, cbSystemDebugState))
     {
         RequiredSize = pSystemDebugState->Size;
 
         status = HeapFree(GetProcessHeap(), 0, pSystemDebugState);
         if (!status)
         {
-            printf("HeapFree failed: %u\n", GetLastError());
+            ERR_PRINT("HeapFree failed: %u", GetLastError());
             goto exit;
         }
 
@@ -169,25 +175,28 @@ CmdQuerySystemDebugState(
             RequiredSize);
         if (!pSystemDebugState)
         {
-            printf("Out of memory.\n");
+            ERR_PRINT("Out of memory.");
             status = FALSE;
             goto exit;
         }
 
-        status = DrvQuerySystemDebugState(pSystemDebugState, RequiredSize);
+        status =
+            VivienneIoQuerySystemDebugState(pSystemDebugState, RequiredSize);
         if (!status)
         {
-            printf(
-                "DrvQuerySystemDebugState failed twice: %u\n",
+            ERR_PRINT(
+                "VivienneIoQuerySystemDebugState failed twice: %u",
                 GetLastError());
             goto exit;
         }
     }
 
+    //
     // Print debug register state for all processors.
+    //
     for (ULONG i = 0; i < pSystemDebugState->NumberOfProcessors; ++i)
     {
-        printf("Processor %u:\n", i);
+        INF_PRINT("Processor %u:", i);
 
         pDebugRegisterState =
             pSystemDebugState->Processors[i].DebugRegisters;
@@ -196,8 +205,8 @@ CmdQuerySystemDebugState(
             j < ARRAYSIZE(pSystemDebugState->Processors->DebugRegisters);
             ++j)
         {
-            printf(
-                "    Dr%u: pid= %04Iu addr= 0x%016IX type= %d size= %d\n",
+            INF_PRINT(
+                "    Dr%u: pid= %04Iu addr= 0x%016IX type= %d size= %d",
                 j,
                 pDebugRegisterState[j].ProcessId,
                 pDebugRegisterState[j].Address,
@@ -209,10 +218,7 @@ CmdQuerySystemDebugState(
 exit:
     if (pSystemDebugState)
     {
-        if (!HeapFree(GetProcessHeap(), 0, pSystemDebugState))
-        {
-            printf("HeapFree failed: %u\n", GetLastError());
-        }
+        VERIFY(HeapFree(GetProcessHeap(), 0, pSystemDebugState));
     }
 
     return status;
@@ -256,7 +262,7 @@ CmdSetHardwareBreakpoint(
 
     if (SETHARDWAREBREAKPOINT_ARGC != ArgTokens.size())
     {
-        printf(SETHARDWAREBREAKPOINT_USAGE);
+        LogPrintDirect(SETHARDWAREBREAKPOINT_USAGE);
         status = FALSE;
         goto exit;
     }
@@ -291,7 +297,7 @@ CmdSetHardwareBreakpoint(
         goto exit;
     }
 
-    status = DrvSetHardwareBreakpoint(
+    status = VivienneIoSetHardwareBreakpoint(
         ProcessId,
         DebugRegisterIndex,
         Address,
@@ -299,7 +305,8 @@ CmdSetHardwareBreakpoint(
         Size);
     if (!status)
     {
-        printf("DrvSetHardwareBreakpoint failed: %u\n", GetLastError());
+        ERR_PRINT("VivienneIoSetHardwareBreakpoint failed: %u",
+            GetLastError());
         goto exit;
     }
 
@@ -334,7 +341,7 @@ CmdClearHardwareBreakpoint(
 
     if (CLEARHARDWAREBREAKPOINT_ARGC != ArgTokens.size())
     {
-        printf(CLEARHARDWAREBREAKPOINT_USAGE);
+        LogPrintDirect(CLEARHARDWAREBREAKPOINT_USAGE);
         status = FALSE;
         goto exit;
     }
@@ -345,10 +352,11 @@ CmdClearHardwareBreakpoint(
         goto exit;
     }
 
-    status = DrvClearHardwareBreakpoint(DebugRegisterIndex);
+    status = VivienneIoClearHardwareBreakpoint(DebugRegisterIndex);
     if (!status)
     {
-        printf("DrvClearHardwareBreakpoint failed: %u\n", GetLastError());
+        ERR_PRINT("VivienneIoClearHardwareBreakpoint failed: %u",
+            GetLastError());
         goto exit;
     }
 
@@ -400,7 +408,7 @@ CmdCaptureRegisterValues(
 
     if (CEC_REGISTER_ARGC != ArgTokens.size())
     {
-        printf(CEC_REGISTER_USAGE);
+        LogPrintDirect(CEC_REGISTER_USAGE);
         status = FALSE;
         goto exit;
     }
@@ -447,19 +455,21 @@ CmdCaptureRegisterValues(
         goto exit;
     }
 
+    //
     // Allocate the captured context buffer.
+    //
     pValuesCtx = (PCEC_REGISTER_VALUES)HeapAlloc(
         GetProcessHeap(),
         HEAP_ZERO_MEMORY,
         CEC_REGISTER_BUFFER_SIZE);
     if (!pValuesCtx)
     {
-        printf("HeapAlloc failed: %u\n", GetLastError());
+        ERR_PRINT("HeapAlloc failed: %u", GetLastError());
         status = FALSE;
         goto exit;
     }
 
-    status = DrvCaptureRegisterValues(
+    status = VivienneIoCaptureRegisterValues(
         ProcessId,
         DebugRegisterIndex,
         Address,
@@ -471,25 +481,25 @@ CmdCaptureRegisterValues(
         CEC_REGISTER_BUFFER_SIZE);
     if (!status)
     {
-        printf("DrvCaptureRegisterValues failed: %u\n", GetLastError());
+        ERR_PRINT("VivienneIoCaptureRegisterValues failed: %u",
+            GetLastError());
         goto exit;
     }
 
+    //
     // Log results.
-    printf("Found %u unique values:\n", pValuesCtx->NumberOfValues);
+    //
+    INF_PRINT("Found %u unique values:", pValuesCtx->NumberOfValues);
 
     for (ULONG i = 0; i < pValuesCtx->NumberOfValues; ++i)
     {
-        printf("    %u: 0x%IX\n", i, pValuesCtx->Values[i]);
+        INF_PRINT("    %u: 0x%IX", i, pValuesCtx->Values[i]);
     }
 
 exit:
     if (pValuesCtx)
     {
-        if (!HeapFree(GetProcessHeap(), 0, pValuesCtx))
-        {
-            printf("HeapFree failed: %u\n", GetLastError());
-        }
+        VERIFY(HeapFree(GetProcessHeap(), 0, pValuesCtx));
     }
 
     return status;
@@ -509,7 +519,7 @@ exit:
 static PCSTR g_CecmUsageText =
 R"(Usage: cecm index pid access|size bp_address mem_type mem_expression duration
 
-Type 'help cecm' for extended information.
+    Type 'help cecm' for extended information.
 )";
 
 static PCSTR g_CecmHelpText =
@@ -609,7 +619,7 @@ CmdCaptureMemoryValues(
 
     if (CEC_MEMORY_ARGC != ArgTokens.size())
     {
-        printf(g_CecmUsageText);
+        LogPrintDirect(g_CecmUsageText);
         status = FALSE;
         goto exit;
     }
@@ -674,12 +684,12 @@ CmdCaptureMemoryValues(
         CEC_MEMORY_BUFFER_SIZE);
     if (!pValuesCtx)
     {
-        printf("HeapAlloc failed: %u\n", GetLastError());
+        ERR_PRINT("HeapAlloc failed: %u", GetLastError());
         status = FALSE;
         goto exit;
     }
 
-    status = DrvCaptureMemoryValues(
+    status = VivienneIoCaptureMemoryValues(
         ProcessId,
         DebugRegisterIndex,
         Address,
@@ -691,14 +701,15 @@ CmdCaptureMemoryValues(
         CEC_MEMORY_BUFFER_SIZE);
     if (!status)
     {
-        printf("DrvCaptureMemoryValues failed: %u\n", GetLastError());
+        ERR_PRINT("VivienneIoCaptureMemoryValues failed: %u",
+            GetLastError());
         goto exit;
     }
 
     //
     // Log results.
     //
-    printf("Found %u unique values:\n", pValuesCtx->NumberOfValues);
+    INF_PRINT("Found %u unique values:", pValuesCtx->NumberOfValues);
 
     //
     // TODO FUTURE Each values buffer entry is the same size as a ULONG_PTR to
@@ -711,26 +722,26 @@ CmdCaptureMemoryValues(
         switch (pValuesCtx->DataType)
         {
             case MDT_BYTE:
-                printf("    %u: 0x%hhX\n", i, pMemoryDataValue->Byte);
+                INF_PRINT("    %u: 0x%hhX", i, pMemoryDataValue->Byte);
                 break;
             case MDT_WORD:
-                printf("    %u: 0x%hX\n", i, pMemoryDataValue->Word);
+                INF_PRINT("    %u: 0x%hX", i, pMemoryDataValue->Word);
                 break;
             case MDT_DWORD:
-                printf("    %u: 0x%X\n", i, pMemoryDataValue->Dword);
+                INF_PRINT("    %u: 0x%X", i, pMemoryDataValue->Dword);
                 break;
             case MDT_QWORD:
-                printf("    %u: 0x%IX\n", i, pMemoryDataValue->Qword);
+                INF_PRINT("    %u: 0x%IX", i, pMemoryDataValue->Qword);
                 break;
             case MDT_FLOAT:
-                printf("    %u: %f\n", i, pMemoryDataValue->Float);
+                INF_PRINT("    %u: %f", i, pMemoryDataValue->Float);
                 break;
             case MDT_DOUBLE:
-                printf("    %u: %f\n", i, pMemoryDataValue->Double);
+                INF_PRINT("    %u: %f", i, pMemoryDataValue->Double);
                 break;
             default:
-                printf(
-                    "Unexpected memory data type: %u\n",
+                ERR_PRINT(
+                    "Unexpected memory data type: %u",
                     pValuesCtx->DataType);
                 status = FALSE;
                 goto exit;
@@ -740,52 +751,49 @@ CmdCaptureMemoryValues(
     //
     // Log statistics.
     //
-    printf("Statistics:\n");
-    printf("    %Iu hits.\n", pValuesCtx->Statistics.HitCount);
+    INF_PRINT("Statistics:");
+    INF_PRINT("    %Iu hits.", pValuesCtx->Statistics.HitCount);
 
     if (pValuesCtx->Statistics.SkipCount)
     {
-        printf("    %Iu skips.\n",
+        INF_PRINT("    %Iu skips.",
             pValuesCtx->Statistics.SkipCount);
     }
 
     if (pValuesCtx->Statistics.InvalidPteErrors)
     {
-        printf("    %Iu invalid pte errors.\n",
+        INF_PRINT("    %Iu invalid pte errors.",
             pValuesCtx->Statistics.InvalidPteErrors);
     }
 
     if (pValuesCtx->Statistics.UntouchedPageErrors)
     {
-        printf("    %Iu untouched page errors.\n",
+        INF_PRINT("    %Iu untouched page errors.",
             pValuesCtx->Statistics.UntouchedPageErrors);
     }
 
     if (pValuesCtx->Statistics.SpanningAddressErrors)
     {
-        printf("    %Iu spanning address errors.\n",
+        INF_PRINT("    %Iu spanning address errors.",
             pValuesCtx->Statistics.SpanningAddressErrors);
     }
 
     if (pValuesCtx->Statistics.SystemAddressErrors)
     {
-        printf("    %Iu system address errors.\n",
+        INF_PRINT("    %Iu system address errors.",
             pValuesCtx->Statistics.SystemAddressErrors);
     }
 
     if (pValuesCtx->Statistics.ValidationErrors)
     {
-        printf("    %Iu validation errors.\n",
+        INF_PRINT("    %Iu validation errors.",
             pValuesCtx->Statistics.ValidationErrors);
     }
 
 exit:
     if (pValuesCtx)
     {
-        if (!HeapFree(GetProcessHeap(), 0, pValuesCtx))
-        {
-            printf("HeapFree failed: %u\n", GetLastError());
-        }
+        VERIFY(HeapFree(GetProcessHeap(), 0, pValuesCtx));
     }
 
     return status;
@@ -812,7 +820,7 @@ CmdDisplayHelpText(
 
     if (HELP_ARGC != ArgTokens.size())
     {
-        printf(CMD_HELP_USAGE);
+        LogPrintDirect(CMD_HELP_USAGE);
         status = FALSE;
         goto exit;
     }
@@ -821,12 +829,12 @@ CmdDisplayHelpText(
 
     if (CMD_CEC_MEMORY == CommandName)
     {
-        printf(g_CecmHelpText);
+        LogPrintDirect(g_CecmHelpText);
     }
     else
     {
-        printf("Commands with extended information:\n");
-        printf("    %s\n", CMD_CEC_MEMORY);
+        INF_PRINT("Commands with extended information:");
+        INF_PRINT("    %s", CMD_CEC_MEMORY);
     }
 
 exit:

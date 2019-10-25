@@ -256,7 +256,7 @@ SetRandomBreakpoint()
             FAIL_TEST("Unexpected index: %u", Index);
     }
 
-    status = DrvSetHardwareBreakpoint(
+    status = VivienneIoSetHardwareBreakpoint(
         GetCurrentProcessId(),
         Index,
         Address,
@@ -264,7 +264,8 @@ SetRandomBreakpoint()
         Size);
     if (!status)
     {
-        FAIL_TEST("DrvSetHardwareBreakpoint failed: %u", GetLastError());
+        FAIL_TEST("VivienneIoSetHardwareBreakpoint failed: %u",
+            GetLastError());
     }
 }
 
@@ -423,13 +424,14 @@ TestHardwareBreakpointStress()
 
     // Clear all breakpoints.
     status =
-        DrvClearHardwareBreakpoint(0) &&
-        DrvClearHardwareBreakpoint(1) &&
-        DrvClearHardwareBreakpoint(2) &&
-        DrvClearHardwareBreakpoint(3);
+        VivienneIoClearHardwareBreakpoint(0) &&
+        VivienneIoClearHardwareBreakpoint(1) &&
+        VivienneIoClearHardwareBreakpoint(2) &&
+        VivienneIoClearHardwareBreakpoint(3);
     if (!status)
     {
-        FAIL_TEST("DrvClearHardwareBreakpoint failed: %u.\n", GetLastError());
+        FAIL_TEST("VivienneIoClearHardwareBreakpoint failed: %u.\n",
+            GetLastError());
     }
 
     // Verify that all debug registers on all processors were cleared.

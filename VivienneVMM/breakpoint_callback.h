@@ -1,7 +1,12 @@
 /*++
 
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
 Module Name:
-    
+
     breakpoint_callback.h
 
 Abstract:
@@ -41,7 +46,7 @@ Environment:
 // NOTE The breakpoint manager does not configure host CR3 before invoking
 //  callbacks.
 //
-typedef NTSTATUS (FASTCALL* FPBREAKPOINT_CALLBACK)(
+typedef NTSTATUS(FASTCALL* FPBREAKPOINT_CALLBACK)(
     _In_ ULONG OwnerIndex,
     _Inout_ GpRegisters* pGuestRegisters,
     _Inout_ FlagRegister* pGuestFlags,

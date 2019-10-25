@@ -243,7 +243,7 @@ InstallVvmmBreakpoints(
         // Set a random VVMM-breakpoint.
         GenerateRandomThreadLocalBreakpointParameters(&Address, &Type, &Size);
 
-        status = DrvSetHardwareBreakpoint(
+        status = VivienneIoSetHardwareBreakpoint(
             GetCurrentProcessId(),
             Index,
             Address,
@@ -251,17 +251,19 @@ InstallVvmmBreakpoints(
             Size);
         if (!status)
         {
-            FAIL_TEST("DrvSetHardwareBreakpoint failed: %u\n", GetLastError());
+            FAIL_TEST("VivienneIoSetHardwareBreakpoint failed: %u\n",
+                GetLastError());
         }
 
         // Occasionally clear a random breakpoint.
         if (0 == RANDOM_ULONG % 5)
         {
-            status = DrvClearHardwareBreakpoint(RANDOM_ULONG % DAR_COUNT);
+            status =
+                VivienneIoClearHardwareBreakpoint(RANDOM_ULONG % DAR_COUNT);
             if (!status)
             {
                 FAIL_TEST(
-                    "DrvClearHardwareBreakpoint failed: %u\n",
+                    "VivienneIoClearHardwareBreakpoint failed: %u\n",
                     GetLastError());
             }
         }
@@ -404,13 +406,14 @@ TestDebugRegisterFacadeStress()
 
     // Clear all VVMM-managed breakpoints.
     status =
-        DrvClearHardwareBreakpoint(0) &&
-        DrvClearHardwareBreakpoint(1) &&
-        DrvClearHardwareBreakpoint(2) &&
-        DrvClearHardwareBreakpoint(3);
+        VivienneIoClearHardwareBreakpoint(0) &&
+        VivienneIoClearHardwareBreakpoint(1) &&
+        VivienneIoClearHardwareBreakpoint(2) &&
+        VivienneIoClearHardwareBreakpoint(3);
     if (!status)
     {
-        FAIL_TEST("DrvClearHardwareBreakpoint failed: %u.\n", GetLastError());
+        FAIL_TEST("VivienneIoClearHardwareBreakpoint failed: %u.\n",
+            GetLastError());
     }
 
     // Verify that all debug registers on all processors were cleared.

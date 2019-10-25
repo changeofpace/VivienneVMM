@@ -1,3 +1,12 @@
+/*++
+
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
+--*/
+
 #pragma once
 
 #include <Windows.h>
@@ -104,8 +113,7 @@ typedef _Return_type_success_(return >= 0) LONG NTSTATUS;
 
 #pragma region Enumerations
 
-typedef enum _SYSTEM_INFORMATION_CLASS
-{
+typedef enum _SYSTEM_INFORMATION_CLASS {
     SystemBasicInformation = 0,
     SystemPerformanceInformation = 2,
     SystemTimeOfDayInformation = 3,
@@ -118,13 +126,11 @@ typedef enum _SYSTEM_INFORMATION_CLASS
     SystemPolicyInformation = 134,
 } SYSTEM_INFORMATION_CLASS;
 
-typedef enum _MEMORY_INFORMATION_CLASS
-{
+typedef enum _MEMORY_INFORMATION_CLASS {
     MemoryBasicInformation
 } MEMORY_INFORMATION_CLASS, *PMEMORY_INFORMATION_CLASS;
 
-typedef enum _SECTION_INHERIT
-{
+typedef enum _SECTION_INHERIT {
     ViewShare = 1,
     ViewUnmap = 2
 } SECTION_INHERIT, *PSECTION_INHERIT;
@@ -137,24 +143,21 @@ typedef enum _SECTION_INHERIT
 typedef _Null_terminated_ CHAR *PSZ;
 typedef _Null_terminated_ CONST char *PCSZ;
 
-typedef struct _STRING
-{
+typedef struct _STRING {
     USHORT Length;
     USHORT MaximumLength;
     PCHAR  Buffer;
 } ANSI_STRING, *PANSI_STRING;
 typedef const ANSI_STRING *PCANSI_STRING;
 
-typedef struct _UNICODE_STRING
-{
+typedef struct _UNICODE_STRING {
     USHORT Length;
     USHORT MaximumLength;
     _Field_size_bytes_part_opt_(MaximumLength, Length) PWCH Buffer;
 } UNICODE_STRING, *PUNICODE_STRING;;
 typedef const UNICODE_STRING *PCUNICODE_STRING;
 
-typedef struct _OBJECT_ATTRIBUTES
-{
+typedef struct _OBJECT_ATTRIBUTES {
     ULONG           Length;
     HANDLE          RootDirectory;
     PUNICODE_STRING ObjectName;
@@ -163,10 +166,8 @@ typedef struct _OBJECT_ATTRIBUTES
     PVOID           SecurityQualityOfService;
 } OBJECT_ATTRIBUTES, *POBJECT_ATTRIBUTES;
 
-typedef struct _IO_STATUS_BLOCK
-{
-    union
-    {
+typedef struct _IO_STATUS_BLOCK {
+    union {
         NTSTATUS Status;
         PVOID Pointer;
     } DUMMYUNIONNAME;
@@ -182,14 +183,12 @@ VOID
     _In_ ULONG Reserved
     );
 
-typedef struct _SYSTEM_CODEINTEGRITY_INFORMATION
-{
+typedef struct _SYSTEM_CODEINTEGRITY_INFORMATION {
     ULONG Length;
     ULONG CodeIntegrityOptions;
 } SYSTEM_CODEINTEGRITY_INFORMATION, *PSYSTEM_CODEINTEGRITY_INFORMATION;
 
-typedef struct _SYSTEM_MODULE_INFORMATION_ENTRY
-{
+typedef struct _SYSTEM_MODULE_INFORMATION_ENTRY {
     HANDLE Section;
     PVOID MappedBase;
     PVOID ImageBase;
@@ -202,14 +201,12 @@ typedef struct _SYSTEM_MODULE_INFORMATION_ENTRY
     UCHAR FullPathName[256];
 } SYSTEM_MODULE_INFORMATION_ENTRY, *PSYSTEM_MODULE_INFORMATION_ENTRY;
 
-typedef struct _SYSTEM_MODULE_INFORMATION
-{
+typedef struct _SYSTEM_MODULE_INFORMATION {
     ULONG NumberOfModules;
     SYSTEM_MODULE_INFORMATION_ENTRY Module[1];
 } SYSTEM_MODULE_INFORMATION, *PSYSTEM_MODULE_INFORMATION;
 
-typedef struct _CLIENT_ID
-{
+typedef struct _CLIENT_ID {
     HANDLE UniqueProcess;
     HANDLE UniqueThread;
 } CLIENT_ID;
@@ -217,8 +214,7 @@ typedef CLIENT_ID *PCLIENT_ID;
 
 typedef LONG KPRIORITY;
 
-typedef enum _KWAIT_REASON
-{
+typedef enum _KWAIT_REASON {
     Executive,
     FreePage,
     PageIn,
@@ -262,8 +258,7 @@ typedef enum _KWAIT_REASON
     MaximumWaitReason
 } KWAIT_REASON;
 
-typedef struct _SYSTEM_THREAD_INFORMATION
-{
+typedef struct _SYSTEM_THREAD_INFORMATION {
     LARGE_INTEGER Reserved1[3];
     ULONG Reserved2;
     PVOID StartAddress;
@@ -275,8 +270,7 @@ typedef struct _SYSTEM_THREAD_INFORMATION
     ULONG WaitReason;
 } SYSTEM_THREAD_INFORMATION, *PSYSTEM_THREAD_INFORMATION;
 
-typedef struct _SYSTEM_PROCESS_INFORMATION
-{
+typedef struct _SYSTEM_PROCESS_INFORMATION {
     ULONG NextEntryOffset;
     ULONG NumberOfThreads;
     BYTE Reserved1[48];
@@ -315,13 +309,6 @@ NtQuerySystemInformation(
     _Inout_   PVOID                    SystemInformation,
     _In_      ULONG                    SystemInformationLength,
     _Out_opt_ PULONG                   ReturnLength
-);
-
-EXTERN_C
-VOID
-NTAPI
-RtlRaiseException(
-    _In_ PEXCEPTION_RECORD ExceptionRecord
 );
 
 EXTERN_C

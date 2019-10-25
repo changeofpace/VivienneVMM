@@ -1,3 +1,12 @@
+/*++
+
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
+--*/
+
 #pragma once
 
 #include <Windows.h>
@@ -5,34 +14,29 @@
 #include "..\common\arch_x64.h"
 #include "..\common\driver_io_types.h"
 
-//
-// NOTE All functions are synchronous.
-//
-
 //=============================================================================
 // Meta Interface
 //=============================================================================
 _Check_return_
 BOOL
-DrvInitialization();
+VivienneIoInitialization();
 
-_Check_return_
-BOOL
-DrvTermination();
+VOID
+VivienneIoTermination();
 
 //=============================================================================
-// Driver Interface
+// Public Interface
 //=============================================================================
 _Check_return_
 BOOL
-DrvQuerySystemDebugState(
+VivienneIoQuerySystemDebugState(
     _Out_writes_bytes_(cbSystemDebugState) PSYSTEM_DEBUG_STATE pSystemDebugState,
     _In_ ULONG cbSystemDebugState
 );
 
 _Check_return_
 BOOL
-DrvSetHardwareBreakpoint(
+VivienneIoSetHardwareBreakpoint(
     _In_ ULONG_PTR ProcessId,
     _In_ ULONG DebugRegisterIndex,
     _In_ ULONG_PTR Address,
@@ -42,13 +46,13 @@ DrvSetHardwareBreakpoint(
 
 _Check_return_
 BOOL
-DrvClearHardwareBreakpoint(
+VivienneIoClearHardwareBreakpoint(
     _In_ ULONG DebugRegisterIndex
 );
 
 _Check_return_
 BOOL
-DrvCaptureRegisterValues(
+VivienneIoCaptureRegisterValues(
     _In_ ULONG_PTR ProcessId,
     _In_ ULONG DebugRegisterIndex,
     _In_ ULONG_PTR Address,
@@ -62,7 +66,7 @@ DrvCaptureRegisterValues(
 
 _Check_return_
 BOOL
-DrvCaptureMemoryValues(
+VivienneIoCaptureMemoryValues(
     _In_ ULONG_PTR ProcessId,
     _In_ ULONG DebugRegisterIndex,
     _In_ ULONG_PTR Address,

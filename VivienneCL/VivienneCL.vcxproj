@@ -45,10 +45,10 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -80,6 +80,7 @@
   <ItemGroup>
     <ClCompile Include="commands.cpp" />
     <ClCompile Include="driver_io.cpp" />
+    <ClCompile Include="log.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="process.cpp" />
     <ClCompile Include="string_util.cpp" />
@@ -89,7 +90,9 @@
     <ClInclude Include="..\common\arch_x64.h" />
     <ClInclude Include="..\common\driver_io_types.h" />
     <ClInclude Include="commands.h" />
+    <ClInclude Include="debug.h" />
     <ClInclude Include="driver_io.h" />
+    <ClInclude Include="log.h" />
     <ClInclude Include="ntdll.h" />
     <ClInclude Include="process.h" />
     <ClInclude Include="string_util.h" />

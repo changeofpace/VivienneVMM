@@ -1,24 +1,29 @@
+/*++
+
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
+--*/
+
 #include "driver_io.h"
+
+#include "debug.h"
 
 
 //=============================================================================
 // Module Globals
 //=============================================================================
-
-// NOTE Not thread safe.
 static HANDLE g_hDevice = INVALID_HANDLE_VALUE;
 
 
 //=============================================================================
 // Meta Interface
 //=============================================================================
-
-//
-// DrvInitialization
-//
 _Use_decl_annotations_
 BOOL
-DrvInitialization()
+VivienneIoInitialization()
 {
     HANDLE hDevice = INVALID_HANDLE_VALUE;
     BOOL status = TRUE;
@@ -44,43 +49,28 @@ exit:
 }
 
 
-//
-// DrvTermination
-//
-_Use_decl_annotations_
-BOOL
-DrvTermination()
+VOID
+VivienneIoTermination()
 {
-    BOOL status = TRUE;
-
     if (INVALID_HANDLE_VALUE != g_hDevice)
     {
-        status = CloseHandle(g_hDevice);
-        if (!status)
-        {
-            goto exit;
-        }
-
-        g_hDevice = INVALID_HANDLE_VALUE;
+        VERIFY(CloseHandle(g_hDevice));
     }
-
-exit:
-    return status;
 }
 
 
 //=============================================================================
-// Driver Interface
+// Public Interface
 //=============================================================================
 
 //
-// DrvQuerySystemDebugState
+// VivienneIoQuerySystemDebugState
 //
 // Query the breakpoint manager's debug register state for all processors.
 //
 _Use_decl_annotations_
 BOOL
-DrvQuerySystemDebugState(
+VivienneIoQuerySystemDebugState(
     PSYSTEM_DEBUG_STATE pSystemDebugState,
     ULONG cbSystemDebugState
 )
@@ -90,7 +80,9 @@ DrvQuerySystemDebugState(
     DWORD ReturnedBytes = 0;
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     RtlSecureZeroMemory(pSystemDebugState, cbSystemDebugState);
 
     status = DeviceIoControl(
@@ -108,13 +100,13 @@ DrvQuerySystemDebugState(
 
 
 //
-// DrvSetHardwareBreakpoint
+// VivienneIoSetHardwareBreakpoint
 //
 // Install a hardware breakpoint on all processors.
 //
 _Use_decl_annotations_
 BOOL
-DrvSetHardwareBreakpoint(
+VivienneIoSetHardwareBreakpoint(
     ULONG_PTR ProcessId,
     ULONG DebugRegisterIndex,
     ULONG_PTR Address,
@@ -150,13 +142,13 @@ DrvSetHardwareBreakpoint(
 
 
 //
-// DrvClearHardwareBreakpoint
+// VivienneIoClearHardwareBreakpoint
 //
 // Uninstall a hardware breakpoint on all processors.
 //
 _Use_decl_annotations_
 BOOL
-DrvClearHardwareBreakpoint(
+VivienneIoClearHardwareBreakpoint(
     ULONG DebugRegisterIndex
 )
 {
@@ -184,7 +176,7 @@ DrvClearHardwareBreakpoint(
 
 
 //
-// DrvCaptureRegisterValues
+// VivienneIoCaptureRegisterValues
 //
 // Install a hardware breakpoint on all processors which, when triggered, will
 //  examine the contents of the target register and record all unique values
@@ -196,7 +188,7 @@ DrvClearHardwareBreakpoint(
 //
 _Use_decl_annotations_
 BOOL
-DrvCaptureRegisterValues(
+VivienneIoCaptureRegisterValues(
     ULONG_PTR ProcessId,
     ULONG DebugRegisterIndex,
     ULONG_PTR Address,
@@ -213,7 +205,9 @@ DrvCaptureRegisterValues(
     DWORD ReturnedBytes = 0;
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     RtlSecureZeroMemory(pValuesCtx, cbValuesCtx);
 
     //
@@ -242,7 +236,7 @@ DrvCaptureRegisterValues(
 
 
 //
-// DrvCaptureMemoryValues
+// VivienneIoCaptureMemoryValues
 //
 // Install a hardware breakpoint on all processors which, when triggered, will
 //  record all unique values at the memory address defined by the memory
@@ -254,7 +248,7 @@ DrvCaptureRegisterValues(
 //
 _Use_decl_annotations_
 BOOL
-DrvCaptureMemoryValues(
+VivienneIoCaptureMemoryValues(
     ULONG_PTR ProcessId,
     ULONG DebugRegisterIndex,
     ULONG_PTR Address,
@@ -271,7 +265,9 @@ DrvCaptureMemoryValues(
     DWORD ReturnedBytes = 0;
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     RtlSecureZeroMemory(pValuesCtx, cbValuesCtx);
 
     //

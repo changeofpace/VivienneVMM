@@ -44,24 +44,24 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <TargetName>vivienne</TargetName>
-    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DebuggerFlavor>DbgengKernelDebugger</DebuggerFlavor>
     <TargetName>vivienne</TargetName>
-    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <DisableSpecificWarnings>6066;30030;5040;4603;4627;4986;4987;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4201;6066;30030;5040;4603;4627;4986;4987;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <DisableSpecificWarnings>6066;30030;5040;4748;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4201;6066;30030;5040;4748;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -77,7 +77,6 @@
     <ClInclude Include="config.h" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="debug_register_facade.h" />
-    <ClInclude Include="dispatch.h" />
     <ClInclude Include="HyperPlatform\HyperPlatform\asm.h" />
     <ClInclude Include="HyperPlatform\HyperPlatform\common.h" />
     <ClInclude Include="HyperPlatform\HyperPlatform\driver.h" />
@@ -104,7 +103,6 @@
     <ClCompile Include="breakpoint_manager.cpp" />
     <ClCompile Include="capture_execution_context.cpp" />
     <ClCompile Include="debug_register_facade.cpp" />
-    <ClCompile Include="dispatch.cpp" />
     <ClCompile Include="HyperPlatform\HyperPlatform\driver.cpp" />
     <ClCompile Include="HyperPlatform\HyperPlatform\ept.cpp" />
     <ClCompile Include="HyperPlatform\HyperPlatform\global_object.cpp" />

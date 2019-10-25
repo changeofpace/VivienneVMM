@@ -335,7 +335,7 @@ ExecuteCecmRequestForTrapPage()
     //
     // Issue the synchronous CECM request.
     //
-    status = DrvCaptureMemoryValues(
+    status = VivienneIoCaptureMemoryValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
         (ULONG_PTR)ExecutionTargetAddress,
@@ -347,7 +347,7 @@ ExecuteCecmRequestForTrapPage()
         CONTEXT_BUFFER_SIZE);
     if (!status)
     {
-        printf("DrvCaptureMemoryValues failed: %u\n", GetLastError());
+        printf("VivienneIoCaptureMemoryValues failed: %u\n", GetLastError());
         goto exit;
     }
 

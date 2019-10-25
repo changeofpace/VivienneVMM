@@ -1,7 +1,12 @@
 /*++
 
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
 Module Name:
-    
+
     arch.h
 
 Abstract:
@@ -36,8 +41,7 @@ Environment:
 //=============================================================================
 // Registers
 //=============================================================================
-typedef enum _X64_REGISTER
-{
+typedef enum _X64_REGISTER {
     REGISTER_INVALID = 0,
 
     //
@@ -178,13 +182,10 @@ typedef enum _X64_REGISTER
 
 #pragma warning(push)
 #pragma warning(disable : 4201) // Nonstandard extension: nameless struct/union
-typedef struct _RFLAGS
-{
-    union
-    {
+typedef struct _RFLAGS {
+    union {
         ULONG_PTR All;
-        struct
-        {
+        struct {
             ULONG_PTR CF        : 1;    // [0]
             ULONG_PTR Reserved1 : 1;    // [1]
             ULONG_PTR PF        : 1;    // [2]
@@ -220,8 +221,7 @@ typedef struct _RFLAGS
 //
 // SIB bytes.
 //
-typedef enum SCALE_FACTOR
-{
+typedef enum SCALE_FACTOR {
     SCALE_INVALID = 0,
     SCALE_BYTE = 1,
     SCALE_WORD = 2,
@@ -232,8 +232,7 @@ typedef enum SCALE_FACTOR
 //
 // Addressing modes.
 //
-typedef struct _INDIRECT_ADDRESS
-{
+typedef struct _INDIRECT_ADDRESS {
     X64_REGISTER BaseRegister;
     X64_REGISTER IndexRegister;
     SCALE_FACTOR ScaleFactor;
@@ -247,7 +246,8 @@ typedef struct _INDIRECT_ADDRESS
 #define DR_COUNT    8
 
 //
-// Masks to determine the debug address register which caused a debug exception.
+// Masks to determine the debug address register which caused a debug
+//  exception.
 //
 #define DB_DR0_MASK    (1 << 0)
 #define DB_DR1_MASK    (1 << 1)
@@ -260,8 +260,7 @@ typedef struct _INDIRECT_ADDRESS
 //
 #define DAR_INDEX_TO_BITMAP(Index) (1ull << Index)
 
-typedef enum class _HWBP_TYPE
-{
+typedef enum class _HWBP_TYPE {
     Execute = 0,
     Write = 1,
     Io = 2,
@@ -269,8 +268,7 @@ typedef enum class _HWBP_TYPE
     Undefined
 } HWBP_TYPE, *PHWBP_TYPE;
 
-typedef enum class _HWBP_SIZE
-{
+typedef enum class _HWBP_SIZE {
     Byte = 0,
     Word = 1,
     Qword = 2,
@@ -278,9 +276,6 @@ typedef enum class _HWBP_SIZE
     Undefined
 } HWBP_SIZE, *PHWBP_SIZE;
 
-//
-// HwBpSizeToBytes
-//
 FORCEINLINE
 ULONG
 HwBpSizeToBytes(
@@ -306,15 +301,10 @@ HwBpSizeToBytes(
 //  (except bit 16, which they should set) before returning to the interrupted
 //  task.
 //
-#pragma warning(push)
-#pragma warning(disable : 4201) // Nonstandard extension: nameless struct/union
-typedef struct _DR6
-{
-    union
-    {
+typedef struct _DR6 {
+    union {
         ULONG_PTR All;
-        struct
-        {
+        struct {
             //
             // B0 through B3 (breakpoint condition detected) flags.
             //
@@ -408,19 +398,13 @@ typedef struct _DR6
         } DUMMYSTRUCTNAME;
     } DUMMYUNIONNAME;
 } DR6, *PDR6;
-#pragma warning(pop)
 
 static_assert(sizeof(DR6) == sizeof(ULONG_PTR), "Unexpected DR6 size.");
 
-#pragma warning(push)
-#pragma warning(disable : 4201) // Nonstandard extension: nameless struct/union
-typedef struct _DR7
-{
-    union
-    {
+typedef struct _DR7 {
+    union {
         ULONG_PTR All;
-        struct
-        {
+        struct {
             //
             // L0 through L3 (local breakpoint enable) flags.
             //
@@ -474,12 +458,12 @@ typedef struct _DR7
             //  regions (see Section 17.3.3). This advanced debugging is
             //  enabled only if IA32_DEBUGCTL.RTM is also set.
             //
-            ULONG_PTR RTM  : 1;     // [11]
+            ULONG_PTR RTM : 1;     // [11]
 
             //
             // Reserved bit (always unset). (Figure 17-1 Debug Registers)
             //
-            ULONG_PTR ICE  : 1;     // [12]
+            ULONG_PTR ICE : 1;     // [12]
 
             //
             // GD (general detect enable) flag.
@@ -499,13 +483,13 @@ typedef struct _DR7
             //  exception handler, to allow the handler access to the debug
             //  registers.
             //
-            ULONG_PTR GD   : 1;     // [13]
+            ULONG_PTR GD : 1;     // [13]
 
             //
             // Reserved bits (always unset). (Figure 17-1 Debug Registers)
             //
-            ULONG_PTR TR1  : 1;     // [14]
-            ULONG_PTR TR2  : 1;     // [15]
+            ULONG_PTR TR1 : 1;     // [14]
+            ULONG_PTR TR2 : 1;     // [15]
 
             //
             // R/W0 through R/W3 (read/write) fields.
@@ -547,13 +531,13 @@ typedef struct _DR7
             //  The effect of using other lengths is undefined. See Section
             //  17.2.5 Breakpoint Field Recognition.
             //
-            ULONG_PTR RW0  : 2;     // [16:17]
+            ULONG_PTR RW0 : 2;     // [16:17]
             ULONG_PTR Len0 : 2;     // [18:19]
-            ULONG_PTR RW1  : 2;     // [20:21]
+            ULONG_PTR RW1 : 2;     // [20:21]
             ULONG_PTR Len1 : 2;     // [22:23]
-            ULONG_PTR RW2  : 2;     // [24:25]
+            ULONG_PTR RW2 : 2;     // [24:25]
             ULONG_PTR Len2 : 2;     // [26:27]
-            ULONG_PTR RW3  : 2;     // [28:29]
+            ULONG_PTR RW3 : 2;     // [28:29]
             ULONG_PTR Len3 : 2;     // [30:31]
 
             //
@@ -569,6 +553,5 @@ typedef struct _DR7
         } DUMMYSTRUCTNAME;
     } DUMMYUNIONNAME;
 } DR7, *PDR7;
-#pragma warning(pop)
 
 static_assert(sizeof(DR7) == sizeof(ULONG_PTR), "Unexpected DR7 size.");

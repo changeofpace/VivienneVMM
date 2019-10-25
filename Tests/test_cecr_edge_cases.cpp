@@ -89,7 +89,7 @@ TestCaptureRegisterValuesEdgeCases()
     printf("Starting zero results edge case...\n");
 
     // Edge Case: Zero results because the breakpoint was not triggered.
-    status = DrvCaptureRegisterValues(
+    status = VivienneIoCaptureRegisterValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
         0,
@@ -102,7 +102,7 @@ TestCaptureRegisterValuesEdgeCases()
     if (!status)
     {
         FAIL_TEST(
-            "DrvCaptureRegisterValues failed: %u\n",
+            "VivienneIoCaptureRegisterValues failed: %u\n",
             GetLastError());
     }
 
@@ -135,7 +135,7 @@ TestCaptureRegisterValuesEdgeCases()
     }
 
     // Edge Case: The values-buffer is full.
-    status = DrvCaptureRegisterValues(
+    status = VivienneIoCaptureRegisterValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
         (ULONG_PTR)&g_AcCecrCaptureAddress,
@@ -148,7 +148,7 @@ TestCaptureRegisterValuesEdgeCases()
     if (!status)
     {
         FAIL_TEST(
-            "DrvCaptureRegisterValues failed: %u\n",
+            "VivienneIoCaptureRegisterValues failed: %u\n",
             GetLastError());
     }
 

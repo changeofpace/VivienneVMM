@@ -146,10 +146,10 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
   }
 
   // Initialize VivienneVMM
-  status = VvmmInitialization(driver_object, registry_path);
+  status = VivienneDriverEntry(driver_object, registry_path);
   if (!NT_SUCCESS(status))
   {
-    ERR_PRINT("VvmmInitialization failed: 0x%X", status);
+    ERR_PRINT("VivienneDriverEntry failed: 0x%X", status);
     HotplugCallbackTermination();
     PowerCallbackTermination();
     UtilTermination();
@@ -161,11 +161,11 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
 
 #ifdef CFG_ENABLE_DEBUGREGISTERFACADE
   // Initialize DebugRegisterFacade
-  status = FcdInitialization();
+  status = FcdDriverEntry();
   if (!NT_SUCCESS(status))
   {
-    ERR_PRINT("FcdInitialization failed: 0x%X", status);
-    VvmmTermination(driver_object);
+    ERR_PRINT("FcdDriverEntry failed: 0x%X", status);
+    VivienneDriverUnload(driver_object);
     HotplugCallbackTermination();
     PowerCallbackTermination();
     UtilTermination();
@@ -180,9 +180,9 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
   status = VmInitialization();
   if (!NT_SUCCESS(status)) {
 #ifdef CFG_ENABLE_DEBUGREGISTERFACADE
-    FcdTermination();
+    FcdDriverUnload();
 #endif
-    VvmmTermination(driver_object);
+    VivienneDriverUnload(driver_object);
     HotplugCallbackTermination();
     PowerCallbackTermination();
     UtilTermination();
@@ -214,7 +214,7 @@ _Use_decl_annotations_ static void DriverpDriverUnload(
   // We must terminate VivienneVMM before devirtualization because we must be
   //  able to enter VMX root mode to perform cleanup.
   //
-  VvmmTermination(driver_object);
+  VivienneDriverUnload(driver_object);
 
   VmTermination();
 
@@ -224,7 +224,7 @@ _Use_decl_annotations_ static void DriverpDriverUnload(
   //  the DebugRegisterFacade performs internal cleanup in VMX root mode during
   //  VM teardown.
   //
-  FcdTermination();
+  FcdDriverUnload();
 #endif
 
   HotplugCallbackTermination();

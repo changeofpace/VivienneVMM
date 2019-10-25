@@ -1264,7 +1264,7 @@ _Use_decl_annotations_ static void VmmpHandleVmCall(
       // Unloading requested. This VMCALL is allowed to execute only from CPL=0
       if (VmmpGetGuestCpl() == 0) {
 #ifdef CFG_ENABLE_DEBUGREGISTERFACADE
-        FcdVmxTermination();
+        FcdVmxDriverUnload();
 #endif
         VmmpHandleVmCallTermination(guest_context, context);
       } else {

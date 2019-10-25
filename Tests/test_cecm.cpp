@@ -344,7 +344,7 @@ ExecuteCecmAbsoluteAddress()
     //
     // Issue the synchronous CECM request.
     //
-    status = DrvCaptureMemoryValues(
+    status = VivienneIoCaptureMemoryValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
         (ULONG_PTR)&Context.WriteTarget,
@@ -356,7 +356,7 @@ ExecuteCecmAbsoluteAddress()
         CONTEXT_BUFFER_SIZE);
     if (!status)
     {
-        printf("DrvCaptureMemoryValues failed: %u\n", GetLastError());
+        printf("VivienneIoCaptureMemoryValues failed: %u\n", GetLastError());
         goto exit;
     }
 
@@ -769,7 +769,7 @@ ExecuteCecmIndirectAddress()
     //
     // Issue the synchronous CECM request.
     //
-    status = DrvCaptureMemoryValues(
+    status = VivienneIoCaptureMemoryValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
         (ULONG_PTR)&g_AcCecrDoubleCaptureAddress,
@@ -781,7 +781,7 @@ ExecuteCecmIndirectAddress()
         CONTEXT_BUFFER_SIZE);
     if (!status)
     {
-        printf("DrvCaptureMemoryValues failed: %u\n", GetLastError());
+        printf("VivienneIoCaptureMemoryValues failed: %u\n", GetLastError());
         goto exit;
     }
 
@@ -1201,7 +1201,7 @@ ExecuteCecmResultsOverflow()
     //
     // Issue the synchronous CECM request.
     //
-    status = DrvCaptureMemoryValues(
+    status = VivienneIoCaptureMemoryValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
         (ULONG_PTR)ResultsOverflowExecutionTargetAddress,
@@ -1213,7 +1213,7 @@ ExecuteCecmResultsOverflow()
         CONTEXT_BUFFER_SIZE);
     if (!status)
     {
-        printf("DrvCaptureMemoryValues failed: %u\n", GetLastError());
+        printf("VivienneIoCaptureMemoryValues failed: %u\n", GetLastError());
         goto exit;
     }
 
@@ -1590,7 +1590,7 @@ ExecuteCecmInvalidAddress()
     //
     // Issue the synchronous CECM request.
     //
-    status = DrvCaptureMemoryValues(
+    status = VivienneIoCaptureMemoryValues(
         GetCurrentProcessId(),
         DEBUG_REGISTER_INDEX,
         (ULONG_PTR)InvalidAddressExecutionTargetAddress,
@@ -1602,7 +1602,7 @@ ExecuteCecmInvalidAddress()
         CONTEXT_BUFFER_SIZE);
     if (!status)
     {
-        printf("DrvCaptureMemoryValues failed: %u\n", GetLastError());
+        printf("VivienneIoCaptureMemoryValues failed: %u\n", GetLastError());
         goto exit;
     }
 

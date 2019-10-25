@@ -1,20 +1,22 @@
+/*++
+
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
+--*/
+
 #include "token_parser.h"
 
 #include <algorithm>
-#include <cstdio>
 #include <sstream>
 
+#include "log.h"
 #include "ntdll.h"
 #include "string_util.h"
 
 
-//=============================================================================
-// Token Parsing and Sanitization
-//=============================================================================
-
-//
-// IsBreakpointAddressAligned
-//
 _Use_decl_annotations_
 BOOL
 IsBreakpointAddressAligned(
@@ -26,7 +28,9 @@ IsBreakpointAddressAligned(
     ULONG cbCondition = 0;
     BOOL status = TRUE;
 
+    //
     // Skip non-data breakpoints.
+    //
     if (HWBP_TYPE::Access != Type &&
         HWBP_TYPE::Write != Type)
     {
@@ -37,8 +41,8 @@ IsBreakpointAddressAligned(
 
     if (!IS_ALIGNED(Address, cbCondition))
     {
-        printf(
-            "Misaligned breakpoint address: actual = 0x%IX, expected = 0x%IX\n",
+        ERR_PRINT(
+            "Misaligned breakpoint address: actual = 0x%IX, expected = 0x%IX",
             Address,
             (ULONG_PTR)(ALIGN_DOWN_POINTER_BY(Address, cbCondition)));
         status = FALSE;
@@ -50,9 +54,6 @@ exit:
 }
 
 
-//
-// ParseDebugRegisterIndexToken
-//
 _Use_decl_annotations_
 BOOL
 ParseDebugRegisterIndexToken(
@@ -63,24 +64,28 @@ ParseDebugRegisterIndexToken(
     ULONG DebugRegisterIndex = 0;
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     *pDebugRegisterIndex = 0;
 
     status = StrUnsignedLongFromString(Token, FALSE, &DebugRegisterIndex);
     if (!status)
     {
-        printf("Invalid DebugRegisterIndex: %s.\n", Token.c_str());
+        ERR_PRINT("Invalid DebugRegisterIndex: %s.", Token.c_str());
         goto exit;
     }
 
     if (DAR_COUNT <= DebugRegisterIndex)
     {
-        printf("Invalid DebugRegisterIndex: %s.\n", Token.c_str());
+        ERR_PRINT("Invalid DebugRegisterIndex: %s.", Token.c_str());
         status = FALSE;
         goto exit;
     }
 
+    //
     // Set out parameters.
+    //
     *pDebugRegisterIndex = DebugRegisterIndex;
 
 exit:
@@ -88,9 +93,6 @@ exit:
 }
 
 
-//
-// ParseProcessIdToken
-//
 _Use_decl_annotations_
 BOOL
 ParseProcessIdToken(
@@ -101,17 +103,21 @@ ParseProcessIdToken(
     ULONG_PTR ProcessId = 0;
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     *pProcessId = 0;
 
     status = StrUnsignedLongLongFromString(Token, FALSE, &ProcessId);
     if (!status)
     {
-        printf("Invalid ProcessId: %s\n.", Token.c_str());
+        ERR_PRINT("Invalid ProcessId: %s.", Token.c_str());
         goto exit;
     }
 
+    //
     // Set out parameters.
+    //
     *pProcessId = ProcessId;
 
 exit:
@@ -119,9 +125,6 @@ exit:
 }
 
 
-//
-// ParseAddressToken
-//
 _Use_decl_annotations_
 BOOL
 ParseAddressToken(
@@ -132,17 +135,21 @@ ParseAddressToken(
     ULONG_PTR Address = 0;
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     *pAddress = 0;
 
     status = StrUnsignedLongLongFromString(Token, TRUE, &Address);
     if (!status)
     {
-        printf("Invalid ProcessId: %s\n.", Token.c_str());
+        ERR_PRINT("Invalid ProcessId: %s.", Token.c_str());
         goto exit;
     }
 
+    //
     // Set out parameters.
+    //
     *pAddress = Address;
 
 exit:
@@ -152,9 +159,6 @@ exit:
 
 #define ACCESS_SIZE_TOKEN_CCH 2
 
-//
-// ParseAccessSizeToken
-//
 _Use_decl_annotations_
 BOOL
 ParseAccessSizeToken(
@@ -167,13 +171,15 @@ ParseAccessSizeToken(
     HWBP_SIZE Size = {};
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     *pType = {};
     *pSize = {};
 
     if (ACCESS_SIZE_TOKEN_CCH != Token.size())
     {
-        printf("Invalid Access|Size: %s.\n", Token.c_str());
+        ERR_PRINT("Invalid Access|Size: %s.", Token.c_str());
         status = FALSE;
         goto exit;
     }
@@ -184,7 +190,7 @@ ParseAccessSizeToken(
         case 'w': Type = HWBP_TYPE::Write;   break;
         case 'r': Type = HWBP_TYPE::Access;  break;
         default:
-            printf("Invalid Access: use 'e,r,w'.\n");
+            ERR_PRINT("Invalid Access: use 'e,r,w'.");
             status = FALSE;
             goto exit;
     }
@@ -196,19 +202,23 @@ ParseAccessSizeToken(
         case '4': Size = HWBP_SIZE::Dword; break;
         case '8': Size = HWBP_SIZE::Qword; break;
         default:
-            printf("Invalid Size: use '1,2,4,8'.\n");
+            ERR_PRINT("Invalid Size: use '1,2,4,8'.n");
             status = FALSE;
             goto exit;
     }
 
+    //
     // Execution breakpoints must have size 1.
+    //
     if (HWBP_TYPE::Execute == Type &&
         HWBP_SIZE::Byte != Size)
     {
         Size = HWBP_SIZE::Byte;
     }
 
+    //
     // Set out parameters.
+    //
     *pType = Type;
     *pSize = Size;
 
@@ -217,9 +227,6 @@ exit:
 }
 
 
-//
-// ParseRegisterToken
-//
 _Use_decl_annotations_
 BOOL
 ParseRegisterToken(
@@ -231,10 +238,14 @@ ParseRegisterToken(
     X64_REGISTER Register = REGISTER_INVALID;
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     *pRegister = REGISTER_INVALID;
 
+    //
     // Convert the token to lowercase.
+    //
     std::transform(
         LowercaseToken.begin(),
         LowercaseToken.end(),
@@ -260,12 +271,14 @@ ParseRegisterToken(
     else if (LowercaseToken == "r15") Register = REGISTER_R15;
     else
     {
-        printf("Invalid Register: %s.\n", LowercaseToken.c_str());
+        ERR_PRINT("Invalid Register: %s.", LowercaseToken.c_str());
         status = FALSE;
         goto exit;
     }
 
+    //
     // Set out parameters.
+    //
     *pRegister = Register;
 
 exit:
@@ -296,17 +309,21 @@ ParseMemoryDataTypeToken(
     MEMORY_DATA_TYPE MemoryDataType = {};
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     *pMemoryDataType = {};
 
     if (MEMORY_DATA_TYPE_TOKEN_CCH != Token.size())
     {
-        printf("Invalid data type token size: %Iu.\n", Token.size());
+        ERR_PRINT("Invalid data type token size: %Iu.", Token.size());
         status = FALSE;
         goto exit;
     }
 
+    //
     // Convert the token to lowercase.
+    //
     std::transform(
         LowercaseToken.begin(),
         LowercaseToken.end(),
@@ -322,12 +339,15 @@ ParseMemoryDataTypeToken(
         case 'f': MemoryDataType = MDT_FLOAT; break;
         case 'o': MemoryDataType = MDT_DOUBLE; break;
         default:
-            printf("Invalid data type token: %s.\n", LowercaseToken.c_str());
+            ERR_PRINT("Invalid data type token: %s.",
+                LowercaseToken.c_str());
             status = FALSE;
             goto exit;
     }
 
+    //
     // Set out parameters.
+    //
     *pMemoryDataType = MemoryDataType;
 
 exit:
@@ -335,9 +355,6 @@ exit:
 }
 
 
-//
-// ParseScaleFactorToken
-//
 _Use_decl_annotations_
 BOOL
 ParseScaleFactorToken(
@@ -349,13 +366,15 @@ ParseScaleFactorToken(
     SCALE_FACTOR ScaleFactor = {};
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     *pScaleFactor = {};
 
     status = StrUnsignedLongFromString(Token, FALSE, &Value);
     if (!status)
     {
-        printf("Invalid scale factor: %s\n", Token.c_str());
+        ERR_PRINT("Invalid scale factor: %s", Token.c_str());
         goto exit;
     }
 
@@ -366,12 +385,14 @@ ParseScaleFactorToken(
         case SCALE_DWORD: ScaleFactor = SCALE_DWORD; break;
         case SCALE_QWORD: ScaleFactor = SCALE_QWORD; break;
         default:
-            printf("Invalid scale factor value: %u\n", Value);
+            ERR_PRINT("Invalid scale factor value: %u", Value);
             status = FALSE;
             goto exit;
     }
 
+    //
     // Set out parameters.
+    //
     *pScaleFactor = ScaleFactor;
 
 exit:
@@ -384,9 +405,6 @@ exit:
 //
 //#define DBG_INDIRECT_ADDRESS_TOKEN_PARSER
 
-//
-// ParseIndirectAddressToken
-//
 _Use_decl_annotations_
 BOOL
 ParseIndirectAddressToken(
@@ -403,7 +421,9 @@ ParseIndirectAddressToken(
     INDIRECT_ADDRESS IndirectAddress = {};
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     RtlSecureZeroMemory(pIndirectAddress, sizeof(*pIndirectAddress));
 
     cExpressionTokens = StrSplitStringByDelimiter('*', Token, ExpressionTokens);
@@ -439,8 +459,8 @@ ParseIndirectAddressToken(
         }
         else
         {
-            printf(
-                "Invalid memory description: %s (base/index)\n",
+            ERR_PRINT(
+                "Invalid memory description: %s (base/index)",
                 BaseIndex.c_str());
             status = FALSE;
             goto exit;
@@ -484,8 +504,8 @@ ParseIndirectAddressToken(
             }
             else
             {
-                printf(
-                    "Invalid memory description: '%s' (scale factor/displacement -)\n",
+                ERR_PRINT(
+                    "Invalid memory description: '%s' (scale factor/displacement -)",
                     ScaleFactorDisplacement.c_str());
                 status = FALSE;
                 goto exit;
@@ -493,8 +513,8 @@ ParseIndirectAddressToken(
         }
         else
         {
-            printf(
-                "Invalid memory description: '%s' (scale factor/displacement +)\n",
+            ERR_PRINT(
+                "Invalid memory description: '%s' (scale factor/displacement +)",
                 ScaleFactorDisplacement.c_str());
             status = FALSE;
             goto exit;
@@ -505,7 +525,8 @@ ParseIndirectAddressToken(
         //
         if (ScaleFactor.empty())
         {
-            printf("Tokens containing an '*' must specify a scale factor.\n");
+            ERR_PRINT(
+                "Tokens containing an '*' must specify a scale factor.");
             status = FALSE;
             goto exit;
         }
@@ -577,8 +598,8 @@ ParseIndirectAddressToken(
             }
             else
             {
-                printf(
-                    "Invalid memory description: %s (index/displacement)\n",
+                ERR_PRINT(
+                    "Invalid memory description: %s (index/displacement)",
                     IndexDisplacement.c_str());
                 status = FALSE;
                 goto exit;
@@ -611,8 +632,8 @@ ParseIndirectAddressToken(
         }
         else
         {
-            printf(
-                "Invalid memory description: %s (base/index/displacement)\n",
+            ERR_PRINT(
+                "Invalid memory description: %s (base/index/displacement)",
                 Token.c_str());
             status = FALSE;
             goto exit;
@@ -620,18 +641,18 @@ ParseIndirectAddressToken(
     }
     else
     {
-        printf("Invalid memory description: %s\n", Token.c_str());
+    ERR_PRINT("Invalid memory description: %s", Token.c_str());
         status = FALSE;
         goto exit;
     }
 
 #if defined(_DEBUG) && defined(DBG_INDIRECT_ADDRESS_TOKEN_PARSER)
-    printf("token: '%s'\n", Token.c_str());
-    printf("    Base:           '%s'\n", Base.c_str());
-    printf("    Index:          '%s'\n", Index.c_str());
-    printf("    ScaleFactor:    '%s'\n", ScaleFactor.c_str());
-    printf("    Displacement:   '%s'\n", Displacement.c_str());
-    printf("\n");
+    DBG_PRINT("token: '%s'", Token.c_str());
+    DBG_PRINT("    Base:           '%s'", Base.c_str());
+    DBG_PRINT("    Index:          '%s'", Index.c_str());
+    DBG_PRINT("    ScaleFactor:    '%s'", ScaleFactor.c_str());
+    DBG_PRINT("    Displacement:   '%s'", Displacement.c_str());
+    DBG_PRINT("");
 #endif
 
     //
@@ -639,15 +660,15 @@ ParseIndirectAddressToken(
     //
     if (Base.empty() && Index.empty())
     {
-        printf("Null base and index.\n");
+        ERR_PRINT("Null base and index.");
         status = FALSE;
         goto exit;
     }
 
     if (Index.empty() && !ScaleFactor.empty())
     {
-        printf(
-            "Invalid index (%s) / scale factor (%s).\n",
+        ERR_PRINT(
+            "Invalid index (%s) / scale factor (%s).",
             Index.c_str(),
             ScaleFactor.c_str());
         status = FALSE;
@@ -662,7 +683,7 @@ ParseIndirectAddressToken(
         status = ParseRegisterToken(Base, &IndirectAddress.BaseRegister);
         if (!status)
         {
-            printf("Invalid base register.\n");
+            ERR_PRINT("Invalid base register.");
             goto exit;
         }
     }
@@ -672,7 +693,7 @@ ParseIndirectAddressToken(
         status = ParseRegisterToken(Index, &IndirectAddress.IndexRegister);
         if (!status)
         {
-            printf("Invalid index register.\n");
+            ERR_PRINT("Invalid index register.");
             goto exit;
         }
 
@@ -683,7 +704,7 @@ ParseIndirectAddressToken(
                 &IndirectAddress.ScaleFactor);
             if (!status)
             {
-                printf("Invalid scale factor.\n");
+                ERR_PRINT("Invalid scale factor.");
                 goto exit;
             }
         }
@@ -698,13 +719,15 @@ ParseIndirectAddressToken(
         }
         catch (const std::exception&)
         {
-            printf("Invalid displacement: %s\n", Displacement.c_str());
+            ERR_PRINT("Invalid displacement: %s", Displacement.c_str());
             status = FALSE;
             goto exit;
         }
     }
 
+    //
     // Set out parameters.
+    //
     RtlCopyMemory(
         pIndirectAddress,
         &IndirectAddress,
@@ -737,7 +760,9 @@ ParseMemoryDescriptionToken(
     CEC_MEMORY_DESCRIPTION MemoryDescription = {};
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     RtlSecureZeroMemory(pMemoryDescription, sizeof(*pMemoryDescription));
 
     //
@@ -771,7 +796,7 @@ ParseMemoryDescriptionToken(
         &MemoryDescription.u.IndirectAddress);
     if (!status)
     {
-        printf("ParseIndirectAddressToken failed.\n");
+        ERR_PRINT("ParseIndirectAddressToken failed.");
         goto exit;
     }
 
@@ -781,7 +806,9 @@ ParseMemoryDescriptionToken(
     MemoryDescription.DataType = MemoryDataType;
     MemoryDescription.IsIndirectAddress = TRUE;
 
+    //
     // Set out parameters.
+    //
     RtlCopyMemory(
         pMemoryDescription,
         &MemoryDescription,
@@ -805,17 +832,21 @@ ParseDurationToken(
     ULONG DurationInMilliseconds = 0;
     BOOL status = TRUE;
 
+    //
     // Zero out parameters.
+    //
     *pDurationInMilliseconds = 0;
 
     status = StrUnsignedLongFromString(Token, FALSE, &DurationInMilliseconds);
     if (!status)
     {
-        printf("Invalid DurationInMilliseconds: %s.\n", Token.c_str());
+        ERR_PRINT("Invalid DurationInMilliseconds: %s.", Token.c_str());
         goto exit;
     }
 
+    //
     // Set out parameters.
+    //
     *pDurationInMilliseconds = DurationInMilliseconds;
 
 exit:

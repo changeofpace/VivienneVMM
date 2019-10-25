@@ -508,7 +508,7 @@ _Use_decl_annotations_ static void VmpInitializeVm(
   //  registers.
   //
 #pragma warning(suppress : 28122) // IRQL too low.
-  FcdVmxInitialization();
+  FcdVmxDriverEntry();
 #endif
 
   // Do virtualize the processor

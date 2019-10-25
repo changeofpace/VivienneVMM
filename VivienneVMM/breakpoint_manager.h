@@ -1,7 +1,12 @@
 /*++
 
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
 Module Name:
-    
+
     breakpoint_manager.h
 
 Abstract:
@@ -32,8 +37,7 @@ Environment:
 //=============================================================================
 // Types
 //=============================================================================
-typedef struct _HARDWARE_BREAKPOINT
-{
+typedef struct _HARDWARE_BREAKPOINT {
     HANDLE ProcessId;
     ULONG Index;
     ULONG_PTR Address;
@@ -46,13 +50,13 @@ typedef struct _HARDWARE_BREAKPOINT
 //=============================================================================
 _Check_return_
 NTSTATUS
-BpmInitialization();
+BpmDriverEntry();
 
 VOID
-BpmTermination();
+BpmDriverUnload();
 
 //=============================================================================
-// Client Interface
+// Public Interface
 //=============================================================================
 _Check_return_
 NTSTATUS

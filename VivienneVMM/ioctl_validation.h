@@ -1,3 +1,28 @@
+/*++
+
+Copyright (c) 2019 changeofpace. All rights reserved.
+
+Use of this source code is governed by the MIT license. See the 'LICENSE' file
+for more information.
+
+Module Name:
+
+    ioctl_validation.h
+
+Abstract:
+
+    This header defines IO validation routines.
+
+Author:
+
+    changeofpace
+
+Environment:
+
+    Kernel mode only.
+
+--*/
+
 #pragma once
 
 #include <fltKernel.h>
