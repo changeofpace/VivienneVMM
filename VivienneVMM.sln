@@ -11,22 +11,38 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tests", "Tests\Tests.vcxpro
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug Library|x64 = Debug Library|x64
 		Debug|x64 = Debug|x64
+		Release Library|x64 = Release Library|x64
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{914E9EBE-76FF-456A-999C-AC55D05890EB}.Debug Library|x64.ActiveCfg = Debug Library|x64
+		{914E9EBE-76FF-456A-999C-AC55D05890EB}.Debug Library|x64.Build.0 = Debug Library|x64
+		{914E9EBE-76FF-456A-999C-AC55D05890EB}.Debug Library|x64.Deploy.0 = Debug Library|x64
 		{914E9EBE-76FF-456A-999C-AC55D05890EB}.Debug|x64.ActiveCfg = Debug|x64
 		{914E9EBE-76FF-456A-999C-AC55D05890EB}.Debug|x64.Build.0 = Debug|x64
 		{914E9EBE-76FF-456A-999C-AC55D05890EB}.Debug|x64.Deploy.0 = Debug|x64
+		{914E9EBE-76FF-456A-999C-AC55D05890EB}.Release Library|x64.ActiveCfg = Release Library|x64
+		{914E9EBE-76FF-456A-999C-AC55D05890EB}.Release Library|x64.Build.0 = Release Library|x64
+		{914E9EBE-76FF-456A-999C-AC55D05890EB}.Release Library|x64.Deploy.0 = Release Library|x64
 		{914E9EBE-76FF-456A-999C-AC55D05890EB}.Release|x64.ActiveCfg = Release|x64
 		{914E9EBE-76FF-456A-999C-AC55D05890EB}.Release|x64.Build.0 = Release|x64
 		{914E9EBE-76FF-456A-999C-AC55D05890EB}.Release|x64.Deploy.0 = Release|x64
+		{8EAAD2DC-8830-4C01-ACFD-CC1E2F567AB2}.Debug Library|x64.ActiveCfg = Debug Library|x64
+		{8EAAD2DC-8830-4C01-ACFD-CC1E2F567AB2}.Debug Library|x64.Build.0 = Debug Library|x64
 		{8EAAD2DC-8830-4C01-ACFD-CC1E2F567AB2}.Debug|x64.ActiveCfg = Debug|x64
 		{8EAAD2DC-8830-4C01-ACFD-CC1E2F567AB2}.Debug|x64.Build.0 = Debug|x64
+		{8EAAD2DC-8830-4C01-ACFD-CC1E2F567AB2}.Release Library|x64.ActiveCfg = Release Library|x64
+		{8EAAD2DC-8830-4C01-ACFD-CC1E2F567AB2}.Release Library|x64.Build.0 = Release Library|x64
 		{8EAAD2DC-8830-4C01-ACFD-CC1E2F567AB2}.Release|x64.ActiveCfg = Release|x64
 		{8EAAD2DC-8830-4C01-ACFD-CC1E2F567AB2}.Release|x64.Build.0 = Release|x64
+		{5FAA74A8-3A31-4A12-9C2E-1812C2D32E2F}.Debug Library|x64.ActiveCfg = Debug|x64
+		{5FAA74A8-3A31-4A12-9C2E-1812C2D32E2F}.Debug Library|x64.Build.0 = Debug|x64
 		{5FAA74A8-3A31-4A12-9C2E-1812C2D32E2F}.Debug|x64.ActiveCfg = Debug|x64
 		{5FAA74A8-3A31-4A12-9C2E-1812C2D32E2F}.Debug|x64.Build.0 = Debug|x64
+		{5FAA74A8-3A31-4A12-9C2E-1812C2D32E2F}.Release Library|x64.ActiveCfg = Release|x64
+		{5FAA74A8-3A31-4A12-9C2E-1812C2D32E2F}.Release Library|x64.Build.0 = Release|x64
 		{5FAA74A8-3A31-4A12-9C2E-1812C2D32E2F}.Release|x64.ActiveCfg = Release|x64
 		{5FAA74A8-3A31-4A12-9C2E-1812C2D32E2F}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection

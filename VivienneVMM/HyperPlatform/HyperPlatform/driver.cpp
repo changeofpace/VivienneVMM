@@ -34,6 +34,14 @@ extern "C" {
 // constants and macros
 //
 
+#if defined(LIBRARY_BUILD)
+#define VIVIENNEVMM_DRIVER_ENTRY_NAME   VivienneVmmDriverEntry
+#define VIVIENNEVMM_DRIVER_UNLOAD_NAME  VivienneVmmDriverUnload
+#else
+#define VIVIENNEVMM_DRIVER_ENTRY_NAME   DriverEntry
+#define VIVIENNEVMM_DRIVER_UNLOAD_NAME  DriverUnload
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // types
@@ -44,15 +52,17 @@ extern "C" {
 // prototypes
 //
 
-DRIVER_INITIALIZE DriverEntry;
+#if !defined(LIBRARY_BUILD)
+DRIVER_INITIALIZE VIVIENNEVMM_DRIVER_ENTRY_NAME;
 
-static DRIVER_UNLOAD DriverpDriverUnload;
+DRIVER_UNLOAD VIVIENNEVMM_DRIVER_UNLOAD_NAME;
+#endif
 
 _IRQL_requires_max_(PASSIVE_LEVEL) bool DriverpIsSuppoetedOS();
 
 #if defined(ALLOC_PRAGMA)
-#pragma alloc_text(INIT, DriverEntry)
-#pragma alloc_text(PAGE, DriverpDriverUnload)
+#pragma alloc_text(INIT, VIVIENNEVMM_DRIVER_ENTRY_NAME)
+#pragma alloc_text(PAGE, VIVIENNEVMM_DRIVER_UNLOAD_NAME)
 #pragma alloc_text(INIT, DriverpIsSuppoetedOS)
 #endif
 
@@ -67,8 +77,8 @@ _IRQL_requires_max_(PASSIVE_LEVEL) bool DriverpIsSuppoetedOS();
 //
 
 // A driver entry point
-_Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
-                                            PUNICODE_STRING registry_path) {
+_Use_decl_annotations_ NTSTATUS VIVIENNEVMM_DRIVER_ENTRY_NAME(
+  PDRIVER_OBJECT driver_object, PUNICODE_STRING registry_path) {
   UNREFERENCED_PARAMETER(registry_path);
   PAGED_CODE();
 
@@ -79,7 +89,7 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
         : kLogPutLevelDebug | kLogOptDisableFunctionName;
 
   auto status = STATUS_UNSUCCESSFUL;
-  driver_object->DriverUnload = DriverpDriverUnload;
+  driver_object->DriverUnload = VIVIENNEVMM_DRIVER_UNLOAD_NAME;
   //HYPERPLATFORM_COMMON_DBG_BREAK();
 
   // Request NX Non-Paged Pool when available
@@ -202,7 +212,7 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
 }
 
 // Unload handler
-_Use_decl_annotations_ static void DriverpDriverUnload(
+_Use_decl_annotations_ void VIVIENNEVMM_DRIVER_UNLOAD_NAME(
     PDRIVER_OBJECT driver_object) {
 
   UNREFERENCED_PARAMETER(driver_object);

@@ -8,6 +8,8 @@
 #ifndef HYPERPLATFORM_DRIVER_H_
 #define HYPERPLATFORM_DRIVER_H_
 
+#include <fltKernel.h>
+
 extern "C" {
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -28,6 +30,10 @@ extern "C" {
 //
 // prototypes
 //
+
+DRIVER_INITIALIZE VivienneVmmDriverEntry;
+
+DRIVER_UNLOAD VivienneVmmDriverUnload;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
