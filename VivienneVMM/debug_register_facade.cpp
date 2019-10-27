@@ -40,16 +40,14 @@ Environment:
 //=============================================================================
 // Constants and Macros
 //=============================================================================
-#define FCD_TAG 'TdcF'
+#define MODULE_TITLE    "Debug Register Facade"
+
+#define FCD_TAG         'TdcF'
 
 
 //=============================================================================
 // Private Types
 //=============================================================================
-
-//
-// Event tracking.
-//
 typedef struct _FACADE_MANAGER_STATISTICS {
     volatile POINTER_ALIGNMENT LONG64 WriteEvents;
     volatile POINTER_ALIGNMENT LONG64 ReadEvents;
@@ -103,11 +101,12 @@ NTSTATUS
 FcdDriverEntry()
 {
     ULONG cProcessors = KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
-    SIZE_T cbProcessorStates = cProcessors * sizeof(*g_FacadeManager.Processors);
+    SIZE_T cbProcessorStates =
+        cProcessors * sizeof(*g_FacadeManager.Processors);
     PFCD_PROCESSOR_STATE pProcessorStates = NULL;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    INF_PRINT("Initializing debug register facade.");
+    INF_PRINT("Loading %s.", MODULE_TITLE);
 
     //
     // Allocate and initialize processor state.
@@ -129,6 +128,8 @@ FcdDriverEntry()
     //
     g_FacadeManager.Processors = pProcessorStates;
 
+    INF_PRINT("%s loaded.", MODULE_TITLE);
+
 exit:
     if (!NT_SUCCESS(ntstatus))
     {
@@ -145,7 +146,7 @@ exit:
 VOID
 FcdDriverUnload()
 {
-    INF_PRINT("Terminating debug register facade.");
+    INF_PRINT("Unloading %s.", MODULE_TITLE);
 
     //
     // Release processor state resources.
@@ -153,6 +154,8 @@ FcdDriverUnload()
     ExFreePoolWithTag(g_FacadeManager.Processors, FCD_TAG);
 
     FcdiLogStatistics();
+
+    INF_PRINT("%s unloaded.", MODULE_TITLE);
 }
 
 
@@ -183,8 +186,6 @@ FcdVmxDriverEntry()
     Cr4 HostCr4 = {UtilVmRead(VmcsField::kHostCr4)};
     ULONG CurrentProcessor = KeGetCurrentProcessorNumberEx(NULL);
     PFCD_PROCESSOR_STATE pFacade = NULL;
-
-    static_assert(DR_COUNT == 8, "Architecture check");
 
     pFacade = &g_FacadeManager.Processors[CurrentProcessor];
 
@@ -240,8 +241,6 @@ FcdVmxDriverUnload()
     ULONG CurrentProcessor = KeGetCurrentProcessorNumberEx(NULL);
     PFCD_PROCESSOR_STATE pFacade = NULL;
     VmxStatus vmxstatus = VmxStatus::kOk;
-
-    static_assert(DR_COUNT == 8, "Architecture check");
 
     pFacade = &g_FacadeManager.Processors[CurrentProcessor];
 
@@ -393,9 +392,9 @@ static
 VOID
 FcdiLogStatistics()
 {
-    INF_PRINT("Facade Manager Statistics");
-    INF_PRINT("%16lld Write DR events.",
+    INF_PRINT("Facade Manager Statistics:");
+    INF_PRINT("    %16lld Write DR events.",
         g_FacadeManager.Statistics.WriteEvents);
-    INF_PRINT("%16lld Read DR events.",
+    INF_PRINT("    %16lld Read DR events.",
         g_FacadeManager.Statistics.ReadEvents);
 }

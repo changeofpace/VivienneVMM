@@ -399,7 +399,7 @@ typedef struct _DR6 {
     } DUMMYUNIONNAME;
 } DR6, *PDR6;
 
-static_assert(sizeof(DR6) == sizeof(ULONG_PTR), "Unexpected DR6 size.");
+C_ASSERT(sizeof(DR6) == sizeof(ULONG_PTR));
 
 typedef struct _DR7 {
     union {
@@ -554,4 +554,4 @@ typedef struct _DR7 {
     } DUMMYUNIONNAME;
 } DR7, *PDR7;
 
-static_assert(sizeof(DR7) == sizeof(ULONG_PTR), "Unexpected DR7 size.");
+C_ASSERT(sizeof(DR7) == sizeof(ULONG_PTR));

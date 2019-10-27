@@ -31,6 +31,7 @@ Environment:
 
 #include "breakpoint_manager.h"
 #include "config.h"
+#include "debug.h"
 #include "ioctl_validation.h"
 #include "log.h"
 #include "register_util.h"
@@ -45,7 +46,9 @@ Environment:
 //=============================================================================
 // Constants and Macros
 //=============================================================================
-#define CEC_TAG 'TceC'
+#define MODULE_TITLE    "Capture Execution Context"
+
+#define CEC_TAG         'TceC'
 
 #define CEC_MAX_DURATION_MS     (SECONDS_TO_MILLISECONDS(10))
 
@@ -87,15 +90,16 @@ typedef struct _CEC_MEMORY_CALLBACK_CONTEXT {
 //  access) without hooking the target memory via code patching.
 //
 typedef struct _CEC_MANAGER_STATE {
+
     //
-    // We use one mutex for each debug address register to ensure that only one
-    //  CEC request is using a debug address register at any given time.
+    // We use one resource for each debug address register to ensure that only
+    //  one CEC request is using a debug address register at any given time.
     //
-    // NOTE These mutexes do not prevent users from installing a breakpoint,
+    // NOTE These resources do not prevent users from installing a breakpoint,
     //  via the breakpoint manager interface, in a debug address register which
     //  is being used to complete a CEC request.
     //
-    POINTER_ALIGNMENT KGUARDED_MUTEX DarMutexes[DAR_COUNT];
+    POINTER_ALIGNMENT ERESOURCE DarResources[DAR_COUNT];
 
 } CEC_MANAGER_STATE, *PCEC_MANAGER_STATE;
 
@@ -178,15 +182,59 @@ CeciVmxMemoryBreakpointCallback(
 //=============================================================================
 // Meta Interface
 //=============================================================================
-VOID
+_Use_decl_annotations_
+NTSTATUS
 CecDriverEntry()
 {
-    INF_PRINT("Initializing capture execution context.");
+    BOOLEAN fResourceInitialized[ARRAYSIZE(g_CecManager.DarResources)] = {};
+    ULONG i = 0;
+    NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    for (ULONG i = 0; i < DAR_COUNT; ++i)
+    INF_PRINT("Loading %s.", MODULE_TITLE);
+
+    for (i = 0; i < ARRAYSIZE(g_CecManager.DarResources); i++)
     {
-        KeInitializeGuardedMutex(&g_CecManager.DarMutexes[i]);
+        ntstatus = ExInitializeResourceLite(&g_CecManager.DarResources[i]);
+        if (!NT_SUCCESS(ntstatus))
+        {
+            ERR_PRINT("ExInitializeResourceLite failed: 0x%X", ntstatus);
+            goto exit;
+        }
+        //
+        fResourceInitialized[i] = TRUE;
     }
+
+    INF_PRINT("%s loaded.", MODULE_TITLE);
+
+exit:
+    if (!NT_SUCCESS(ntstatus))
+    {
+        for (i = 0; i < ARRAYSIZE(fResourceInitialized); i++)
+        {
+            if (fResourceInitialized[i])
+            {
+                VERIFY(ExDeleteResourceLite(&g_CecManager.DarResources[i]));
+            }
+        }
+    }
+
+    return ntstatus;
+}
+
+
+VOID
+CecDriverUnload()
+{
+    ULONG i = 0;
+
+    INF_PRINT("Unloading %s.", MODULE_TITLE);
+
+    for (i = 0; i < ARRAYSIZE(g_CecManager.DarResources); i++)
+    {
+        VERIFY(ExDeleteResourceLite(&g_CecManager.DarResources[i]));
+    }
+
+    INF_PRINT("%s unloaded.", MODULE_TITLE);
 }
 
 
@@ -222,7 +270,7 @@ CecCaptureRegisterValues(
     HARDWARE_BREAKPOINT Breakpoint = {};
     LARGE_INTEGER DelayInterval = {};
     PCEC_REGISTER_CALLBACK_CONTEXT pCallbackCtx = {};
-    BOOLEAN HasMutex = FALSE;
+    BOOLEAN HasResource = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
     //
@@ -244,7 +292,7 @@ CecCaptureRegisterValues(
     //
     // The debug register index should have been validated by the breakpoint
     //  constructor, but we perform internal validation because the index
-    //  determines which mutex we acquire.
+    //  determines which resource we acquire.
     //
     ntstatus = IvValidateDebugRegisterIndex(Index);
     if (!NT_SUCCESS(ntstatus))
@@ -310,10 +358,11 @@ CecCaptureRegisterValues(
         DurationInMilliseconds);
 
     //
-    // Acquire the mutex for the target debug address register.
+    // Acquire the resource for the target debug address register.
     //
-    KeAcquireGuardedMutex(&g_CecManager.DarMutexes[Index]);
-    HasMutex = TRUE;
+    ExEnterCriticalRegionAndAcquireResourceExclusive(
+        &g_CecManager.DarResources[Index]);
+    HasResource = TRUE;
 
     //
     // Install the hardware breakpoint on all processors.
@@ -360,9 +409,10 @@ CecCaptureRegisterValues(
         pCallbackCtx->HitCount);
 
 exit:
-    if (HasMutex)
+    if (HasResource)
     {
-        KeReleaseGuardedMutex(&g_CecManager.DarMutexes[Index]);
+        ExReleaseResourceAndLeaveCriticalRegion(
+            &g_CecManager.DarResources[Index]);
     }
 
     if (pCallbackCtx)
@@ -402,7 +452,7 @@ CecCaptureMemoryValues(
     HARDWARE_BREAKPOINT Breakpoint = {};
     LARGE_INTEGER DelayInterval = {};
     PCEC_MEMORY_CALLBACK_CONTEXT pCallbackCtx = {};
-    BOOLEAN HasMutex = FALSE;
+    BOOLEAN HasResource = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
     //
@@ -424,7 +474,7 @@ CecCaptureMemoryValues(
     //
     // The debug register index should have been validated by the breakpoint
     //  constructor, but we perform internal validation because the index
-    //  determines which mutex we acquire.
+    //  determines which resource we acquire.
     //
     ntstatus = IvValidateDebugRegisterIndex(Index);
     if (!NT_SUCCESS(ntstatus))
@@ -523,10 +573,11 @@ CecCaptureMemoryValues(
 #endif
 
     //
-    // Acquire the mutex for the target debug address register.
+    // Acquire the resource for the target debug address register.
     //
-    KeAcquireGuardedMutex(&g_CecManager.DarMutexes[Index]);
-    HasMutex = TRUE;
+    ExEnterCriticalRegionAndAcquireResourceExclusive(
+        &g_CecManager.DarResources[Index]);
+    HasResource = TRUE;
 
     //
     // Install the hardware breakpoint on all processors.
@@ -591,9 +642,10 @@ CecCaptureMemoryValues(
         pCallbackCtx->Statistics.ValidationErrors);
 
 exit:
-    if (HasMutex)
+    if (HasResource)
     {
-        KeReleaseGuardedMutex(&g_CecManager.DarMutexes[Index]);
+        ExReleaseResourceAndLeaveCriticalRegion(
+            &g_CecManager.DarResources[Index]);
     }
 
     if (pCallbackCtx)

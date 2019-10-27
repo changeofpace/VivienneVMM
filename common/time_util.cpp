@@ -50,8 +50,6 @@ TiDriverEntry()
     LARGE_INTEGER Frequency = {};
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    INF_PRINT("Initializing time util.");
-
     (VOID)KeQueryPerformanceCounter(&Frequency);
     if (!Frequency.QuadPart)
     {
@@ -78,8 +76,6 @@ TiInitialization()
 {
     LARGE_INTEGER Frequency = {};
     BOOL status = TRUE;
-
-    INF_PRINT("Initializing time util.");
 
     if (!QueryPerformanceFrequency(&Frequency))
     {

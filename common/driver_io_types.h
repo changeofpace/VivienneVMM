@@ -39,27 +39,19 @@ Environment:
 //=============================================================================
 // Environment
 //=============================================================================
-
-static_assert(sizeof(HANDLE) == sizeof(ULONG_PTR),
-    "Unexpected data type size (HANDLE/ULONG_PTR)");
+C_ASSERT(sizeof(HANDLE) == sizeof(ULONG_PTR));
 
 //
 // Parsing LONG_PTR displacement input using std::stoll.
 //
-static_assert(sizeof(LONG_PTR) == sizeof(long long),
-    "Unexpected data type size (LONG_PTR/long long)");
+C_ASSERT(sizeof(LONG_PTR) == sizeof(long long));
 
 //
 // Assert floating point type sizes because we cannot use float/double in
 //  kernel code.
 //
-static_assert(
-    sizeof(UINT32) == sizeof(float),
-    "Unexpected data type size (uint32/float)");
-
-static_assert(
-    sizeof(UINT64) == sizeof(double),
-    "Unexpected data type size (uint64/double)");
+C_ASSERT(sizeof(UINT32) == sizeof(float));
+C_ASSERT(sizeof(UINT64) == sizeof(double));
 
 //=============================================================================
 // Names

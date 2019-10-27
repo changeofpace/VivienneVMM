@@ -41,7 +41,9 @@ Environment:
 //=============================================================================
 // Constants and Macros
 //=============================================================================
-#define BPM_TAG 'TmpB'
+#define MODULE_TITLE    "Breakpoint Manager"
+
+#define BPM_TAG         'TmpB'
 
 #ifdef CFG_VERBOSE_BREAKPOINTMANAGER
 #define BPM_VERBOSE_PRINT   INF_PRINT
@@ -135,6 +137,7 @@ typedef struct _BPM_PROCESSOR_STATE {
 // NOTE See capture_execution_context for a breakpoint callback example.
 //
 typedef struct _BREAKPOINT_MANAGER_STATE {
+
     BPM_STATISTICS Statistics;
 
     //
@@ -145,12 +148,12 @@ typedef struct _BREAKPOINT_MANAGER_STATE {
     ULONG NumberOfProcessors;
 
     //
-    // This mutex must be acquired before modifying BPM processor state. Since
-    //  processor state is only modified inside of a VM exit handler, we choose
-    //  to acquire and release the mutex in VMX non-root operation.
+    // This resource must be acquired before modifying BPM processor state.
+    //  Since processor state is only modified inside of a VM exit handler, we
+    //  choose to acquire and release the resource in VMX non-root operation.
     //
-    POINTER_ALIGNMENT KGUARDED_MUTEX Mutex;
-    _Guarded_by_(Mutex) PBPM_PROCESSOR_STATE Processors;
+    POINTER_ALIGNMENT ERESOURCE Resource;
+    _Guarded_by_(Resource) PBPM_PROCESSOR_STATE Processors;
 
 } BREAKPOINT_MANAGER_STATE, *PBREAKPOINT_MANAGER_STATE;
 
@@ -178,7 +181,7 @@ BpmiLogStatistics();
 
 static KIPI_BROADCAST_WORKER BpmiIpiSetHardwareBreakpoint;
 
-_Requires_lock_held_(g_BreakpointManager.Mutex)
+_Requires_lock_held_(g_BreakpointManager.Resource)
 _Check_return_
 static
 NTSTATUS
@@ -189,7 +192,7 @@ BpmiSetHardwareBreakpoint(
     _In_opt_ PVOID pCallbackCtx
 );
 
-_Requires_lock_held_(g_BreakpointManager.Mutex)
+_Requires_lock_held_(g_BreakpointManager.Resource)
 _Check_return_
 static
 NTSTATUS
@@ -197,7 +200,7 @@ BpmiClearHardwareBreakpoint(
     _In_ ULONG Index
 );
 
-_Requires_lock_held_(g_BreakpointManager.Mutex)
+_Requires_lock_held_(g_BreakpointManager.Resource)
 _Check_return_
 static
 NTSTATUS
@@ -248,6 +251,7 @@ _Use_decl_annotations_
 NTSTATUS
 BpmDriverEntry()
 {
+    BOOLEAN fResourceInitialized = FALSE;
     ULONG cProcessors = KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
     SIZE_T cbProcessorStates =
         cProcessors * sizeof(*g_BreakpointManager.Processors);
@@ -255,7 +259,16 @@ BpmDriverEntry()
     BOOLEAN ProcessCallbackInstalled = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    INF_PRINT("Initializing breakpoint manager.");
+    INF_PRINT("Loading %s.", MODULE_TITLE);
+
+    ntstatus = ExInitializeResourceLite(&g_BreakpointManager.Resource);
+    if (!NT_SUCCESS(ntstatus))
+    {
+        ERR_PRINT("ExInitializeResourceLite failed: 0x%X", ntstatus);
+        goto exit;
+    }
+    //
+    fResourceInitialized = TRUE;
 
     //
     // Allocate and initialize processor state.
@@ -290,9 +303,10 @@ BpmDriverEntry()
     //
     // Initialize module globals.
     //
-    KeInitializeGuardedMutex(&g_BreakpointManager.Mutex);
     g_BreakpointManager.NumberOfProcessors = cProcessors;
     g_BreakpointManager.Processors = pProcessorStates;
+
+    INF_PRINT("%s loaded.", MODULE_TITLE);
 
 exit:
     if (!NT_SUCCESS(ntstatus))
@@ -308,6 +322,11 @@ exit:
         {
             ExFreePoolWithTag(pProcessorStates, BPM_TAG);
         }
+
+        if (fResourceInitialized)
+        {
+            VERIFY(ExDeleteResourceLite(&g_BreakpointManager.Resource));
+        }
     }
 
     return ntstatus;
@@ -317,9 +336,10 @@ exit:
 VOID
 BpmDriverUnload()
 {
-    INF_PRINT("Terminating breakpoint manager.");
+    INF_PRINT("Unloading %s.", MODULE_TITLE);
 
-    KeAcquireGuardedMutex(&g_BreakpointManager.Mutex);
+    ExEnterCriticalRegionAndAcquireResourceExclusive(
+        &g_BreakpointManager.Resource);
 
     //
     // Uninstall owned breakpoints.
@@ -339,7 +359,9 @@ BpmDriverUnload()
 
     BpmiLogStatistics();
 
-    KeReleaseGuardedMutex(&g_BreakpointManager.Mutex);
+    ExReleaseResourceAndLeaveCriticalRegion(&g_BreakpointManager.Resource);
+
+    INF_PRINT("%s unloaded.", MODULE_TITLE);
 }
 
 
@@ -369,7 +391,8 @@ BpmQuerySystemDebugState(
     //
     RtlSecureZeroMemory(pSystemDebugState, cbSystemDebugState);
 
-    KeAcquireGuardedMutex(&g_BreakpointManager.Mutex);
+    ExEnterCriticalRegionAndAcquireResourceExclusive(
+        &g_BreakpointManager.Resource);
 
     RequiredSize =
         FIELD_OFFSET(SYSTEM_DEBUG_STATE, Processors) + // Size before array.
@@ -408,7 +431,7 @@ BpmQuerySystemDebugState(
     }
 
 exit:
-    KeReleaseGuardedMutex(&g_BreakpointManager.Mutex);
+    ExReleaseResourceAndLeaveCriticalRegion(&g_BreakpointManager.Resource);
 
     //
     // Always set the required size.
@@ -569,7 +592,6 @@ BpmSetHardwareBreakpoint(
     PVOID pCallbackCtx
 )
 {
-    BOOLEAN HasMutex = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
     BPM_VERBOSE_PRINT(
@@ -581,8 +603,8 @@ BpmSetHardwareBreakpoint(
         HwBpTypeToChar(pBreakpoint->Type),
         HwBpSizeToChar(pBreakpoint->Size));
 
-    KeAcquireGuardedMutex(&g_BreakpointManager.Mutex);
-    HasMutex = TRUE;
+    ExEnterCriticalRegionAndAcquireResourceExclusive(
+        &g_BreakpointManager.Resource);
 
     ntstatus = BpmiSetHardwareBreakpoint(
         TRUE,
@@ -596,10 +618,7 @@ BpmSetHardwareBreakpoint(
     }
 
 exit:
-    if (HasMutex)
-    {
-        KeReleaseGuardedMutex(&g_BreakpointManager.Mutex);
-    }
+    ExReleaseResourceAndLeaveCriticalRegion(&g_BreakpointManager.Resource);
 
     return ntstatus;
 }
@@ -667,7 +686,8 @@ BpmClearHardwareBreakpoint(
 
     BPM_VERBOSE_PRINT("BPM: Clearing Dr%u.", Index);
 
-    KeAcquireGuardedMutex(&g_BreakpointManager.Mutex);
+    ExEnterCriticalRegionAndAcquireResourceExclusive(
+        &g_BreakpointManager.Resource);
 
     ntstatus = BpmiClearHardwareBreakpoint(Index);
     if (!NT_SUCCESS(ntstatus))
@@ -677,7 +697,7 @@ BpmClearHardwareBreakpoint(
     }
 
 exit:
-    KeReleaseGuardedMutex(&g_BreakpointManager.Mutex);
+    ExReleaseResourceAndLeaveCriticalRegion(&g_BreakpointManager.Resource);
 
     return ntstatus;
 }
@@ -696,7 +716,8 @@ BpmCleanupBreakpoints()
 
     BPM_VERBOSE_PRINT("BPM: Cleaning up breakpoints.");
 
-    KeAcquireGuardedMutex(&g_BreakpointManager.Mutex);
+    ExEnterCriticalRegionAndAcquireResourceExclusive(
+        &g_BreakpointManager.Resource);
 
     ntstatus = BpmiCleanupBreakpoints();
     if (!NT_SUCCESS(ntstatus))
@@ -706,7 +727,7 @@ BpmCleanupBreakpoints()
     }
 
 exit:
-    KeReleaseGuardedMutex(&g_BreakpointManager.Mutex);
+    ExReleaseResourceAndLeaveCriticalRegion(&g_BreakpointManager.Resource);
 
     return ntstatus;
 }
@@ -1110,7 +1131,8 @@ BpmiCreateProcessNotifyRoutine(
         goto exit;
     }
 
-    KeAcquireGuardedMutex(&g_BreakpointManager.Mutex);
+    ExEnterCriticalRegionAndAcquireResourceExclusive(
+        &g_BreakpointManager.Resource);
 
     //
     // Determine if the breakpoint manager owns a breakpoint assigned to this
@@ -1130,7 +1152,7 @@ BpmiCreateProcessNotifyRoutine(
         }
     }
 
-    KeReleaseGuardedMutex(&g_BreakpointManager.Mutex);
+    ExReleaseResourceAndLeaveCriticalRegion(&g_BreakpointManager.Resource);
 
 exit:
     return;

@@ -22,13 +22,10 @@ for more information.
 #include "string_util.h"
 
 
-_Check_return_
 static
-int
+VOID
 ProcessCommands()
 {
-    int status = EXIT_SUCCESS;
-
     for (;;)
     {
         std::string Input;
@@ -102,8 +99,6 @@ ProcessCommands()
         std::cout << std::endl;
         std::cin.clear();
     }
-
-    return status;
 }
 
 
@@ -147,7 +142,7 @@ main(
         goto exit;
     }
 
-    mainstatus = ProcessCommands();
+    ProcessCommands();
 
 exit:
     return mainstatus;

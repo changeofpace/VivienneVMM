@@ -31,8 +31,6 @@ Environment:
 #include <Windows.h>
 #endif
 
-static_assert(sizeof(LONGLONG) == sizeof(LARGE_INTEGER), "Size check");
-
 //=============================================================================
 // Constants and Macros
 //=============================================================================

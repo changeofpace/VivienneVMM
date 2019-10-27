@@ -52,11 +52,12 @@ VivienneDriverEntry(
     UNICODE_STRING SymlinkName = {};
     BOOLEAN fSymlinkCreated = FALSE;
     BOOLEAN fBpmInitialized = FALSE;
+    BOOLEAN fCecInitialized = FALSE;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
     UNREFERENCED_PARAMETER(pRegistryPath);
 
-    INF_PRINT("Initializing %ls.", VVMM_DRIVER_NAME_W);
+    INF_PRINT("Loading %ls.", VVMM_DRIVER_NAME_W);
 
     //
     // Initialize the driver.
@@ -103,7 +104,7 @@ VivienneDriverEntry(
 #pragma warning(pop)
 
     //
-    // Initialize the subsystems.
+    // Load the driver modules.
     //
     ntstatus = TiDriverEntry();
     if (!NT_SUCCESS(ntstatus))
@@ -121,11 +122,25 @@ VivienneDriverEntry(
     //
     fBpmInitialized = TRUE;
 
-    CecDriverEntry();
+    ntstatus = CecDriverEntry();
+    if (!NT_SUCCESS(ntstatus))
+    {
+        ERR_PRINT("CecDriverEntry failed: 0x%X", ntstatus);
+        goto exit;
+    }
+    //
+    fCecInitialized = TRUE;
+
+    INF_PRINT("Loading %ls.", VVMM_DRIVER_NAME_W);
 
 exit:
     if (!NT_SUCCESS(ntstatus))
     {
+        if (fCecInitialized)
+        {
+            CecDriverUnload();
+        }
+
         if (fBpmInitialized)
         {
             BpmDriverUnload();
@@ -154,8 +169,12 @@ VivienneDriverUnload(
 {
     UNICODE_STRING SymlinkName = {};
 
-    INF_PRINT("Terminating %ls.", VVMM_DRIVER_NAME_W);
+    INF_PRINT("Unloading %ls.", VVMM_DRIVER_NAME_W);
 
+    //
+    // Unload the driver modules.
+    //
+    CecDriverUnload();
     BpmDriverUnload();
 
     //
@@ -172,6 +191,8 @@ VivienneDriverUnload(
     {
         IoDeleteDevice(pDriverObject->DeviceObject);
     }
+
+    INF_PRINT("%ls unloaded.", VVMM_DRIVER_NAME_W);
 }
 
 
