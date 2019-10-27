@@ -301,6 +301,8 @@ HwBpSizeToBytes(
 //  (except bit 16, which they should set) before returning to the interrupted
 //  task.
 //
+#pragma warning(push)
+#pragma warning(disable : 4201) // Nonstandard extension: nameless struct/union
 typedef struct _DR6 {
     union {
         ULONG_PTR All;
@@ -398,9 +400,12 @@ typedef struct _DR6 {
         } DUMMYSTRUCTNAME;
     } DUMMYUNIONNAME;
 } DR6, *PDR6;
+#pragma warning(pop)
 
 C_ASSERT(sizeof(DR6) == sizeof(ULONG_PTR));
 
+#pragma warning(push)
+#pragma warning(disable : 4201) // Nonstandard extension: nameless struct/union
 typedef struct _DR7 {
     union {
         ULONG_PTR All;
@@ -531,13 +536,13 @@ typedef struct _DR7 {
             //  The effect of using other lengths is undefined. See Section
             //  17.2.5 Breakpoint Field Recognition.
             //
-            ULONG_PTR RW0 : 2;     // [16:17]
+            ULONG_PTR RW0  : 2;     // [16:17]
             ULONG_PTR Len0 : 2;     // [18:19]
-            ULONG_PTR RW1 : 2;     // [20:21]
+            ULONG_PTR RW1  : 2;     // [20:21]
             ULONG_PTR Len1 : 2;     // [22:23]
-            ULONG_PTR RW2 : 2;     // [24:25]
+            ULONG_PTR RW2  : 2;     // [24:25]
             ULONG_PTR Len2 : 2;     // [26:27]
-            ULONG_PTR RW3 : 2;     // [28:29]
+            ULONG_PTR RW3  : 2;     // [28:29]
             ULONG_PTR Len3 : 2;     // [30:31]
 
             //
@@ -553,5 +558,6 @@ typedef struct _DR7 {
         } DUMMYSTRUCTNAME;
     } DUMMYUNIONNAME;
 } DR7, *PDR7;
+#pragma warning(pop)
 
 C_ASSERT(sizeof(DR7) == sizeof(ULONG_PTR));

@@ -146,10 +146,10 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
   }
 
   // Initialize VivienneVMM
-  status = VivienneDriverEntry(driver_object, registry_path);
+  status = VivienneVmmDriverEntry(driver_object, registry_path);
   if (!NT_SUCCESS(status))
   {
-    ERR_PRINT("VivienneDriverEntry failed: 0x%X", status);
+    ERR_PRINT("VivienneVmmDriverEntry failed: 0x%X", status);
     HotplugCallbackTermination();
     PowerCallbackTermination();
     UtilTermination();
@@ -165,7 +165,7 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
   if (!NT_SUCCESS(status))
   {
     ERR_PRINT("FcdDriverEntry failed: 0x%X", status);
-    VivienneDriverUnload(driver_object);
+    VivienneVmmDriverUnload(driver_object);
     HotplugCallbackTermination();
     PowerCallbackTermination();
     UtilTermination();
@@ -182,7 +182,7 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
 #ifdef CFG_ENABLE_DEBUGREGISTERFACADE
     FcdDriverUnload();
 #endif
-    VivienneDriverUnload(driver_object);
+    VivienneVmmDriverUnload(driver_object);
     HotplugCallbackTermination();
     PowerCallbackTermination();
     UtilTermination();
@@ -214,7 +214,7 @@ _Use_decl_annotations_ static void DriverpDriverUnload(
   // We must terminate VivienneVMM before devirtualization because we must be
   //  able to enter VMX root mode to perform cleanup.
   //
-  VivienneDriverUnload(driver_object);
+  VivienneVmmDriverUnload(driver_object);
 
   VmTermination();
 

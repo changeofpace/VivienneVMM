@@ -42,7 +42,7 @@ Environment:
 //=============================================================================
 _Use_decl_annotations_
 NTSTATUS
-VivienneDriverEntry(
+VivienneVmmDriverEntry(
     PDRIVER_OBJECT pDriverObject,
     PUNICODE_STRING pRegistryPath
 )
@@ -97,10 +97,10 @@ VivienneDriverEntry(
 //  DriverEntry or DriverUnload.
 #pragma warning(push)
 #pragma warning(disable : 28175)
-    pDriverObject->MajorFunction[IRP_MJ_CREATE] = VivienneDispatchCreate;
-    pDriverObject->MajorFunction[IRP_MJ_CLOSE] = VivienneDispatchClose;
+    pDriverObject->MajorFunction[IRP_MJ_CREATE] = VivienneVmmDispatchCreate;
+    pDriverObject->MajorFunction[IRP_MJ_CLOSE] = VivienneVmmDispatchClose;
     pDriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] =
-        VivienneDispatchDeviceControl;
+        VivienneVmmDispatchDeviceControl;
 #pragma warning(pop)
 
     //
@@ -163,7 +163,7 @@ exit:
 
 _Use_decl_annotations_
 VOID
-VivienneDriverUnload(
+VivienneVmmDriverUnload(
     PDRIVER_OBJECT pDriverObject
 )
 {
@@ -201,7 +201,7 @@ VivienneDriverUnload(
 //=============================================================================
 _Use_decl_annotations_
 NTSTATUS
-VivienneDispatchCreate(
+VivienneVmmDispatchCreate(
     PDEVICE_OBJECT pDeviceObject,
     PIRP pIrp
 )
@@ -215,7 +215,7 @@ VivienneDispatchCreate(
 
 _Use_decl_annotations_
 NTSTATUS
-VivienneDispatchClose(
+VivienneVmmDispatchClose(
     PDEVICE_OBJECT pDeviceObject,
     PIRP pIrp
 )
@@ -234,7 +234,7 @@ VivienneDispatchClose(
 
 _Use_decl_annotations_
 NTSTATUS
-VivienneDispatchDeviceControl(
+VivienneVmmDispatchDeviceControl(
     PDEVICE_OBJECT pDeviceObject,
     PIRP pIrp
 )
