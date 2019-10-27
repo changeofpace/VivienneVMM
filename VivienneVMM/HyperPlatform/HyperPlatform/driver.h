@@ -31,9 +31,9 @@ extern "C" {
 // prototypes
 //
 
-DRIVER_INITIALIZE VivienneVmmDriverEntry;
+DRIVER_INITIALIZE HyperPlatformDriverEntry;
 
-DRIVER_UNLOAD VivienneVmmDriverUnload;
+DRIVER_UNLOAD HyperPlatformDriverUnload;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
