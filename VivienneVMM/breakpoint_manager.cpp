@@ -361,6 +361,8 @@ BpmDriverUnload()
 
     ExReleaseResourceAndLeaveCriticalRegion(&g_BreakpointManager.Resource);
 
+    VERIFY(ExDeleteResourceLite(&g_BreakpointManager.Resource));
+
     INF_PRINT("%s unloaded.", MODULE_TITLE);
 }
 
