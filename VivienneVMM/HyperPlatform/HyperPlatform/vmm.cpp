@@ -1259,25 +1259,26 @@ _Use_decl_annotations_ static void VmmpHandleVmCall(
       static_cast<HypercallNumber>(guest_context->gp_regs->cx);
   const auto context = reinterpret_cast<void *>(guest_context->gp_regs->dx);
 
+  // Fail if the vmcall occurred in user mode.
+  // TODO Add a test case for this.
+  if (VmmpGetGuestCpl() != 0) {
+    VmmpIndicateUnsuccessfulVmcall(guest_context);
+    return;
+  }
+
   switch (hypercall_number) {
     case HypercallNumber::kTerminateVmm:
       // Unloading requested. This VMCALL is allowed to execute only from CPL=0
-      if (VmmpGetGuestCpl() == 0) {
 #ifdef CFG_ENABLE_DEBUGREGISTERFACADE
-        FcdVmxDriverUnload();
+      FcdVmxDriverUnload();
 #endif
-        VmmpHandleVmCallTermination(guest_context, context);
-      } else {
-        VmmpIndicateUnsuccessfulVmcall(guest_context);
-      }
+      VmmpHandleVmCallTermination(guest_context, context);
       break;
-#ifdef CFG_ENABLE_VMCALL_PING
-    case HypercallNumber::kPingVmm:
-      // Sample VMCALL handler
-      HYPERPLATFORM_LOG_INFO_SAFE("Pong by VMM! (context = %p)", context);
-      VmmpIndicateSuccessfulVmcall(guest_context);
-      break;
-#endif
+    //case HypercallNumber::kPingVmm:
+    //  // Sample VMCALL handler
+    //  HYPERPLATFORM_LOG_INFO_SAFE("Pong by VMM! (context = %p)", context);
+    //  VmmpIndicateSuccessfulVmcall(guest_context);
+    //  break;
     case HypercallNumber::kGetSharedProcessorData:
       *reinterpret_cast<void **>(context) =
           guest_context->stack->processor_data->shared_data;

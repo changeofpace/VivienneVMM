@@ -64,6 +64,7 @@ VivienneVmmDriverEntry(
     //
     DeviceName = RTL_CONSTANT_STRING(VVMM_NT_DEVICE_NAME_W);
 
+    // TODO Use IoCreateDeviceSecure.
     ntstatus = IoCreateDevice(
         pDriverObject,
         0,
