@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2017, Satoshi Tanda. All rights reserved.
+// Copyright (c) 2015-2019, Satoshi Tanda. All rights reserved.
 // Use of this source code is governed by a MIT-style license that can be
 // found in the LICENSE file.
 
@@ -66,10 +66,12 @@ constexpr VmxStatus operator|=(_In_ VmxStatus lhs, _In_ VmxStatus rhs) {
 
 /// Available command numbers for VMCALL
 enum class HypercallNumber : unsigned __int32 {
-  kTerminateVmm,            //!< Terminates VMM
-  kPingVmm,                 //!< Sends ping to the VMM
-  kGetSharedProcessorData,  //!< Terminates VMM
-  kSetHardwareBreakpoint,   //!< VVMM Breakpoint manager control
+  kMinimumHypercallNumber,
+  kTerminateVmm = kMinimumHypercallNumber,  //!< Terminates VMM
+  kPingVmm,                                 //!< Sends ping to the VMM
+  kGetSharedProcessorData,                  //!< Returns shared processor data
+  kSetHardwareBreakpoint,                   //!< VVMM Breakpoint manager control
+  kMaximumHypercallNumber = kSetHardwareBreakpoint,
 };
 
 ////////////////////////////////////////////////////////////////////////////////

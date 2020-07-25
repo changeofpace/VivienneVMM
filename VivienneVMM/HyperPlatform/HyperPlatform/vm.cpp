@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2018, Satoshi Tanda. All rights reserved.
+// Copyright (c) 2015-2019, Satoshi Tanda. All rights reserved.
 // Use of this source code is governed by a MIT-style license that can be
 // found in the LICENSE file.
 
@@ -144,7 +144,7 @@ inline ULONG GetSegmentLimit(_In_ ULONG selector) {
 
 // Checks if a VMM can be installed, and so, installs it
 _Use_decl_annotations_ NTSTATUS VmInitialization() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   if (VmpIsHyperPlatformInstalled()) {
     return STATUS_CANCELLED;
@@ -173,13 +173,13 @@ _Use_decl_annotations_ NTSTATUS VmInitialization() {
 
 // Checks if the system supports virtualization
 _Use_decl_annotations_ static bool VmpIsVmxAvailable() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   // See: DISCOVERING SUPPORT FOR VMX
   // If CPUID.1:ECX.VMX[bit 5]=1, then VMX operation is supported.
   int cpu_info[4] = {};
   __cpuid(cpu_info, 1);
-  const CpuFeaturesEcx cpu_features = {static_cast<ULONG_PTR>(cpu_info[2])};
+  const CpuFeaturesEcx cpu_features = {static_cast<ULONG32>(cpu_info[2])};
   if (!cpu_features.fields.vmx) {
     HYPERPLATFORM_LOG_ERROR("VMX features are not supported.");
     return false;
@@ -219,7 +219,7 @@ _Use_decl_annotations_ static bool VmpIsVmxAvailable() {
 // Sets 1 to the lock bit of the IA32_FEATURE_CONTROL MSR
 _Use_decl_annotations_ static NTSTATUS VmpSetLockBitCallback(void *context) {
   UNREFERENCED_PARAMETER(context);
-  PAGED_CODE();
+  PAGED_CODE()
 
   Ia32FeatureControlMsr vmx_feature_control = {
       UtilReadMsr64(Msr::kIa32FeatureControl)};
@@ -238,9 +238,9 @@ _Use_decl_annotations_ static NTSTATUS VmpSetLockBitCallback(void *context) {
 
 // Initialize shared processor data
 _Use_decl_annotations_ static SharedProcessorData *VmpInitializeSharedData() {
-  PAGED_CODE();
+  PAGED_CODE()
 
-  const auto shared_data = reinterpret_cast<SharedProcessorData *>(
+  const auto shared_data = static_cast<SharedProcessorData *>(
       ExAllocatePoolWithTag(NonPagedPool, sizeof(SharedProcessorData),
                             kHyperPlatformCommonPoolTag));
   if (!shared_data) {
@@ -270,7 +270,7 @@ _Use_decl_annotations_ static SharedProcessorData *VmpInitializeSharedData() {
 
 // Build MSR bitmap
 _Use_decl_annotations_ static void *VmpBuildMsrBitmap() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   const auto msr_bitmap = ExAllocatePoolWithTag(NonPagedPool, PAGE_SIZE,
                                                 kHyperPlatformCommonPoolTag);
@@ -280,7 +280,7 @@ _Use_decl_annotations_ static void *VmpBuildMsrBitmap() {
   RtlZeroMemory(msr_bitmap, PAGE_SIZE);
 
   // Activate VM-exit for RDMSR against all MSRs
-  const auto bitmap_read_low = reinterpret_cast<UCHAR *>(msr_bitmap);
+  const auto bitmap_read_low = static_cast<UCHAR *>(msr_bitmap);
   const auto bitmap_read_high = bitmap_read_low + 1024;
   RtlFillMemory(bitmap_read_low, 1024, 0xff);   // read        0 -     1fff
   RtlFillMemory(bitmap_read_high, 1024, 0xff);  // read c0000000 - c0001fff
@@ -314,10 +314,10 @@ _Use_decl_annotations_ static void *VmpBuildMsrBitmap() {
 
 // Build IO bitmaps
 _Use_decl_annotations_ static UCHAR *VmpBuildIoBitmaps() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   // Allocate two IO bitmaps as one contiguous 4K+4K page
-  const auto io_bitmaps = reinterpret_cast<UCHAR *>(ExAllocatePoolWithTag(
+  const auto io_bitmaps = static_cast<UCHAR *>(ExAllocatePoolWithTag(
       NonPagedPool, PAGE_SIZE * 2, kHyperPlatformCommonPoolTag));
   if (!io_bitmaps) {
     return nullptr;
@@ -343,7 +343,7 @@ _Use_decl_annotations_ static UCHAR *VmpBuildIoBitmaps() {
 
 // Virtualize the current processor
 _Use_decl_annotations_ static NTSTATUS VmpStartVm(void *context) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   HYPERPLATFORM_LOG_INFO("Initializing VMX for the processor %lu.",
                          KeGetCurrentProcessorNumberEx(nullptr));
@@ -361,16 +361,16 @@ _Use_decl_annotations_ static NTSTATUS VmpStartVm(void *context) {
 _Use_decl_annotations_ static void VmpInitializeVm(
     ULONG_PTR guest_stack_pointer, ULONG_PTR guest_instruction_pointer,
     void *context) {
-  PAGED_CODE();
+  PAGED_CODE()
 
-  const auto shared_data = reinterpret_cast<SharedProcessorData *>(context);
+  const auto shared_data = static_cast<SharedProcessorData *>(context);
   if (!shared_data) {
     return;
   }
 
   // Allocate related structures
   const auto processor_data =
-      reinterpret_cast<ProcessorData *>(ExAllocatePoolWithTag(
+      static_cast<ProcessorData *>(ExAllocatePoolWithTag(
           NonPagedPool, sizeof(ProcessorData), kHyperPlatformCommonPoolTag));
   if (!processor_data) {
     return;
@@ -396,7 +396,7 @@ _Use_decl_annotations_ static void VmpInitializeVm(
   RtlZeroMemory(processor_data->vmm_stack_limit, KERNEL_STACK_SIZE);
 
   processor_data->vmcs_region =
-      reinterpret_cast<VmControlStructure *>(ExAllocatePoolWithTag(
+      static_cast<VmControlStructure *>(ExAllocatePoolWithTag(
           NonPagedPool, kVmxMaxVmcsSize, kHyperPlatformCommonPoolTag));
   if (!processor_data->vmcs_region) {
     VmpFreeProcessorData(processor_data);
@@ -405,7 +405,7 @@ _Use_decl_annotations_ static void VmpInitializeVm(
   RtlZeroMemory(processor_data->vmcs_region, kVmxMaxVmcsSize);
 
   processor_data->vmxon_region =
-      reinterpret_cast<VmControlStructure *>(ExAllocatePoolWithTag(
+      static_cast<VmControlStructure *>(ExAllocatePoolWithTag(
           NonPagedPool, kVmxMaxVmcsSize, kHyperPlatformCommonPoolTag));
   if (!processor_data->vmxon_region) {
     VmpFreeProcessorData(processor_data);
@@ -453,7 +453,7 @@ _Use_decl_annotations_ static void VmpInitializeVm(
   // fields (Eip and HardwareEsp on x86, or Rip and Rsp on x64) is properly
   // initialized (in VmmVmExitHandler) and used by Windbg. On VM-exit this space
   // is just skipped by subtracting the stack pointer.
-  if constexpr (!IsReleaseBuild()) {
+  if (!IsReleaseBuild()) {
     const auto vmm_stack_frame =
         reinterpret_cast<void *>(vmm_stack_data - sizeof(KtrapFrame));
     RtlFillMemory(vmm_stack_frame, sizeof(KtrapFrame), 0xff);
@@ -527,7 +527,7 @@ Exit:;
 // See: VMM SETUP & TEAR DOWN
 _Use_decl_annotations_ static bool VmpEnterVmxMode(
     ProcessorData *processor_data) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   // Apply FIXED bits
   // See: VMX-FIXED BITS IN CR0
@@ -583,7 +583,7 @@ _Use_decl_annotations_ static bool VmpEnterVmxMode(
 // See: VMM SETUP & TEAR DOWN
 _Use_decl_annotations_ static bool VmpInitializeVmcs(
     ProcessorData *processor_data) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   // Write a VMCS revision identifier
   const Ia32VmxBasicMsr vmx_basic_msr = {UtilReadMsr64(Msr::kIa32VmxBasic)};
@@ -606,7 +606,7 @@ _Use_decl_annotations_ static bool VmpInitializeVmcs(
 _Use_decl_annotations_ static bool VmpSetupVmcs(
     const ProcessorData *processor_data, ULONG_PTR guest_stack_pointer,
     ULONG_PTR guest_instruction_pointer, ULONG_PTR vmm_stack_pointer) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   Gdtr gdtr = {};
   _sgdt(&gdtr);
@@ -927,7 +927,7 @@ _Use_decl_annotations_ static bool VmpSetupVmcs(
 
 // Executes vmlaunch
 _Use_decl_annotations_ static void VmpLaunchVm() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   auto error_code = UtilVmRead(VmcsField::kVmInstructionError);
   if (error_code) {
@@ -948,7 +948,7 @@ _Use_decl_annotations_ static void VmpLaunchVm() {
 // Returns access right of the segment specified by the SegmentSelector for VMX
 _Use_decl_annotations_ static ULONG VmpGetSegmentAccessRight(
     USHORT segment_selector) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   VmxRegmentDescriptorAccessRight access_right = {};
   if (segment_selector) {
@@ -968,7 +968,7 @@ _Use_decl_annotations_ static ULONG VmpGetSegmentAccessRight(
 // Returns a base address of the segment specified by SegmentSelector
 _Use_decl_annotations_ static ULONG_PTR VmpGetSegmentBase(
     ULONG_PTR gdt_base, USHORT segment_selector) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   const SegmentSelector ss = {segment_selector};
   if (!ss.all) {
@@ -993,7 +993,7 @@ _Use_decl_annotations_ static ULONG_PTR VmpGetSegmentBase(
 // Returns the segment descriptor corresponds to the SegmentSelector
 _Use_decl_annotations_ static SegmentDescriptor *VmpGetSegmentDescriptor(
     ULONG_PTR descriptor_table_base, USHORT segment_selector) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   const SegmentSelector ss = {segment_selector};
   return reinterpret_cast<SegmentDescriptor *>(
@@ -1003,7 +1003,7 @@ _Use_decl_annotations_ static SegmentDescriptor *VmpGetSegmentDescriptor(
 // Returns a base address of segment_descriptor
 _Use_decl_annotations_ static ULONG_PTR VmpGetSegmentBaseByDescriptor(
     const SegmentDescriptor *segment_descriptor) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   // Calculate a 32bit base address
   const auto base_high = segment_descriptor->fields.base_high << (6 * 4);
@@ -1023,7 +1023,7 @@ _Use_decl_annotations_ static ULONG_PTR VmpGetSegmentBaseByDescriptor(
 // Adjust the requested control value with consulting a value of related MSR
 _Use_decl_annotations_ static ULONG VmpAdjustControlValue(
     Msr msr, ULONG requested_value) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   LARGE_INTEGER msr_value = {};
   msr_value.QuadPart = UtilReadMsr64(msr);
@@ -1038,7 +1038,7 @@ _Use_decl_annotations_ static ULONG VmpAdjustControlValue(
 
 // Terminates VM
 _Use_decl_annotations_ void VmTermination() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   HYPERPLATFORM_LOG_INFO("Uninstalling VMM.");
   auto status = UtilForEachProcessor(VmpStopVm, nullptr);
@@ -1053,7 +1053,7 @@ _Use_decl_annotations_ void VmTermination() {
 // Stops virtualization through a hypercall and frees all related memory
 _Use_decl_annotations_ static NTSTATUS VmpStopVm(void *context) {
   UNREFERENCED_PARAMETER(context);
-  PAGED_CODE();
+  PAGED_CODE()
 
   HYPERPLATFORM_LOG_INFO("Terminating VMX for the processor %lu.",
                          KeGetCurrentProcessorNumberEx(nullptr));
@@ -1077,7 +1077,7 @@ _Use_decl_annotations_ static NTSTATUS VmpStopVm(void *context) {
 // Frees all related memory
 _Use_decl_annotations_ static void VmpFreeProcessorData(
     ProcessorData *processor_data) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   if (!processor_data) {
     return;
@@ -1104,7 +1104,7 @@ _Use_decl_annotations_ static void VmpFreeProcessorData(
 // Decrement reference count of shared data and free it if no reference
 _Use_decl_annotations_ static void VmpFreeSharedData(
     ProcessorData *processor_data) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   if (!processor_data->shared_data) {
     return;
@@ -1129,11 +1129,11 @@ _Use_decl_annotations_ static void VmpFreeSharedData(
 
 // Tests if HyperPlatform is already installed
 _Use_decl_annotations_ static bool VmpIsHyperPlatformInstalled() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   int cpu_info[4] = {};
   __cpuid(cpu_info, 1);
-  const CpuFeaturesEcx cpu_features = {static_cast<ULONG_PTR>(cpu_info[2])};
+  const CpuFeaturesEcx cpu_features = {static_cast<ULONG32>(cpu_info[2])};
   if (!cpu_features.fields.not_used) {
     return false;
   }
@@ -1145,7 +1145,7 @@ _Use_decl_annotations_ static bool VmpIsHyperPlatformInstalled() {
 // Virtualizes the specified processor
 _Use_decl_annotations_ NTSTATUS
 VmHotplugCallback(const PROCESSOR_NUMBER &proc_num) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   // Switch to the processor 0 to get SharedProcessorData
   GROUP_AFFINITY affinity = {};

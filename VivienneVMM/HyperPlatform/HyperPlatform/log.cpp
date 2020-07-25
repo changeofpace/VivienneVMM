@@ -1,11 +1,20 @@
-// Copyright (c) 2015-2018, Satoshi Tanda. All rights reserved.
+// Copyright (c) 2015-2019, Satoshi Tanda. All rights reserved.
 // Use of this source code is governed by a MIT-style license that can be
 // found in the LICENSE file.
 
 /// @file
 /// Implements logging functions.
 
+#include <ntifs.h>
 #include "log.h"
+
+// Tells the CRT not to use a inline version of CRT functions, which use
+// internal functions that lead to linker errors.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-macros"
+#define _NO_CRT_STDIO_INLINE
+#pragma clang diagnostic pop
+
 #define NTSTRSAFE_NO_CB_FUNCTIONS
 #include <ntstrsafe.h>
 
@@ -159,7 +168,7 @@ static LogBufferInfo g_logp_log_buffer_info = {};
 
 _Use_decl_annotations_ NTSTATUS
 LogInitialization(ULONG flag, const wchar_t *log_file_path) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   auto status = STATUS_SUCCESS;
 
@@ -199,7 +208,7 @@ Fail:;
 // Initialize a log file related code such as a flushing thread.
 _Use_decl_annotations_ static NTSTATUS LogpInitializeBufferInfo(
     const wchar_t *log_file_path, LogBufferInfo *info) {
-  PAGED_CODE();
+  PAGED_CODE()
   NT_ASSERT(log_file_path);
   NT_ASSERT(info);
 
@@ -219,14 +228,14 @@ _Use_decl_annotations_ static NTSTATUS LogpInitializeBufferInfo(
   info->resource_initialized = true;
 
   // Allocate two log buffers on NonPagedPool.
-  info->log_buffer1 = reinterpret_cast<char *>(
+  info->log_buffer1 = static_cast<char *>(
       ExAllocatePoolWithTag(NonPagedPool, kLogpBufferSize, kLogpPoolTag));
   if (!info->log_buffer1) {
     LogpFinalizeBufferInfo(info);
     return STATUS_INSUFFICIENT_RESOURCES;
   }
 
-  info->log_buffer2 = reinterpret_cast<char *>(
+  info->log_buffer2 = static_cast<char *>(
       ExAllocatePoolWithTag(NonPagedPool, kLogpBufferSize, kLogpPoolTag));
   if (!info->log_buffer2) {
     LogpFinalizeBufferInfo(info);
@@ -260,7 +269,7 @@ _Use_decl_annotations_ static NTSTATUS LogpInitializeBufferInfo(
 // Initializes a log file and starts a log buffer thread.
 _Use_decl_annotations_ static NTSTATUS LogpInitializeLogFile(
     LogBufferInfo *info) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   if (info->log_file_handle) {
     return STATUS_SUCCESS;
@@ -273,7 +282,7 @@ _Use_decl_annotations_ static NTSTATUS LogpInitializeLogFile(
   OBJECT_ATTRIBUTES oa = {};
   InitializeObjectAttributes(&oa, &log_file_path_u,
                              OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE, nullptr,
-                             nullptr);
+                             nullptr)
 
   NTSTATUS status = STATUS_SUCCESS;
 
@@ -316,7 +325,7 @@ _Use_decl_annotations_ static NTSTATUS LogpInitializeLogFile(
 // Registers LogpReinitializationRoutine() for re-initialization.
 _Use_decl_annotations_ void LogRegisterReinitialization(
     PDRIVER_OBJECT driver_object) {
-  PAGED_CODE();
+  PAGED_CODE()
   IoRegisterBootDriverReinitialization(
       driver_object, LogpReinitializationRoutine, &g_logp_log_buffer_info);
   HYPERPLATFORM_LOG_INFO("The log file will be activated later.");
@@ -325,13 +334,13 @@ _Use_decl_annotations_ void LogRegisterReinitialization(
 // Initializes a log file at the re-initialization phase.
 _Use_decl_annotations_ VOID static LogpReinitializationRoutine(
     _DRIVER_OBJECT *driver_object, PVOID context, ULONG count) {
-  PAGED_CODE();
+  PAGED_CODE()
   UNREFERENCED_PARAMETER(driver_object);
   UNREFERENCED_PARAMETER(count);
   NT_ASSERT(context);
   _Analysis_assume_(context);
 
-  auto info = reinterpret_cast<LogBufferInfo *>(context);
+  auto info = static_cast<LogBufferInfo *>(context);
   auto status = LogpInitializeLogFile(info);
   NT_ASSERT(NT_SUCCESS(status));
   if (NT_SUCCESS(status)) {
@@ -341,7 +350,7 @@ _Use_decl_annotations_ VOID static LogpReinitializationRoutine(
 
 // Terminates the log functions without releasing resources.
 _Use_decl_annotations_ void LogIrpShutdownHandler() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   HYPERPLATFORM_LOG_DEBUG("Flushing... (Max log usage = %Iu/%lu bytes)",
                           g_logp_log_buffer_info.log_max_usage,
@@ -358,7 +367,7 @@ _Use_decl_annotations_ void LogIrpShutdownHandler() {
 
 // Terminates the log functions.
 _Use_decl_annotations_ void LogTermination() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   HYPERPLATFORM_LOG_DEBUG("Finalizing... (Max log usage = %Iu/%lu bytes)",
                           g_logp_log_buffer_info.log_max_usage,
@@ -370,7 +379,7 @@ _Use_decl_annotations_ void LogTermination() {
 
 // Terminates a log file related code.
 _Use_decl_annotations_ static void LogpFinalizeBufferInfo(LogBufferInfo *info) {
-  PAGED_CODE();
+  PAGED_CODE()
   NT_ASSERT(info);
 
   // Closing the log buffer flush thread.
@@ -774,9 +783,9 @@ _Use_decl_annotations_ static bool LogpIsLogNeeded(ULONG level) {
 // flushes a log buffer to a log file every kLogpLogFlushIntervalMsec msec.
 _Use_decl_annotations_ static VOID LogpBufferFlushThreadRoutine(
     void *start_context) {
-  PAGED_CODE();
+  PAGED_CODE()
   auto status = STATUS_SUCCESS;
-  auto info = reinterpret_cast<LogBufferInfo *>(start_context);
+  auto info = static_cast<LogBufferInfo *>(start_context);
   info->buffer_flush_thread_started = true;
   HYPERPLATFORM_LOG_DEBUG("Log thread started (TID= %p).",
                           PsGetCurrentThreadId());
@@ -798,7 +807,7 @@ _Use_decl_annotations_ static VOID LogpBufferFlushThreadRoutine(
 
 // Sleep the current thread's execution for milliseconds.
 _Use_decl_annotations_ static NTSTATUS LogpSleep(LONG millisecond) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   LARGE_INTEGER interval = {};
   interval.QuadPart = -(10000ll * millisecond);  // msec
@@ -825,52 +834,6 @@ _Use_decl_annotations_ static bool LogpIsPrinted(char *message) {
   if (!KD_DEBUGGER_NOT_PRESENT) {
     __debugbreak();
   }
-}
-
-// Provides an implementation of _vsnprintf as it fails to link when a include
-// directory setting is modified for using STL
-_Success_(return >= 0) _Check_return_opt_ int __cdecl __stdio_common_vsprintf(
-    _In_ unsigned __int64 _Options,
-    _Out_writes_opt_z_(_BufferCount) char *_Buffer, _In_ size_t _BufferCount,
-    _In_z_ _Printf_format_string_params_(2) char const *_Format,
-    _In_opt_ _locale_t _Locale, va_list _ArgList) {
-  UNREFERENCED_PARAMETER(_Options);
-  UNREFERENCED_PARAMETER(_Locale);
-
-  // Calls _vsnprintf exported by ntoskrnl
-  using _vsnprintf_type = int __cdecl(char *, size_t, const char *, va_list);
-  static _vsnprintf_type *local__vsnprintf = nullptr;
-  if (!local__vsnprintf) {
-    UNICODE_STRING proc_name_U = {};
-    RtlInitUnicodeString(&proc_name_U, L"_vsnprintf");
-    local__vsnprintf = reinterpret_cast<_vsnprintf_type *>(
-        MmGetSystemRoutineAddress(&proc_name_U));
-  }
-  return local__vsnprintf(_Buffer, _BufferCount, _Format, _ArgList);
-}
-
-// Provides an implementation of _vsnwprintf as it fails to link when a include
-// directory setting is modified for using STL
-_Success_(return >= 0) _Check_return_opt_ int __cdecl __stdio_common_vswprintf(
-    _In_ unsigned __int64 _Options,
-    _Out_writes_opt_z_(_BufferCount) wchar_t *_Buffer, _In_ size_t _BufferCount,
-    _In_z_ _Printf_format_string_params_(2) wchar_t const *_Format,
-    _In_opt_ _locale_t _Locale, va_list _ArgList) {
-  UNREFERENCED_PARAMETER(_Options);
-  UNREFERENCED_PARAMETER(_Locale);
-
-  // Calls _vsnwprintf exported by ntoskrnl
-  using _vsnwprintf_type =
-      int __cdecl(wchar_t *, size_t, const wchar_t *, va_list);
-  static _vsnwprintf_type *local__vsnwprintf = nullptr;
-  if (!local__vsnwprintf) {
-    UNICODE_STRING proc_name_U = {};
-    RtlInitUnicodeString(&proc_name_U, L"_vsnwprintf");
-    local__vsnwprintf = reinterpret_cast<_vsnwprintf_type *>(
-        MmGetSystemRoutineAddress(&proc_name_U));
-  }
-
-  return local__vsnwprintf(_Buffer, _BufferCount, _Format, _ArgList);
 }
 
 }  // extern "C"
