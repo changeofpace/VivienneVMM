@@ -25,7 +25,7 @@ Kernel mode only.
 
 #pragma once
 
-#include <fltKernel.h>
+#include <ntddk.h>
 
 //=============================================================================
 // Meta Interface

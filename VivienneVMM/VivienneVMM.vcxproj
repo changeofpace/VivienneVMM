@@ -94,6 +94,7 @@
     <ClInclude Include="HyperPlatform\HyperPlatform\vmm.h" />
     <ClInclude Include="ioctl_validation.h" />
     <ClInclude Include="log.h" />
+    <ClInclude Include="nt.h" />
     <ClInclude Include="register_util.h" />
     <ClInclude Include="vivienne.h" />
   </ItemGroup>

@@ -107,6 +107,9 @@
     <ClInclude Include="debug.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="nt.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\time_util.cpp">

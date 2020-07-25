@@ -32,6 +32,7 @@ Environment:
 #include "config.h"
 #include "debug.h"
 #include "log.h"
+#include "nt.h"
 #include "process.h"
 
 #include "HyperPlatform\HyperPlatform\util.h"
