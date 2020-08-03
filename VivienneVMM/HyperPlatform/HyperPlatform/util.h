@@ -71,7 +71,11 @@ enum class HypercallNumber : unsigned __int32 {
   kPingVmm,                                 //!< Sends ping to the VMM
   kGetSharedProcessorData,                  //!< Returns shared processor data
   kSetHardwareBreakpoint,                   //!< VVMM Breakpoint manager control
-  kMaximumHypercallNumber = kSetHardwareBreakpoint,
+  kInstallEptBreakpoint,                    //!< EPT Breakpoint manager control
+  kUninstallEptBreakpoint,                  //!< EPT Breakpoint manager control
+  kUninstallEptBreakpointsByProcessId,      //!< EPT Breakpoint manager control
+  kUninstallAllEptBreakpoints,              //!< EPT Breakpoint manager control
+  kMaximumHypercallNumber = kUninstallAllEptBreakpoints,
 };
 
 ////////////////////////////////////////////////////////////////////////////////

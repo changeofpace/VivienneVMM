@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -29,10 +29,10 @@ Environment:
 
 #include <intrin.h>
 
-#include "config.h"
 #include "log.h"
 
 #include "..\common\arch_x64.h"
+#include "..\common\config.h"
 
 #include "HyperPlatform\HyperPlatform\util.h"
 
@@ -41,7 +41,6 @@ Environment:
 // Constants and Macros
 //=============================================================================
 #define MODULE_TITLE    "Debug Register Facade"
-
 #define FCD_TAG         'TdcF'
 
 
@@ -194,9 +193,7 @@ FcdVmxDriverEntry()
     pFacade->DebugRegisters[2] = __readdr(2);
     pFacade->DebugRegisters[3] = __readdr(3);
 
-    //
     // TODO Refactor this code to reflect the updates to VmmpHandleDrAccess.
-    //
 
     //
     // If debug extensions are enabled (CR4.DE = 1), accessing DR4 and/or DR5
@@ -257,9 +254,7 @@ FcdVmxDriverUnload()
     __writedr(2, pFacade->DebugRegisters[2]);
     __writedr(3, pFacade->DebugRegisters[3]);
 
-    //
     // TODO Refactor this code to reflect the updates to VmmpHandleDrAccess.
-    //
 
     //
     // If debug extensions are enabled (CR4.DE = 1), accessing DR4 and/or DR5
@@ -393,8 +388,8 @@ VOID
 FcdiLogStatistics()
 {
     INF_PRINT("Facade Manager Statistics:");
-    INF_PRINT("    %16lld Write DR events.",
+    INF_PRINT("    %I64d Write DR events.",
         g_FacadeManager.Statistics.WriteEvents);
-    INF_PRINT("    %16lld Read DR events.",
+    INF_PRINT("    %I64d Read DR events.",
         g_FacadeManager.Statistics.ReadEvents);
 }

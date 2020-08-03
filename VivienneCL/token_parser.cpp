@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -48,6 +48,105 @@ IsBreakpointAddressAligned(
         status = FALSE;
         goto exit;
     }
+
+exit:
+    return status;
+}
+
+
+_Use_decl_annotations_
+BOOL
+ParseUnsignedLongToken(
+    const std::string& Token,
+    BOOLEAN IsHex,
+    PULONG pValue
+)
+{
+    ULONG Value = 0;
+    BOOL status = TRUE;
+
+    //
+    // Zero out parameters.
+    //
+    *pValue = 0;
+
+    status = StrUnsignedLongFromString(Token, IsHex, &Value);
+    if (!status)
+    {
+        ERR_PRINT("Invalid ulong value: %s.", Token.c_str());
+        goto exit;
+    }
+
+    //
+    // Set out parameters.
+    //
+    *pValue = Value;
+
+exit:
+    return status;
+}
+
+
+_Use_decl_annotations_
+BOOL
+ParseUnsignedLongLongToken(
+    const std::string& Token,
+    BOOLEAN IsHex,
+    PULONGLONG pValue
+)
+{
+    ULONGLONG Value = 0;
+    BOOL status = TRUE;
+
+    //
+    // Zero out parameters.
+    //
+    *pValue = 0;
+
+    status = StrUnsignedLongLongFromString(Token, IsHex, &Value);
+    if (!status)
+    {
+        ERR_PRINT("Invalid ulonglong value: %s.", Token.c_str());
+        goto exit;
+    }
+
+    //
+    // Set out parameters.
+    //
+    *pValue = Value;
+
+exit:
+    return status;
+}
+
+
+_Use_decl_annotations_
+BOOL
+ParseUnsignedLongPtrToken(
+    const std::string& Token,
+    BOOLEAN IsHex,
+    PULONG_PTR pValue
+)
+{
+    ULONG_PTR Value = 0;
+    BOOL status = TRUE;
+
+    //
+    // Zero out parameters.
+    //
+    *pValue = 0;
+
+    status = StrUnsignedLongPtrFromString(Token, IsHex, &Value);
+    if (!status)
+    {
+        ERR_PRINT("Invalid ulong_ptr value: %s.", Token.c_str());
+        goto exit;
+    }
+
+    //
+    // Set out parameters.
+    //
+    *pValue = Value;
 
 exit:
     return status;
@@ -143,7 +242,7 @@ ParseAddressToken(
     status = StrUnsignedLongLongFromString(Token, TRUE, &Address);
     if (!status)
     {
-        ERR_PRINT("Invalid ProcessId: %s.", Token.c_str());
+        ERR_PRINT("Invalid address: %s.", Token.c_str());
         goto exit;
     }
 
@@ -161,7 +260,7 @@ exit:
 
 _Use_decl_annotations_
 BOOL
-ParseAccessSizeToken(
+ParseHardwareBreakpointAccessSizeToken(
     const std::string& Token,
     PHWBP_TYPE pType,
     PHWBP_SIZE pSize
@@ -179,7 +278,7 @@ ParseAccessSizeToken(
 
     if (ACCESS_SIZE_TOKEN_CCH != Token.size())
     {
-        ERR_PRINT("Invalid Access|Size: %s.", Token.c_str());
+        ERR_PRINT("Invalid access|size: %s.", Token.c_str());
         status = FALSE;
         goto exit;
     }
@@ -190,7 +289,7 @@ ParseAccessSizeToken(
         case 'w': Type = HWBP_TYPE::Write;   break;
         case 'r': Type = HWBP_TYPE::Access;  break;
         default:
-            ERR_PRINT("Invalid Access: use 'e,r,w'.");
+            ERR_PRINT("Invalid access: use 'e,r,w'.");
             status = FALSE;
             goto exit;
     }
@@ -202,7 +301,7 @@ ParseAccessSizeToken(
         case '4': Size = HWBP_SIZE::Dword; break;
         case '8': Size = HWBP_SIZE::Qword; break;
         default:
-            ERR_PRINT("Invalid Size: use '1,2,4,8'.n");
+            ERR_PRINT("Invalid size: use '1,2,4,8'.");
             status = FALSE;
             goto exit;
     }
@@ -213,7 +312,79 @@ ParseAccessSizeToken(
     if (HWBP_TYPE::Execute == Type &&
         HWBP_SIZE::Byte != Size)
     {
-        Size = HWBP_SIZE::Byte;
+        ERR_PRINT("Invalid execution breakpoint size.");
+        status = FALSE;
+        goto exit;
+    }
+
+    //
+    // Set out parameters.
+    //
+    *pType = Type;
+    *pSize = Size;
+
+exit:
+    return status;
+}
+
+
+_Use_decl_annotations_
+BOOL
+ParseEptBreakpointAccessSizeToken(
+    const std::string& Token,
+    PEPT_BREAKPOINT_TYPE pType,
+    PEPT_BREAKPOINT_SIZE pSize
+)
+{
+    EPT_BREAKPOINT_TYPE Type = {};
+    EPT_BREAKPOINT_SIZE Size = {};
+    BOOL status = TRUE;
+
+    //
+    // Zero out parameters.
+    //
+    *pType = {};
+    *pSize = {};
+
+    if (ACCESS_SIZE_TOKEN_CCH != Token.size())
+    {
+        ERR_PRINT("Invalid access|size: %s.", Token.c_str());
+        status = FALSE;
+        goto exit;
+    }
+
+    switch (Token[0])
+    {
+        case 'r': Type = EptBreakpointTypeRead;     break;
+        case 'w': Type = EptBreakpointTypeWrite;    break;
+        case 'e': Type = EptBreakpointTypeExecute;  break;
+        default:
+            ERR_PRINT("Invalid access: use 'r,w,e'.");
+            status = FALSE;
+            goto exit;
+    }
+
+    switch (Token[1])
+    {
+        case '1': Size = EptBreakpointSizeByte;  break;
+        case '2': Size = EptBreakpointSizeWord;  break;
+        case '4': Size = EptBreakpointSizeDword; break;
+        case '8': Size = EptBreakpointSizeQword; break;
+        default:
+            ERR_PRINT("Invalid size: use '1,2,4,8'.");
+            status = FALSE;
+            goto exit;
+    }
+
+    //
+    // Execution breakpoints must have size 1.
+    //
+    if (EptBreakpointTypeExecute == Type &&
+        EptBreakpointSizeByte != Size)
+    {
+        ERR_PRINT("Invalid execution breakpoint size.");
+        status = FALSE;
+        goto exit;
     }
 
     //
@@ -252,7 +423,7 @@ ParseRegisterToken(
         LowercaseToken.begin(),
         ::tolower);
 
-    if (LowercaseToken == "rip") Register = REGISTER_RIP;
+    if      (LowercaseToken == "rip") Register = REGISTER_RIP;
     else if (LowercaseToken == "rax") Register = REGISTER_RAX;
     else if (LowercaseToken == "rcx") Register = REGISTER_RCX;
     else if (LowercaseToken == "rdx") Register = REGISTER_RDX;
@@ -271,7 +442,7 @@ ParseRegisterToken(
     else if (LowercaseToken == "r15") Register = REGISTER_R15;
     else
     {
-        ERR_PRINT("Invalid Register: %s.", LowercaseToken.c_str());
+        ERR_PRINT("Invalid register: %s.", LowercaseToken.c_str());
         status = FALSE;
         goto exit;
     }
@@ -776,7 +947,6 @@ ParseMemoryDescriptionToken(
         //
         if (!VirtualAddress)
         {
-            SetLastError(ERROR_INVALID_ADDRESS);
             status = FALSE;
             goto exit;
         }
@@ -813,41 +983,6 @@ ParseMemoryDescriptionToken(
         pMemoryDescription,
         &MemoryDescription,
         sizeof(CEC_MEMORY_DESCRIPTION));
-
-exit:
-    return status;
-}
-
-
-//
-// ParseDurationToken
-//
-_Use_decl_annotations_
-BOOL
-ParseDurationToken(
-    const std::string& Token,
-    PULONG pDurationInMilliseconds
-)
-{
-    ULONG DurationInMilliseconds = 0;
-    BOOL status = TRUE;
-
-    //
-    // Zero out parameters.
-    //
-    *pDurationInMilliseconds = 0;
-
-    status = StrUnsignedLongFromString(Token, FALSE, &DurationInMilliseconds);
-    if (!status)
-    {
-        ERR_PRINT("Invalid DurationInMilliseconds: %s.", Token.c_str());
-        goto exit;
-    }
-
-    //
-    // Set out parameters.
-    //
-    *pDurationInMilliseconds = DurationInMilliseconds;
 
 exit:
     return status;

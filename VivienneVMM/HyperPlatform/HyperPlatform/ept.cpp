@@ -11,6 +11,10 @@
 #include "log.h"
 #include "util.h"
 #include "performance.h"
+#include "vmm.h"
+
+#include "../../debug.h"
+#include "../../ept_breakpoint_manager.h"
 
 extern "C" {
 ////////////////////////////////////////////////////////////////////////////////
@@ -425,15 +429,18 @@ _Use_decl_annotations_ EptData *EptInitialization() {
 
   // Initialize all EPT entries for all physical memory pages
   const auto pm_ranges = UtilGetPhysicalMemoryRanges();
+
   for (auto run_index = 0ul; run_index < pm_ranges->number_of_runs;
        ++run_index) {
     const auto run = &pm_ranges->run[run_index];
     const auto base_addr = run->base_page * PAGE_SIZE;
+
     for (auto page_index = 0ull; page_index < run->page_count; ++page_index) {
       const auto indexed_addr = base_addr + page_index * PAGE_SIZE;
       const auto ept_pt_entry =
           EptpConstructTables(ept_pml4, 4, indexed_addr, nullptr);
-      if (!ept_pt_entry) {
+      if (!ept_pt_entry)
+      {
         EptpDestructTables(ept_pml4, 4);
         ExFreePoolWithTag(ept_data, kHyperPlatformCommonPoolTag);
         return nullptr;
@@ -629,23 +636,25 @@ _Use_decl_annotations_ static ULONG64 EptpAddressToPteIndex(
 }
 
 // Deal with EPT violation VM-exit.
-_Use_decl_annotations_ void EptHandleEptViolation(EptData *ept_data) {
+_Use_decl_annotations_ void EptHandleEptViolation(GuestContext* guest_context)
+{
   const EptViolationQualification exit_qualification = {
       UtilVmRead(VmcsField::kExitQualification)};
-
+  const auto ept_data = guest_context->stack->processor_data->ept_data;
   const auto fault_pa = UtilVmRead64(VmcsField::kGuestPhysicalAddress);
   const auto fault_va = reinterpret_cast<void *>(
       exit_qualification.fields.valid_guest_linear_address
           ? UtilVmRead(VmcsField::kGuestLinearAddress)
           : 0);
 
-  if (exit_qualification.fields.ept_readable ||
-      exit_qualification.fields.ept_writeable ||
-      exit_qualification.fields.ept_executable) {
-    HYPERPLATFORM_COMMON_DBG_BREAK();
-    HYPERPLATFORM_LOG_ERROR_SAFE("[UNK1] VA = %p, PA = %016llx", fault_va,
-                                 fault_pa);
-    return;
+  //
+  // TODO Review special case for TAPT.
+  //  See: 25.5.3.2 Trace-Address Pre-Translation (TAPT)
+  //
+  if (exit_qualification.fields.caused_by_translation) {
+    if (EbmxHandleEptViolation(guest_context)) {
+      return;
+    }
   }
 
   const auto ept_entry = EptGetEptPtEntry(ept_data, fault_pa);

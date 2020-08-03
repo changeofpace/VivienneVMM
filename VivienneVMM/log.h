@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -86,7 +86,6 @@ Environment:
 //=============================================================================
 // Utilities
 //=============================================================================
-
 #define LOG_UTIL_UNKNOWN_CHARACTER  '?'
 #define LOG_UTIL_UNKNOWN_STRING     "(UNK)"
 

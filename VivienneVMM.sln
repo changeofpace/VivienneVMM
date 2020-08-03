@@ -1,13 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27130.2026
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30114.105
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VivienneVMM", "VivienneVMM\VivienneVMM.vcxproj", "{914E9EBE-76FF-456A-999C-AC55D05890EB}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VivienneCL", "VivienneCL\VivienneCL.vcxproj", "{8EAAD2DC-8830-4C01-ACFD-CC1E2F567AB2}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tests", "Tests\Tests.vcxproj", "{5FAA74A8-3A31-4A12-9C2E-1812C2D32E2F}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "VivienneTests", "VivienneTests\VivienneTests.vcxproj", "{5FAA74A8-3A31-4A12-9C2E-1812C2D32E2F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

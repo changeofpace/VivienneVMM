@@ -23,16 +23,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="config.h">
-      <Filter>VivienneVMM\Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\common\driver_io_types.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\common\time_util.h">
-      <Filter>VivienneVMM\Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="breakpoint_manager.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
     <ClInclude Include="capture_execution_context.h">
@@ -107,7 +101,22 @@
     <ClInclude Include="debug.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ept_breakpoint_manager.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="nt.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hardware_breakpoint_manager.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="system_util.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\common\config.h">
+      <Filter>VivienneVMM\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="process_util.h">
       <Filter>VivienneVMM\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -116,9 +125,6 @@
       <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="register_util.cpp">
-      <Filter>VivienneVMM\Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="breakpoint_manager.cpp">
       <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="capture_execution_context.cpp">
@@ -167,6 +173,18 @@
       <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
     <ClCompile Include="breakpoint_callback.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ept_breakpoint_manager.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="hardware_breakpoint_manager.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="system_util.cpp">
+      <Filter>VivienneVMM\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="process_util.cpp">
       <Filter>VivienneVMM\Source Files</Filter>
     </ClCompile>
   </ItemGroup>

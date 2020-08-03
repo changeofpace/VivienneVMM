@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -10,6 +10,7 @@ for more information.
 #include "process.h"
 
 #include "debug.h"
+#include "driver_io.h"
 #include "log.h"
 
 #include "..\VivienneCL\ntdll.h"
@@ -144,5 +145,28 @@ exit:
         VERIFY(HeapFree(GetProcessHeap(), 0, pSystemProcessInfo));
     }
 
+    return status;
+}
+
+
+_Use_decl_annotations_
+BOOL
+PsGetProcessInformation(
+    ULONG_PTR ProcessId,
+    PVIVIENNE_PROCESS_INFORMATION pProcessInfo
+)
+{
+    BOOL status = TRUE;
+
+    status = VivienneIoGetProcessInformation(ProcessId, pProcessInfo);
+    if (!status)
+    {
+        ERR_PRINT("VivienneIoGetProcessInformation failed: %u (0x%X)",
+            GetLastError(),
+            RtlGetLastNtStatus());
+        goto exit;
+    }
+
+exit:
     return status;
 }

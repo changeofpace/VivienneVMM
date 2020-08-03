@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -15,7 +15,11 @@ for more information.
 
 #include "debug.h"
 #include "driver_io.h"
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+#include "ept_breakpoint.h"
+#endif
 #include "log.h"
+#include "memory_util.h"
 #include "ntdll.h"
 #include "process.h"
 #include "token_parser.h"
@@ -24,69 +28,173 @@ for more information.
 #include "..\common\driver_io_types.h"
 
 
+//
+// TODO Commands should be refactored into classes.
+//
+// TODO Use R"(...)" syntax for all usage text and improve legacy command text.
+//
+// TODO Refactor / remove the 'help' command or make each command behave like
+//  the CECM command.
+//
+// TODO Add command to read process memory.
+//
+// TODO Reduce duplicate extended information text for ept breakpoint commands.
+//
+// TODO Replace all calls to 'LogPrintDirect' with 'INF_PRINT'.
+//
+
+
 //=============================================================================
-// Private Interface
+// Utilities
 //=============================================================================
+FORCEINLINE
 static
 VOID
-CmdpPrintCommandList()
+CmdpPrintAlignedCommandName(
+    _In_z_ PSTR pszName,
+    _In_opt_z_ PSTR pszShortName
+)
 {
-    INF_PRINT("    %s", CMD_CLEARHARDWAREBREAKPOINT);
-    INF_PRINT("    %s", CMD_COMMANDS);
-    INF_PRINT("    %s", CMD_CEC_REGISTER);
-    INF_PRINT("    %s", CMD_CEC_MEMORY);
-    INF_PRINT("    %s", CMD_EXITCLIENT);
-    INF_PRINT("    %s", CMD_HELP);
-    INF_PRINT("    %s", CMD_LOOKUPPROCESSIDBYNAME);
-    INF_PRINT("    %s", CMD_QUERYSYSTEMDEBUGSTATE);
-    INF_PRINT("    %s", CMD_SETHARDWAREBREAKPOINT);
+    INF_PRINT("    %-27s%s",
+        pszName,
+        (ARGUMENT_PRESENT(pszShortName) ?
+            pszShortName :
+            ""));
+}
+
+
+static
+VOID
+CmdpPrintUsageText(
+    _In_z_ PCSTR pszName,
+    _In_opt_z_ PSTR pszShortName,
+    _In_z_ PCSTR pszUsageText
+)
+{
+    INF_PRINT("%s", pszUsageText);
+    INF_PRINT("");
+
+    if (ARGUMENT_PRESENT(pszShortName))
+    {
+        INF_PRINT("Type '%s %s' or '%s %s' for more information.",
+            CMD_HELP,
+            pszName,
+            CMD_HELP,
+            pszShortName);
+    }
+    else
+    {
+        INF_PRINT("Type '%s %s' for more information.", CMD_HELP, pszName);
+    }
 }
 
 
 //=============================================================================
-// Command Interface
+// General Commands
 //=============================================================================
+static PCSTR g_ExitClientExtInfoText = "Terminate the VivienneCL session.";
+
+static PCSTR g_CommandsExtInfoText = "Display a list of available commands.";
 
 //
-// CmdDisplayCommands
+// CmdCommands
 //
 // Display a list of supported commands.
 //
 _Use_decl_annotations_
 BOOL
-CmdDisplayCommands(
+CmdCommands(
     const std::vector<std::string>& ArgTokens
 )
 {
     UNREFERENCED_PARAMETER(ArgTokens);
 
-    INF_PRINT("Commands:");
+    INF_PRINT("General Commands:");
+    CmdpPrintAlignedCommandName(CMD_COMMANDS, CMD_COMMANDS_SHORT);
+    CmdpPrintAlignedCommandName(CMD_HELP, NULL);
+    CmdpPrintAlignedCommandName(CMD_EXIT_CLIENT, NULL);
 
-    CmdpPrintCommandList();
+    INF_PRINT("Process:");
+    CmdpPrintAlignedCommandName(
+        CMD_GET_PROCESS_ID,
+        CMD_GET_PROCESS_ID_SHORT);
+    CmdpPrintAlignedCommandName(
+        CMD_GET_PROCESS_INFORMATION,
+        CMD_GET_PROCESS_INFORMATION_SHORT);
+
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
+    INF_PRINT("Hardware Breakpoint Commands:");
+    CmdpPrintAlignedCommandName(CMD_QUERY_SYSTEM_DEBUG_STATE, NULL);
+    CmdpPrintAlignedCommandName(
+        CMD_SET_HARDWARE_BREAKPOINT,
+        CMD_SET_HARDWARE_BREAKPOINT_SHORT);
+    CmdpPrintAlignedCommandName(
+        CMD_CLEAR_HARDWARE_BREAKPOINT,
+        CMD_CLEAR_HARDWARE_BREAKPOINT_SHORT);
+
+    INF_PRINT("Capture Execution Context Commands:");
+    CmdpPrintAlignedCommandName(CMD_CEC_REGISTER, NULL);
+    CmdpPrintAlignedCommandName(CMD_CEC_MEMORY, NULL);
+#endif
+
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+    INF_PRINT("Ept Breakpoint Commands:");
+    CmdpPrintAlignedCommandName(
+        CMD_QUERY_EPT_BREAKPOINT_INFORMATION,
+        CMD_QUERY_EPT_BREAKPOINT_INFORMATION_SHORT);
+    CmdpPrintAlignedCommandName(
+        CMD_SET_EPT_BREAKPOINT_BASIC,
+        CMD_SET_EPT_BREAKPOINT_BASIC_SHORT);
+    CmdpPrintAlignedCommandName(
+        CMD_SET_EPT_BREAKPOINT_GENERAL_REGISTER_CONTEXT,
+        CMD_SET_EPT_BREAKPOINT_GENERAL_REGISTER_CONTEXT_SHORT);
+    CmdpPrintAlignedCommandName(
+        CMD_SET_EPT_BREAKPOINT_KEYED_REGISTER_CONTEXT,
+        CMD_SET_EPT_BREAKPOINT_KEYED_REGISTER_CONTEXT_SHORT);
+    CmdpPrintAlignedCommandName(
+        CMD_DISABLE_EPT_BREAKPOINT,
+        CMD_DISABLE_EPT_BREAKPOINT_SHORT);
+    CmdpPrintAlignedCommandName(
+        CMD_CLEAR_EPT_BREAKPOINT,
+        CMD_CLEAR_EPT_BREAKPOINT_SHORT);
+    CmdpPrintAlignedCommandName(
+        CMD_PRINT_EPT_BREAKPOINT_LOG_HEADER,
+        CMD_PRINT_EPT_BREAKPOINT_LOG_HEADER_SHORT);
+    CmdpPrintAlignedCommandName(
+        CMD_PRINT_EPT_BREAKPOINT_LOG_ELEMENTS,
+        CMD_PRINT_EPT_BREAKPOINT_LOG_ELEMENTS_SHORT);
+#endif
 
     return TRUE;
 }
 
 
-//
-// CmdLookupProcessIdByName
-//
-// Return a vector of all the process ids whose names match the specified
-//  process name.
-//
-#define LOOKUPPROCESSIDBYNAME_ARGC 2
-#define LOOKUPPROCESSIDBYNAME_USAGE                                         \
-    "Usage: " CMD_LOOKUPPROCESSIDBYNAME " process_name\n"                   \
-    "    Summary\n"                                                         \
-    "        Query process ids matching the specified process name.\n"      \
-    "    Args\n"                                                            \
-    "        process_name:  process name (including file extension)\n"      \
-    "    Example\n"                                                         \
-    "        pid calc.exe\n"
+//=============================================================================
+// Process Commands
+//=============================================================================
+#define GET_PROCESS_ID_ARGC 2
+
+static PCSTR g_GetProcessIdUsageText = "Usage: GetProcessId process_id";
+
+static PCSTR g_GetProcessIdExtInfoText =
+R"(Usage: GetProcessId process_name
+
+    Short Name
+        procid
+
+    Summary
+        Lookup process ids by process name.
+
+    Parameters
+        process_name (string)
+            The target process name including file extension.
+
+    Example
+        procid calc.exe)";
 
 _Use_decl_annotations_
 BOOL
-CmdLookupProcessIdByName(
+CmdGetProcessId(
     const std::vector<std::string>& ArgTokens
 )
 {
@@ -94,9 +202,12 @@ CmdLookupProcessIdByName(
     std::vector<ULONG_PTR> ProcessIds;
     BOOL status = TRUE;
 
-    if (LOOKUPPROCESSIDBYNAME_ARGC != ArgTokens.size())
+    if (GET_PROCESS_ID_ARGC != ArgTokens.size())
     {
-        LogPrintDirect(LOOKUPPROCESSIDBYNAME_USAGE);
+        CmdpPrintUsageText(
+            CMD_GET_PROCESS_ID,
+            CMD_GET_PROCESS_ID_SHORT,
+            g_GetProcessIdUsageText);
         status = FALSE;
         goto exit;
     }
@@ -109,15 +220,85 @@ CmdLookupProcessIdByName(
         goto exit;
     }
 
+    if (!ProcessIds.size())
+    {
+        ERR_PRINT("Process not found.");
+        status = FALSE;
+        goto exit;
+    }
+
     for (SIZE_T i = 0; i < ProcessIds.size(); ++i)
     {
-        INF_PRINT("    %Iu (0x%IX)", ProcessIds[i], ProcessIds[i]);
+        INF_PRINT("    %5Iu", ProcessIds[i]);
     }
 
 exit:
     return status;
 }
 
+
+#define GET_PROCESS_INFORMATION_ARGC 2
+
+static PCSTR g_GetProcessInformationUsageText =
+    "Usage: GetProcessInformation process_id";
+
+static PCSTR g_GetProcessInformationExtInfoText =
+R"(Usage: GetProcessInformation process_id
+
+    Short Name
+        procinfo
+
+    Summary
+        Query general information for the specified process.
+
+    Parameters
+        process_id (decimal)
+            The target process id.)";
+
+_Use_decl_annotations_
+BOOL
+CmdGetProcessInformation(
+    const std::vector<std::string>& ArgTokens
+)
+{
+    ULONG_PTR ProcessId = 0;
+    VIVIENNE_PROCESS_INFORMATION ProcessInfo = {};
+    BOOL status = TRUE;
+
+    if (GET_PROCESS_INFORMATION_ARGC != ArgTokens.size())
+    {
+        CmdpPrintUsageText(
+            CMD_GET_PROCESS_INFORMATION,
+            CMD_GET_PROCESS_INFORMATION_SHORT,
+            g_GetProcessInformationUsageText);
+        status = FALSE;
+        goto exit;
+    }
+
+    status = ParseProcessIdToken(ArgTokens[1], &ProcessId);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = PsGetProcessInformation(ProcessId, &ProcessInfo);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    INF_PRINT("Process Information:");
+    INF_PRINT("    BaseAddress: %p", ProcessInfo.BaseAddress);
+
+exit:
+    return status;
+}
+
+
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
+//=============================================================================
+// Hardware Breakpoint Commands
+//=============================================================================
 
 //
 // CmdQuerySystemDebugState
@@ -235,17 +416,19 @@ exit:
 //
 #define SETHARDWAREBREAKPOINT_ARGC 5
 #define SETHARDWAREBREAKPOINT_USAGE                                         \
-    "Usage: " CMD_SETHARDWAREBREAKPOINT " index pid access|size address\n"  \
+    "Usage: " CMD_SET_HARDWARE_BREAKPOINT " index pid access|size address\n"\
+    "    Short Name\n"                                                      \
+    "        shb\n"                                                         \
     "    Summary\n"                                                         \
     "        Install a hardware breakpoint on all processors.\n"            \
-    "    Args\n"                                                            \
+    "    Parameters\n"                                                      \
     "        index:     [0-3]        debug address register index\n"        \
     "        pid:       #            an active process id (integer)\n"      \
     "        access:    'e,r,w'      execution, read, write\n"              \
     "        size:      '1,2,4,8'    byte, word, dword, qword\n"            \
     "        address:   #            valid user-mode address (hex)\n"       \
     "    Example\n"                                                         \
-    "        setbp 0 1002 e1 77701650\n"
+    "        " CMD_SET_HARDWARE_BREAKPOINT_SHORT " 0 1002 e1 77701650\n"
 
 _Use_decl_annotations_
 BOOL
@@ -285,7 +468,8 @@ CmdSetHardwareBreakpoint(
         goto exit;
     }
 
-    status = ParseAccessSizeToken(ArgTokens[3], &Type, &Size);
+    status =
+        ParseHardwareBreakpointAccessSizeToken(ArgTokens[3], &Type, &Size);
     if (!status)
     {
         goto exit;
@@ -322,13 +506,15 @@ exit:
 //
 #define CLEARHARDWAREBREAKPOINT_ARGC 2
 #define CLEARHARDWAREBREAKPOINT_USAGE                               \
-    "Usage: " CMD_CLEARHARDWAREBREAKPOINT " index\n"                \
+    "Usage: " CMD_CLEAR_HARDWARE_BREAKPOINT " index\n"              \
+    "    Short Name\n"                                              \
+    "        chb\n"                                                 \
     "    Summary\n"                                                 \
     "        Clear a hardware breakpoint on all processors.\n"      \
-    "    Args\n"                                                    \
+    "    Parameters\n"                                              \
     "        index:     [0-3]        debug address register index\n"\
     "    Example\n"                                                 \
-    "        clear 0\n"
+    "        " CMD_CLEAR_HARDWARE_BREAKPOINT_SHORT " 0\n"
 
 _Use_decl_annotations_
 BOOL
@@ -365,6 +551,10 @@ exit:
 }
 
 
+//=============================================================================
+//  Capture Execution Context Commands
+//=============================================================================
+
 //
 // CmdCaptureRegisterValues
 //
@@ -376,18 +566,20 @@ exit:
 #define CEC_REGISTER_USAGE \
     "Usage: " CMD_CEC_REGISTER " index pid access|size address register"    \
     " duration\n"                                                           \
+    "    Short Name\n"                                                      \
+    "        cecr\n"                                                        \
     "    Summary\n"                                                         \
     "        Capture unique register context at a target address.\n"        \
-    "    Args\n"                                                            \
+    "    Parameters\n"                                                      \
     "        index:     [0-3]           debug address register index\n"     \
     "        pid:       #               an active process id (integer)\n"   \
     "        access:    'e,r,w'         execution, read, write\n"           \
     "        size:      '1,2,4,8'       byte, word, dword, qword\n"         \
     "        address:   #               valid user-mode address (hex)\n"    \
     "        register:  'rip,rax,etc'   the target register\n"              \
-    "        duration:  #               capture duration in milliseconds\n" \
+    "        duration:  #               capture duration in milliseconds (integer)\n" \
     "    Example\n"                                                         \
-    "        " CMD_CEC_REGISTER " 0 1002 e1 77701650 rbx 5000\n"
+    "        " CMD_CEC_REGISTER_SHORT " 0 1002 e1 77701650 rbx 5000\n"
 #define CEC_REGISTER_BUFFER_SIZE (PAGE_SIZE * 2)
 
 _Use_decl_annotations_
@@ -425,7 +617,8 @@ CmdCaptureRegisterValues(
         goto exit;
     }
 
-    status = ParseAccessSizeToken(ArgTokens[3], &Type, &Size);
+    status =
+        ParseHardwareBreakpointAccessSizeToken(ArgTokens[3], &Type, &Size);
     if (!status)
     {
         goto exit;
@@ -449,7 +642,8 @@ CmdCaptureRegisterValues(
         goto exit;
     }
 
-    status = ParseDurationToken(ArgTokens[6], &DurationInMilliseconds);
+    status =
+        ParseUnsignedLongToken(ArgTokens[6], FALSE, &DurationInMilliseconds);
     if (!status)
     {
         goto exit;
@@ -517,13 +711,10 @@ exit:
 #define CEC_MEMORY_BUFFER_SIZE (PAGE_SIZE * 2)
 
 static PCSTR g_CecmUsageText =
-R"(Usage: cecm index pid access|size bp_address mem_type mem_expression duration
+R"(Usage: CaptureExecCtxMemory index pid access|size bp_address mem_type mem_expression duration
 
-    Type 'help cecm' for extended information.
-)";
-
-static PCSTR g_CecmHelpText =
-R"(Usage: cecm index pid access|size bp_address mem_type mem_expression duration
+    Short Name
+        cecm
 
     Summary
         Capture unique values of type mem_type at the memory address described
@@ -536,12 +727,12 @@ R"(Usage: cecm index pid access|size bp_address mem_type mem_expression duration
         of type 'mem_type' is read from the effective address. Unique values
         are stored to the user data buffer.
 
-    Args
+    Parameters
         index
             The debug address register index used for the hardware breakpoint.
 
-        pid
-            The target process id. (decimal)
+        pid (decimal)
+            The target process id.
 
         access
             The hardware breakpoint type (WinDbg format):
@@ -556,8 +747,8 @@ R"(Usage: cecm index pid access|size bp_address mem_type mem_expression duration
                 '4'     dword
                 '8'     qword
 
-        address
-            The hardware breakpoint address. (hex, '0x' prefix optional)
+        address (hex, '0x' prefix optional)
+            The hardware breakpoint address.
 
         mem_type
             The data type used to interpret the effective address:
@@ -636,7 +827,8 @@ CmdCaptureMemoryValues(
         goto exit;
     }
 
-    status = ParseAccessSizeToken(ArgTokens[3], &Type, &Size);
+    status =
+        ParseHardwareBreakpointAccessSizeToken(ArgTokens[3], &Type, &Size);
     if (!status)
     {
         goto exit;
@@ -669,7 +861,8 @@ CmdCaptureMemoryValues(
         goto exit;
     }
 
-    status = ParseDurationToken(ArgTokens[7], &DurationInMilliseconds);
+    status =
+        ParseUnsignedLongToken(ArgTokens[7], FALSE, &DurationInMilliseconds);
     if (!status)
     {
         goto exit;
@@ -798,45 +991,1369 @@ exit:
 
     return status;
 }
+#endif
 
+
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+//=============================================================================
+//  Ept Breakpoint Commands
+//=============================================================================
+#include <unordered_map>
 
 //
-// CmdDisplayHelpText
+// User mode bookkeeping for our ept breakpoint handles.
 //
-// Display extended command information.
-//
-#define HELP_ARGC 2
+static std::unordered_map<HANDLE, PEPT_BREAKPOINT_LOG> g_EptBreakpoints = {};
 
-#define CMD_HELP_USAGE "Usage: help command_name\n"
 
-_Use_decl_annotations_
+_Success_(return != FALSE)
+_Check_return_
 BOOL
-CmdDisplayHelpText(
-    const std::vector<std::string>& ArgTokens
+CmdpInsertEptBreakpointLog(
+    _In_ HANDLE hLog,
+    _In_ PEPT_BREAKPOINT_LOG pLog
 )
 {
-    std::string CommandName = {};
+    std::pair<std::unordered_map<HANDLE, PEPT_BREAKPOINT_LOG>::iterator, bool> Entry = {};
     BOOL status = TRUE;
 
-    if (HELP_ARGC != ArgTokens.size())
+    try
     {
-        LogPrintDirect(CMD_HELP_USAGE);
+        Entry = g_EptBreakpoints.emplace(hLog, pLog);
+        if (!Entry.second)
+        {
+            ERR_PRINT(
+                "Failed to insert ept breakpoint log. (Duplicate log handle)");
+            status = FALSE;
+            goto exit;
+        }
+    }
+    catch (const std::bad_alloc&)
+    {
+        ERR_PRINT("Failed to insert ept breakpoint log. (Exception)");
         status = FALSE;
         goto exit;
     }
 
-    CommandName = ArgTokens[1];
+exit:
+    return status;
+}
 
-    if (CMD_CEC_MEMORY == CommandName)
+
+_Success_(return != FALSE)
+_Check_return_
+BOOL
+CmdpRemoveEptBreakpointLog(
+    _In_ HANDLE hLog
+)
+{
+    BOOL status = TRUE;
+
+    if (1 != g_EptBreakpoints.erase(hLog))
     {
-        LogPrintDirect(g_CecmHelpText);
-    }
-    else
-    {
-        INF_PRINT("Commands with extended information:");
-        INF_PRINT("    %s", CMD_CEC_MEMORY);
+        ERR_PRINT("Failed to remove ept breakpoint log.");
+        status = FALSE;
+        goto exit;
     }
 
 exit:
     return status;
+}
+
+
+_Check_return_
+PEPT_BREAKPOINT_LOG
+CmdpLookupEptBreakpointLog(
+    _In_ HANDLE hLog
+)
+{
+    std::unordered_map<HANDLE, PEPT_BREAKPOINT_LOG>::iterator pEntry = {};
+    PEPT_BREAKPOINT_LOG pLog = NULL;
+
+    pEntry = g_EptBreakpoints.find(hLog);
+
+    if (pEntry == g_EptBreakpoints.end())
+    {
+        ERR_PRINT("Failed to find ept breakpoint log.");
+        goto exit;
+    }
+
+    pLog = pEntry->second;
+
+exit:
+    return pLog;
+}
+
+
+#define QUERY_EPT_BREAKPOINT_INFORMATION_ARGC   1
+
+static PCSTR g_QueryEptBreakpointInformationUsageText =
+    "Usage: QueryEptBpInfo";
+
+static PCSTR g_QueryEptBreakpointInformationExtInfoText =
+R"(Usage: QueryEptBpInfo
+
+    Short Name
+        qebi
+
+    Summary
+        Print breakpoint information for each ept breakpoint on the system.
+        Print general statistics about the ept breakpoint manager.)";
+
+_Use_decl_annotations_
+BOOL
+CmdQueryEptBreakpointInformation(
+    const std::vector<std::string>& ArgTokens
+)
+{
+    PEPT_BREAKPOINT_INFORMATION pEptBreakpointInfo = NULL;
+    BOOL status = TRUE;
+
+    if (QUERY_EPT_BREAKPOINT_INFORMATION_ARGC != ArgTokens.size())
+    {
+        CmdpPrintUsageText(
+            CMD_QUERY_EPT_BREAKPOINT_INFORMATION,
+            CMD_QUERY_EPT_BREAKPOINT_INFORMATION_SHORT,
+            g_QueryEptBreakpointInformationUsageText);
+        status = FALSE;
+        goto exit;
+    }
+
+    status = EbpQueryEptBreakpointInformation(&pEptBreakpointInfo, NULL);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    EbpPrintEptBreakpointInformation(pEptBreakpointInfo);
+
+exit:
+    if (pEptBreakpointInfo)
+    {
+        VERIFY(MemFreeHeap(pEptBreakpointInfo));
+    }
+
+    return status;
+}
+
+
+#define SET_EPT_BREAKPOINT_BASIC_ARGC 6
+
+static PCSTR g_SetEptBreakpointBasicUsageText =
+    "Usage: SetEptBpBasic pid access|size address log_size make_page_resident";
+
+static PCSTR g_SetEptBreakpointExtInfoText =
+R"(Usage: SetEptBpBasic pid access|size address log_size make_page_resident
+
+    Short Name
+        sebb
+
+    Summary
+        Set an ept breakpoint in the target process context. The corresponding
+        breakpoint log contains 'basic' elements. Each element contains the
+        following fields:
+
+            TriggerAddress - Unique address of the instruction that triggered
+                the breakpoint condition.
+
+            HitCount - Number of times this element triggered the breakpoint
+                condition.
+
+    Parameters
+        pid (decimal)
+            The target process id.
+
+        access|size (WinDbg hardware breakpoint syntax)
+            access (one character)
+                The ept breakpoint type:
+
+                    'e'     execute
+                    'r'     read
+                    'w'     write
+
+            size (one decimal integer)
+                The ept breakpoint size:
+
+                    '1'     byte
+                    '2'     word
+                    '4'     dword
+                    '8'     qword
+
+            NOTE Execution breakpoints must be '1' byte size.
+
+        address (hex, '0x' prefix optional)
+            The target virtual address.
+
+        log_size (hex, '0x' prefix optional)
+            The size in bytes of the returned log. i.e., How many elements the
+            log can store.
+
+        make_page_resident (decimal)
+            If non-zero then the physical page that contains the target virtual
+            address is made resident if it is currently paged out.
+
+    Return Value
+        A handle (decimal) to the breakpoint log.
+
+    Remarks
+        Ept breakpoints are in one of the following states at any given time:
+
+            Installing
+            Active
+            Inactive
+
+        If an ept breakpoint is in the 'installing' state then it is currently
+        being installed on all processors. The breakpoint becomes 'active' as
+        soon as installation succeeds.
+
+        The breakpoint log for an 'active' ept breakpoint is valid, readable,
+        and the breakpoint log elements are updated by the ept breakpoint
+        manager.
+
+        Ept breakpoints become 'inactive' when their target process terminates,
+        or they are manually disabled by calling 'DisableEptBp'. The breakpoint
+        log for an 'inactive' ept breakpoint is valid and readable, but its
+        breakpoint log elements are no longer updated by the ept breakpoint
+        manager. Inactive ept breakpoints are uninstalled from all processors.
+        Inactive breakpoints remain in the 'inactive' state until they are
+        manually cleared by calling 'ClearEptBp' or the VivienneCL session
+        ends.
+
+        The 'BreakpointStatus' field of a breakpoint log header contains the
+        current state of its corresponding ept breakpoint.
+
+        Ept breakpoints can have a significant performance cost because an ept
+        violation occurs whenever the guest accesses the target page in a
+        manner which matches the ept breakpoint condition. e.g., If we set an
+        execute ept breakpoint in an an address in a page, then the guest will
+        experience an ept violation VM exit whenever it executes an instruction
+        inside that page. Users should disable ept breakpoints when they are
+        no longer required.
+
+    Example
+        Set an execution breakpoint at 0x70000 in process 314, use 0x1000 bytes
+        for the breakpoint log, and make the physical page resident:
+
+            sebb 314 e1 70000 1000 1
+)";
+
+_Use_decl_annotations_
+BOOL
+CmdSetEptBreakpointBasic(
+    const std::vector<std::string>& ArgTokens
+)
+{
+    ULONG_PTR ProcessId = 0;
+    ULONG_PTR Address = 0;
+    EPT_BREAKPOINT_TYPE BreakpointType = {};
+    EPT_BREAKPOINT_SIZE BreakpointSize = {};
+    SIZE_T cbLog = 0;
+    ULONG MakePageResidentValue = 0;
+    BOOLEAN fMakePageResident = FALSE;
+    HANDLE hLog = NULL;
+    PEPT_BREAKPOINT_LOG pLog = NULL;
+    BOOL status = TRUE;
+
+    if (SET_EPT_BREAKPOINT_BASIC_ARGC != ArgTokens.size())
+    {
+        CmdpPrintUsageText(
+            CMD_SET_EPT_BREAKPOINT_BASIC,
+            CMD_SET_EPT_BREAKPOINT_BASIC_SHORT,
+            g_SetEptBreakpointBasicUsageText);
+        status = FALSE;
+        goto exit;
+    }
+
+    status = ParseProcessIdToken(ArgTokens[1], &ProcessId);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseEptBreakpointAccessSizeToken(
+        ArgTokens[2],
+        &BreakpointType,
+        &BreakpointSize);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseAddressToken(ArgTokens[3], &Address);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseUnsignedLongLongToken(ArgTokens[4], TRUE, &cbLog);
+    if (!status)
+    {
+        ERR_PRINT("Invalid log_size.");
+        goto exit;
+    }
+
+    status =
+        ParseUnsignedLongToken(ArgTokens[5], FALSE, &MakePageResidentValue);
+    if (!status)
+    {
+        ERR_PRINT("Invalid make_page_resident.");
+        goto exit;
+    }
+
+    if (MakePageResidentValue)
+    {
+        fMakePageResident = TRUE;
+    }
+    else
+    {
+        fMakePageResident = FALSE;
+    }
+
+    status = EbpSetEptBreakpointBasic(
+        ProcessId,
+        Address,
+        BreakpointType,
+        BreakpointSize,
+        cbLog,
+        fMakePageResident,
+        &hLog,
+        &pLog);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = CmdpInsertEptBreakpointLog(hLog, pLog);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    INF_PRINT("Log handle: %Iu", hLog);
+
+exit:
+    return status;
+}
+
+
+#define SET_EPT_BREAKPOINT_GENERAL_REGISTER_CONTEXT_ARGC 6
+
+static PCSTR g_SetEptBreakpointGeneralRegisterContextUsageText =
+"Usage: SetEptBpRegisters pid access|size address log_size make_page_resident";
+
+static PCSTR g_SetEptBreakpointGeneralRegisterContextExtInfoText =
+R"(Usage: SetEptBpRegisters pid access|size address log_size make_page_resident
+
+    Short Name
+        sebg
+
+    Summary
+        Set an ept breakpoint in the target process context. The corresponding
+        breakpoint log contains 'general register context' elements. Each
+        element contains the following fields:
+
+            TriggerAddress - Non-unique address of the instruction that
+                triggered the breakpoint condition.
+
+            Registers - The values in the general purpose registers when the
+                breakpoint condition was triggered.
+
+            Flags - The value in the RFLAGS register when the breakpoint
+                condition was triggered.
+
+    Parameters
+        pid (decimal)
+            The target process id.
+
+        access|size (WinDbg hardware breakpoint syntax)
+            access (one character)
+                The ept breakpoint type:
+
+                    'e'     execute
+                    'r'     read
+                    'w'     write
+
+            size (one decimal integer)
+                The ept breakpoint size:
+
+                    '1'     byte
+                    '2'     word
+                    '4'     dword
+                    '8'     qword
+
+            NOTE Execution breakpoints must be '1' byte size.
+
+        address (hex, '0x' prefix optional)
+            The target virtual address.
+
+        log_size (hex, '0x' prefix optional)
+            The size in bytes of the returned log. i.e., How many elements the
+            log can store.
+
+        make_page_resident (decimal)
+            If non-zero then the physical page that contains the target virtual
+            address is made resident if it is currently paged out.
+
+    Return Value
+        A handle (decimal) to the breakpoint log.
+
+    Remarks
+        Ept breakpoints are in one of the following states at any given time:
+
+            Installing
+            Active
+            Inactive
+
+        If an ept breakpoint is in the 'installing' state then it is currently
+        being installed on all processors. The breakpoint becomes 'active' as
+        soon as installation succeeds.
+
+        The breakpoint log for an 'active' ept breakpoint is valid, readable,
+        and the breakpoint log elements are updated by the ept breakpoint
+        manager.
+
+        Ept breakpoints become 'inactive' when their target process terminates,
+        or they are manually disabled by calling 'DisableEptBp'. The breakpoint
+        log for an 'inactive' ept breakpoint is valid and readable, but its
+        breakpoint log elements are no longer updated by the ept breakpoint
+        manager. Inactive ept breakpoints are uninstalled from all processors.
+        Inactive breakpoints remain in the 'inactive' state until they are
+        manually cleared by calling 'ClearEptBp' or the VivienneCL session
+        ends.
+
+        The 'BreakpointStatus' field of a breakpoint log header contains the
+        current state of its corresponding ept breakpoint.
+
+        Ept breakpoints can have a significant performance cost because an ept
+        violation occurs whenever the guest accesses the target page in a
+        manner which matches the ept breakpoint condition. e.g., If we set an
+        execute ept breakpoint in an an address in a page, then the guest will
+        experience an ept violation VM exit whenever it executes an instruction
+        inside that page. Users should disable ept breakpoints when they are
+        no longer required.
+
+    Example
+        Set a write-access breakpoint for a word-sized value at 0x141800 in
+        process 2000, use 0x20000 bytes for the breakpoint log, and do not make
+        the physical page resident:
+
+            sebg 2000 w2 141800 20000 0
+)";
+
+_Use_decl_annotations_
+BOOL
+CmdSetEptBreakpointGeneralRegisterContext(
+    const std::vector<std::string>& ArgTokens
+)
+{
+    ULONG_PTR ProcessId = 0;
+    ULONG_PTR Address = 0;
+    EPT_BREAKPOINT_TYPE BreakpointType = {};
+    EPT_BREAKPOINT_SIZE BreakpointSize = {};
+    SIZE_T cbLog = 0;
+    ULONG MakePageResidentValue = 0;
+    BOOLEAN fMakePageResident = FALSE;
+    HANDLE hLog = NULL;
+    PEPT_BREAKPOINT_LOG pLog = NULL;
+    BOOL status = TRUE;
+
+    if (SET_EPT_BREAKPOINT_GENERAL_REGISTER_CONTEXT_ARGC != ArgTokens.size())
+    {
+        CmdpPrintUsageText(
+            CMD_SET_EPT_BREAKPOINT_GENERAL_REGISTER_CONTEXT,
+            CMD_SET_EPT_BREAKPOINT_GENERAL_REGISTER_CONTEXT_SHORT,
+            g_SetEptBreakpointGeneralRegisterContextUsageText);
+        status = FALSE;
+        goto exit;
+    }
+
+    status = ParseProcessIdToken(ArgTokens[1], &ProcessId);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseEptBreakpointAccessSizeToken(
+        ArgTokens[2],
+        &BreakpointType,
+        &BreakpointSize);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseAddressToken(ArgTokens[3], &Address);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseUnsignedLongLongToken(ArgTokens[4], TRUE, &cbLog);
+    if (!status)
+    {
+        ERR_PRINT("Invalid log_size.");
+        goto exit;
+    }
+
+    status =
+        ParseUnsignedLongToken(ArgTokens[5], FALSE, &MakePageResidentValue);
+    if (!status)
+    {
+        ERR_PRINT("Invalid make_page_resident.");
+        goto exit;
+    }
+
+    if (MakePageResidentValue)
+    {
+        fMakePageResident = TRUE;
+    }
+    else
+    {
+        fMakePageResident = FALSE;
+    }
+
+    status = EbpSetEptBreakpointGeneralRegisterContext(
+        ProcessId,
+        Address,
+        BreakpointType,
+        BreakpointSize,
+        cbLog,
+        fMakePageResident,
+        &hLog,
+        &pLog);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = CmdpInsertEptBreakpointLog(hLog, pLog);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    INF_PRINT("Log handle: %Iu", hLog);
+
+exit:
+    return status;
+}
+
+
+#define SET_EPT_BREAKPOINT_KEYED_REGISTER_CONTEXT_ARGC 7
+
+static PCSTR g_SetEptBreakpointKeyedRegisterContextUsageText =
+"Usage: SetEptBpKeyed pid access|size address log_size make_page_resident register_key";
+
+static PCSTR g_SetEptBreakpointKeyedRegisterContextExtInfoText =
+R"(Usage: SetEptBpKeyed pid access|size address log_size make_page_resident register_key
+
+    Short Name
+        sebk
+
+    Summary
+        Set an ept breakpoint in the target process context. The corresponding
+        breakpoint log contains 'keyed register context' elements. Each
+        element contains the following fields:
+
+            KeyValue - The unique value of the register specified in the
+                'RegisterKey' field of the log header.
+
+            TriggerAddress - Address of the instruction that triggered the
+                breakpoint condition.
+
+            HitCount - Number of times this element triggered the breakpoint
+                condition.
+
+            Registers - The values in the general purpose registers when the
+                breakpoint condition was triggered.
+
+            Flags - The value in the RFLAGS register when the breakpoint
+                condition was triggered.
+
+        The ept breakpoint manager updates the breakpoint log for unique values
+        in the key register. e.g., If an ept breakpoint uses 'rax' for its
+        register key, and the guest triggers the breakpoint condition twice
+        with rax = 4, then only the first trigger event is recorded in the log.
+        If the guest triggers the breakpoint condition again with rax = 5 then
+        the log is updated because there is no element whose rax value is 5.
+
+    Parameters
+        pid (decimal)
+            The target process id.
+
+        access|size (WinDbg hardware breakpoint syntax)
+            access (one character)
+                The ept breakpoint type:
+
+                    'e'     execute
+                    'r'     read
+                    'w'     write
+
+            size (one decimal integer)
+                The ept breakpoint size:
+
+                    '1'     byte
+                    '2'     word
+                    '4'     dword
+                    '8'     qword
+
+            NOTE Execution breakpoints must be '1' byte size.
+
+        address (hex, '0x' prefix optional)
+            The target virtual address.
+
+        log_size (hex, '0x' prefix optional)
+            The size in bytes of the returned log. i.e., How many elements the
+            log can store.
+
+        make_page_resident (decimal)
+            If non-zero then the physical page that contains the target virtual
+            address is made resident if it is currently paged out.
+
+        register_key (register string)
+            Specify which register is used to determine uniqueness of a guest
+            context when the breakpoint condition is triggered.
+
+            e.g., If 'register_key' is 'rax' then each element in the
+            breakpoint log will have a unique value in the rax register.
+
+    Return Value
+        A handle (decimal) to the breakpoint log.
+
+    Remarks
+        Ept breakpoints are in one of the following states at any given time:
+
+            Installing
+            Active
+            Inactive
+
+        If an ept breakpoint is in the 'installing' state then it is currently
+        being installed on all processors. The breakpoint becomes 'active' as
+        soon as installation succeeds.
+
+        The breakpoint log for an 'active' ept breakpoint is valid, readable,
+        and the breakpoint log elements are updated by the ept breakpoint
+        manager.
+
+        Ept breakpoints become 'inactive' when their target process terminates,
+        or they are manually disabled by calling 'DisableEptBp'. The breakpoint
+        log for an 'inactive' ept breakpoint is valid and readable, but its
+        breakpoint log elements are no longer updated by the ept breakpoint
+        manager. Inactive ept breakpoints are uninstalled from all processors.
+        Inactive breakpoints remain in the 'inactive' state until they are
+        manually cleared by calling 'ClearEptBp' or the VivienneCL session
+        ends.
+
+        The 'BreakpointStatus' field of a breakpoint log header contains the
+        current state of its corresponding ept breakpoint.
+
+        Ept breakpoints can have a significant performance cost because an ept
+        violation occurs whenever the guest accesses the target page in a
+        manner which matches the ept breakpoint condition. e.g., If we set an
+        execute ept breakpoint in an an address in a page, then the guest will
+        experience an ept violation VM exit whenever it executes an instruction
+        inside that page. Users should disable ept breakpoints when they are
+        no longer required.
+
+    Example
+        Set a read-access breakpoint for a qword-sized value at 0x21210 in
+        process 5004, use 0x1000 bytes for the breakpoint log, and do not make
+        the physical page resident:
+
+            sebk 5004 a8 0x21210 0x1000 0
+)";
+
+_Use_decl_annotations_
+BOOL
+CmdSetEptBreakpointKeyedRegisterContext(
+    const std::vector<std::string>& ArgTokens
+)
+{
+    ULONG_PTR ProcessId = 0;
+    ULONG_PTR Address = 0;
+    EPT_BREAKPOINT_TYPE BreakpointType = {};
+    EPT_BREAKPOINT_SIZE BreakpointSize = {};
+    SIZE_T cbLog = 0;
+    ULONG MakePageResidentValue = 0;
+    BOOLEAN fMakePageResident = FALSE;
+    X64_REGISTER RegisterKey = {};
+    HANDLE hLog = NULL;
+    PEPT_BREAKPOINT_LOG pLog = NULL;
+    BOOL status = TRUE;
+
+    if (SET_EPT_BREAKPOINT_KEYED_REGISTER_CONTEXT_ARGC != ArgTokens.size())
+    {
+        CmdpPrintUsageText(
+            CMD_SET_EPT_BREAKPOINT_KEYED_REGISTER_CONTEXT,
+            CMD_SET_EPT_BREAKPOINT_KEYED_REGISTER_CONTEXT_SHORT,
+            g_SetEptBreakpointKeyedRegisterContextUsageText);
+        status = FALSE;
+        goto exit;
+    }
+
+    status = ParseProcessIdToken(ArgTokens[1], &ProcessId);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseEptBreakpointAccessSizeToken(
+        ArgTokens[2],
+        &BreakpointType,
+        &BreakpointSize);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseAddressToken(ArgTokens[3], &Address);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = ParseUnsignedLongLongToken(ArgTokens[4], TRUE, &cbLog);
+    if (!status)
+    {
+        ERR_PRINT("Invalid log_size.");
+        goto exit;
+    }
+
+    status =
+        ParseUnsignedLongToken(ArgTokens[5], FALSE, &MakePageResidentValue);
+    if (!status)
+    {
+        ERR_PRINT("Invalid make_page_resident.");
+        goto exit;
+    }
+
+    if (MakePageResidentValue)
+    {
+        fMakePageResident = TRUE;
+    }
+    else
+    {
+        fMakePageResident = FALSE;
+    }
+
+    status = ParseRegisterToken(ArgTokens[6], &RegisterKey);
+    if (!status)
+    {
+        ERR_PRINT("Invalid register_key.");
+        goto exit;
+    }
+
+    status = EbpSetEptBreakpointKeyedRegisterContext(
+        ProcessId,
+        Address,
+        BreakpointType,
+        BreakpointSize,
+        cbLog,
+        fMakePageResident,
+        RegisterKey,
+        &hLog,
+        &pLog);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    status = CmdpInsertEptBreakpointLog(hLog, pLog);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    INF_PRINT("Log handle: %Iu", hLog);
+
+exit:
+    return status;
+}
+
+
+#define DISABLE_EPT_BREAKPOINT_ARGC 2
+
+static PCSTR g_DisableEptBreakpointUsageText =
+    "Usage: DisableEptBp log_handle";
+
+static PCSTR g_DisableEptBreakpointExtInfoText =
+R"(Usage: DisableEptBp log_handle
+
+    Short Name
+        deb
+
+    Summary
+        Disable an active ept breakpoint.
+
+        The disabled breakpoint becomes 'inactive' after it is successfully
+        uninstalled from all processors. The breakpoint log for an 'inactive'
+        ept breakpoint is valid and readable, but its breakpoint log elements
+        are no longer updated by the ept breakpoint manager.
+
+        Inactive breakpoints remain in the 'inactive' state until they are
+        manually cleared by calling 'ClearEptBp' or the VivienneCL session
+        ends.
+
+        Disabling an ept breakpoint removes the performance cost associated
+        with handling its ept violations while still allowing the user to read
+        its breakpoint log.
+
+    Parameters
+        log_handle (decimal)
+            The handle for the ept breakpoint to be disabled.
+
+    Example
+        Disable the ept breakpoint whose handle value is 133:
+
+            deb 133)";
+
+_Use_decl_annotations_
+BOOL
+CmdDisableEptBreakpoint(
+    const std::vector<std::string>& ArgTokens
+)
+{
+    HANDLE hLog = NULL;
+    BOOL status = TRUE;
+
+    if (DISABLE_EPT_BREAKPOINT_ARGC != ArgTokens.size())
+    {
+        CmdpPrintUsageText(
+            CMD_DISABLE_EPT_BREAKPOINT,
+            CMD_DISABLE_EPT_BREAKPOINT_SHORT,
+            g_DisableEptBreakpointUsageText);
+        status = FALSE;
+        goto exit;
+    }
+
+    status =
+        ParseUnsignedLongLongToken(ArgTokens[1], FALSE, (PULONGLONG)&hLog);
+    if (!status)
+    {
+        ERR_PRINT("Invalid log_handle.");
+        goto exit;
+    }
+
+    status = EbpDisableEptBreakpoint(hLog);
+    if (!status)
+    {
+        goto exit;
+    }
+
+exit:
+    return status;
+}
+
+
+#define CLEAR_EPT_BREAKPOINT_ARGC 2
+
+static PCSTR g_ClearEptBreakpointUsageText = "Usage: ClearEptBp log_handle";
+
+static PCSTR g_ClearEptBreakpointExtInfoText =
+R"(Usage: ClearEptBp log_handle
+
+    Short Name
+        ceb
+
+    Summary
+        Uninstall the target ept breakpoint from all processors and unmap the
+        corresponding breakpoint log.
+
+    Parameters
+        log_handle (decimal)
+            The handle for the ept breakpoint to be cleared.
+
+    Example
+        Clear the ept breakpoint whose handle value is 6:
+
+            ceb 6)";
+
+_Use_decl_annotations_
+BOOL
+CmdClearEptBreakpoint(
+    const std::vector<std::string>& ArgTokens
+)
+{
+    HANDLE hLog = NULL;
+    BOOL status = TRUE;
+
+    if (CLEAR_EPT_BREAKPOINT_ARGC != ArgTokens.size())
+    {
+        CmdpPrintUsageText(
+            CMD_CLEAR_EPT_BREAKPOINT,
+            CMD_CLEAR_EPT_BREAKPOINT_SHORT,
+            g_ClearEptBreakpointUsageText);
+        status = FALSE;
+        goto exit;
+    }
+
+    status =
+        ParseUnsignedLongLongToken(ArgTokens[1], FALSE, (PULONGLONG)&hLog);
+    if (!status)
+    {
+        ERR_PRINT("Invalid log_handle.");
+        goto exit;
+    }
+
+    status = EbpClearEptBreakpoint(hLog);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    //
+    // Remove the log.
+    //
+    status = CmdpRemoveEptBreakpointLog(hLog);
+    if (!status)
+    {
+        goto exit;
+    }
+
+exit:
+    return status;
+}
+
+
+#define PRINT_EPT_BREAKPOINT_LOG_HEADER_ARGC    2
+
+static PCSTR g_PrintEptBreakpointLogHeaderUsageText =
+    "Usage: PrintEptBpLogHeader log_handle";
+
+static PCSTR g_PrintEptBreakpointLogHeaderExtInfoText =
+R"(Usage: PrintEptBpLogHeader log_handle
+
+    Short Name
+        peblh
+
+    Summary
+        Print the breakpoint log header for the specified ept breakpoint.
+
+    Parameters
+        log_handle (decimal)
+            The handle for the target ept breakpoint.
+
+    Example
+        Print the breakpoint log header for the ept breakpoint whose handle
+        value is 20:
+
+            peblh 20)";
+
+_Use_decl_annotations_
+BOOL
+CmdPrintEptBreakpointLogHeader(
+    _In_ const std::vector<std::string>& ArgTokens
+)
+{
+    HANDLE hLog = NULL;
+    PEPT_BREAKPOINT_LOG pLog = NULL;
+    BOOL status = TRUE;
+
+    if (PRINT_EPT_BREAKPOINT_LOG_HEADER_ARGC != ArgTokens.size())
+    {
+        CmdpPrintUsageText(
+            CMD_PRINT_EPT_BREAKPOINT_LOG_HEADER,
+            CMD_PRINT_EPT_BREAKPOINT_LOG_HEADER_SHORT,
+            g_PrintEptBreakpointLogHeaderUsageText);
+        status = FALSE;
+        goto exit;
+    }
+
+    status =
+        ParseUnsignedLongLongToken(ArgTokens[1], FALSE, (PULONGLONG)&hLog);
+    if (!status)
+    {
+        ERR_PRINT("Invalid log_handle.");
+        goto exit;
+    }
+
+    pLog = CmdpLookupEptBreakpointLog(hLog);
+    if (!pLog)
+    {
+        goto exit;
+    }
+
+    EbpPrintEptBreakpointLogHeader(hLog, &pLog->Header);
+
+exit:
+    return status;
+}
+
+
+#define PRINT_EPT_BREAKPOINT_LOG_ELEMENTS_ARGC_MINIMUM  2
+#define PRINT_EPT_BREAKPOINT_LOG_ELEMENTS_ARGC_MAXIMUM  4
+
+static PCSTR g_PrintEptBreakpointLogElementsUsageText =
+    "Usage: PrintEptBpLogElements log_handle [start_index] l[count]";
+
+static PCSTR g_PrintEptBreakpointLogElementsExtInfoText =
+R"(Usage: PrintEptBpLogElements log_handle [start_index] l[count]
+
+    Short Name
+        peble
+
+    Summary
+        Print breakpoint log elements for the specified ept breakpoint.
+
+    Parameters
+        log_handle (decimal)
+            The handle for the target ept breakpoint.
+
+        start_index (decimal, optional)
+            Specify the index of the element to begin printing at.
+
+        count (decimal, 'l' or 'L' prefix, optional)
+            Specify the number of elements to print.
+
+            If no 'start_index' parameter is specified then the first 'count'
+            elements of the log are printed.
+
+            This parameter must be prefixed with an 'l' or 'L' character. This
+            syntax is similar to the 'Address Range' syntax in WinDbg.
+
+    Example
+        Print the first element of the breakpoint log for the ept breakpoint
+        whose handle value is 31:
+
+            peble 31 1
+
+        Print the first 101 elements of the breakpoint log for the ept
+        breakpoint whose handle value is 90909:
+
+            peble 90909 L101
+
+        Print 222 elements starting at the 50th element of the breakpoint log
+        for the ept breakpoint whose handle value is 3:
+
+            peble 3 50 l222
+)";
+
+_Use_decl_annotations_
+BOOL
+CmdPrintEptBreakpointLogElements(
+    _In_ const std::vector<std::string>& ArgTokens
+)
+{
+    SIZE_T nArgTokens = 0;
+    HANDLE hLog = NULL;
+    ULONG StartIndex = 0;
+    std::string Token = {};
+    ULONG NumberOfElements = 0;
+    PULONG pValue = 0;
+    PEPT_BREAKPOINT_LOG pLog = NULL;
+    BOOL status = TRUE;
+
+    nArgTokens = ArgTokens.size();
+
+    if (PRINT_EPT_BREAKPOINT_LOG_ELEMENTS_ARGC_MINIMUM > nArgTokens ||
+        PRINT_EPT_BREAKPOINT_LOG_ELEMENTS_ARGC_MAXIMUM < nArgTokens)
+    {
+        CmdpPrintUsageText(
+            CMD_PRINT_EPT_BREAKPOINT_LOG_ELEMENTS,
+            CMD_PRINT_EPT_BREAKPOINT_LOG_ELEMENTS_SHORT,
+            g_PrintEptBreakpointLogElementsUsageText);
+        status = FALSE;
+        goto exit;
+    }
+
+    status = ParseUnsignedLongPtrToken(ArgTokens[1], FALSE, (PULONG_PTR)&hLog);
+    if (!status)
+    {
+        ERR_PRINT("Invalid log_handle.");
+        goto exit;
+    }
+
+    if (3 == nArgTokens)
+    {
+        //
+        // 'peble log_handle start_index'
+        //
+        //  or
+        //
+        // 'peble log_handle l#'
+        //
+        if (ArgTokens[2][0] == 'l' || ArgTokens[2][0] == 'L')
+        {
+            try
+            {
+                Token = ArgTokens[2].substr(1, std::string::npos);
+            }
+            catch (const std::exception&)
+            {
+                ERR_PRINT("Failed to parse count parameter. (Exception)");
+                status = FALSE;
+                goto exit;
+            }
+
+            pValue = &NumberOfElements;
+        }
+        else
+        {
+            Token = ArgTokens[2];
+            pValue = &StartIndex;
+        }
+
+        status = ParseUnsignedLongToken(Token, FALSE, pValue);
+        if (!status)
+        {
+            ERR_PRINT("Invalid parameter: %s", Token.c_str());
+            status = FALSE;
+            goto exit;
+        }
+    }
+    else if (4 == nArgTokens)
+    {
+        //
+        // 'peble log_handle start_index l#'
+        //
+        status = ParseUnsignedLongToken(ArgTokens[2], FALSE, &StartIndex);
+        if (!status)
+        {
+            ERR_PRINT("Invalid start_index: %s", ArgTokens[2].c_str());
+            status = FALSE;
+            goto exit;
+        }
+
+        if (ArgTokens[3][0] != 'l' && ArgTokens[3][0] != 'L')
+        {
+            ERR_PRINT("Invalid count: %s", ArgTokens[3].c_str());
+            status = FALSE;
+            goto exit;
+        }
+
+        try
+        {
+            Token = ArgTokens[3].substr(1, std::string::npos);
+        }
+        catch (const std::exception&)
+        {
+            ERR_PRINT("Failed to parse count parameter. (Exception)");
+            status = FALSE;
+            goto exit;
+        }
+
+        status =
+            ParseUnsignedLongToken(Token, FALSE, &NumberOfElements);
+        if (!status)
+        {
+            ERR_PRINT("Invalid count: %s", Token.c_str());
+            status = FALSE;
+            goto exit;
+        }
+    }
+    else if (2 != nArgTokens)
+    {
+        ERR_PRINT("Unexpected state. (nArgTokens = %Iu)", nArgTokens);
+        status = FALSE;
+        goto exit;
+    }
+
+    pLog = CmdpLookupEptBreakpointLog(hLog);
+    if (!pLog)
+    {
+        goto exit;
+    }
+
+    status = EbpPrintEptBreakpointElements(
+        hLog,
+        pLog,
+        StartIndex,
+        NumberOfElements);
+    if (!status)
+    {
+        goto exit;
+    }
+
+exit:
+    return status;
+}
+#endif
+
+
+//=============================================================================
+// General Commands
+//=============================================================================
+static
+VOID
+CmdpPrintDefaultHelpText(
+    _In_ const std::vector<std::string>& ArgTokens
+)
+{
+    CmdCommands(ArgTokens);
+
+    INF_PRINT("");
+    INF_PRINT(
+        "Type '%s command_name' for more information about a command.",
+        CMD_HELP);
+}
+
+
+static PCSTR g_HelpExtInfoText =
+R"(Usage: help [command_name]
+
+    Summary
+        Display extended command information.
+
+    Parameters
+        command_name (optional)
+            If a valid command name is specified then that command's extended
+            information is displayed.
+
+            If an invalid command name is specified or no command name is
+            specified then the available command list is displayed.)";
+
+#define HELP_ARGC 2
+
+//
+// NOTE The 'help' command must be the last command in this file so that it has
+//  access to all other commands.
+//
+_Use_decl_annotations_
+BOOL
+CmdHelp(
+    const std::vector<std::string>& ArgTokens
+)
+{
+    PCSTR pszCommand = NULL;
+
+    if (HELP_ARGC != ArgTokens.size())
+    {
+        CmdpPrintDefaultHelpText(ArgTokens);
+        goto exit;
+    }
+
+    pszCommand = ArgTokens[1].c_str();
+
+    //-------------------------------------------------------------------------
+    // General
+    //-------------------------------------------------------------------------
+    if (CMD_ICOMPARE(CMD_EXIT_CLIENT, pszCommand))
+    {
+        INF_PRINT(g_ExitClientExtInfoText);
+    }
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_COMMANDS) ||
+        CMD_ICOMPARE(pszCommand, CMD_COMMANDS_SHORT))
+    {
+        INF_PRINT(g_CommandsExtInfoText);
+    }
+    else if (CMD_ICOMPARE(pszCommand, CMD_HELP))
+    {
+        INF_PRINT(g_HelpExtInfoText);
+    }
+    //-------------------------------------------------------------------------
+    // Process
+    //-------------------------------------------------------------------------
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_GET_PROCESS_ID) ||
+        CMD_ICOMPARE(pszCommand, CMD_GET_PROCESS_ID_SHORT))
+    {
+        INF_PRINT(g_GetProcessIdExtInfoText);
+    }
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_GET_PROCESS_INFORMATION) ||
+        CMD_ICOMPARE(pszCommand, CMD_GET_PROCESS_INFORMATION_SHORT))
+    {
+        INF_PRINT(g_GetProcessInformationExtInfoText);
+    }
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
+    //-------------------------------------------------------------------------
+    // Hardware Breakpoints
+    //-------------------------------------------------------------------------
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_QUERY_SYSTEM_DEBUG_STATE) ||
+        CMD_ICOMPARE(pszCommand, CMD_QUERY_SYSTEM_DEBUG_STATE_SHORT))
+    {
+    }
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_SET_HARDWARE_BREAKPOINT) ||
+        CMD_ICOMPARE(pszCommand, CMD_SET_HARDWARE_BREAKPOINT_SHORT))
+    {
+        LogPrintDirect(SETHARDWAREBREAKPOINT_USAGE);
+    }
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_CLEAR_HARDWARE_BREAKPOINT) ||
+        CMD_ICOMPARE(pszCommand, CMD_CLEAR_HARDWARE_BREAKPOINT_SHORT))
+    {
+        LogPrintDirect(CLEARHARDWAREBREAKPOINT_USAGE);
+    }
+    //-------------------------------------------------------------------------
+    // Capture Execution Context
+    //-------------------------------------------------------------------------
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_CEC_REGISTER) ||
+        CMD_ICOMPARE(pszCommand, CMD_CEC_REGISTER_SHORT))
+    {
+        LogPrintDirect(CEC_REGISTER_USAGE);
+    }
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_CEC_MEMORY) ||
+        CMD_ICOMPARE(pszCommand, CMD_CEC_MEMORY_SHORT))
+    {
+        LogPrintDirect(g_CecmUsageText);
+    }
+#endif
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+    //-------------------------------------------------------------------------
+    // Ept Breakpoints
+    //-------------------------------------------------------------------------
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_QUERY_EPT_BREAKPOINT_INFORMATION) ||
+        CMD_ICOMPARE(pszCommand, CMD_QUERY_EPT_BREAKPOINT_INFORMATION_SHORT))
+    {
+        INF_PRINT(g_QueryEptBreakpointInformationExtInfoText);
+    }
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_SET_EPT_BREAKPOINT_BASIC) ||
+        CMD_ICOMPARE(pszCommand, CMD_SET_EPT_BREAKPOINT_BASIC_SHORT))
+    {
+        LogPrintDirect(g_SetEptBreakpointExtInfoText);
+    }
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_SET_EPT_BREAKPOINT_GENERAL_REGISTER_CONTEXT) ||
+        CMD_ICOMPARE(pszCommand, CMD_SET_EPT_BREAKPOINT_GENERAL_REGISTER_CONTEXT_SHORT))
+    {
+        LogPrintDirect(g_SetEptBreakpointGeneralRegisterContextExtInfoText);
+    }
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_SET_EPT_BREAKPOINT_KEYED_REGISTER_CONTEXT) ||
+        CMD_ICOMPARE(pszCommand, CMD_SET_EPT_BREAKPOINT_KEYED_REGISTER_CONTEXT_SHORT))
+    {
+        LogPrintDirect(g_SetEptBreakpointKeyedRegisterContextExtInfoText);
+    }
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_DISABLE_EPT_BREAKPOINT) ||
+        CMD_ICOMPARE(pszCommand, CMD_DISABLE_EPT_BREAKPOINT_SHORT))
+    {
+        INF_PRINT(g_DisableEptBreakpointExtInfoText);
+    }
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_CLEAR_EPT_BREAKPOINT) ||
+        CMD_ICOMPARE(pszCommand, CMD_CLEAR_EPT_BREAKPOINT_SHORT))
+    {
+        INF_PRINT(g_ClearEptBreakpointExtInfoText);
+    }
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_PRINT_EPT_BREAKPOINT_LOG_HEADER) ||
+        CMD_ICOMPARE(pszCommand, CMD_PRINT_EPT_BREAKPOINT_LOG_HEADER_SHORT))
+    {
+        INF_PRINT(g_PrintEptBreakpointLogHeaderExtInfoText);
+    }
+    else if (
+        CMD_ICOMPARE(pszCommand, CMD_PRINT_EPT_BREAKPOINT_LOG_ELEMENTS) ||
+        CMD_ICOMPARE(pszCommand, CMD_PRINT_EPT_BREAKPOINT_LOG_ELEMENTS_SHORT))
+    {
+        LogPrintDirect(g_PrintEptBreakpointLogElementsExtInfoText);
+    }
+#endif
+    //-------------------------------------------------------------------------
+    // Unhandled
+    //-------------------------------------------------------------------------
+    else
+    {
+        CmdpPrintDefaultHelpText(ArgTokens);
+    }
+
+exit:
+    return TRUE;
 }

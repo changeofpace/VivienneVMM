@@ -55,13 +55,13 @@
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <DisableSpecificWarnings>6066;30030;5040;4603;4627;4986;4987;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;5040;6066;26812;30030;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <DisableSpecificWarnings>6066;30030;5040;4748;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4505;5040;6066;26812;30030;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -69,14 +69,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\arch_x64.h" />
+    <ClInclude Include="..\common\config.h" />
     <ClInclude Include="..\common\driver_io_types.h" />
     <ClInclude Include="..\common\time_util.h" />
     <ClInclude Include="breakpoint_callback.h" />
-    <ClInclude Include="breakpoint_manager.h" />
+    <ClInclude Include="hardware_breakpoint_manager.h" />
     <ClInclude Include="capture_execution_context.h" />
-    <ClInclude Include="config.h" />
     <ClInclude Include="debug.h" />
     <ClInclude Include="debug_register_facade.h" />
+    <ClInclude Include="ept_breakpoint_manager.h" />
     <ClInclude Include="HyperPlatform\HyperPlatform\asm.h" />
     <ClInclude Include="HyperPlatform\HyperPlatform\common.h" />
     <ClInclude Include="HyperPlatform\HyperPlatform\driver.h" />
@@ -95,15 +96,18 @@
     <ClInclude Include="ioctl_validation.h" />
     <ClInclude Include="log.h" />
     <ClInclude Include="nt.h" />
+    <ClInclude Include="process_util.h" />
     <ClInclude Include="register_util.h" />
+    <ClInclude Include="system_util.h" />
     <ClInclude Include="vivienne.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\common\time_util.cpp" />
     <ClCompile Include="breakpoint_callback.cpp" />
-    <ClCompile Include="breakpoint_manager.cpp" />
+    <ClCompile Include="hardware_breakpoint_manager.cpp" />
     <ClCompile Include="capture_execution_context.cpp" />
     <ClCompile Include="debug_register_facade.cpp" />
+    <ClCompile Include="ept_breakpoint_manager.cpp" />
     <ClCompile Include="HyperPlatform\HyperPlatform\driver.cpp" />
     <ClCompile Include="HyperPlatform\HyperPlatform\ept.cpp" />
     <ClCompile Include="HyperPlatform\HyperPlatform\global_object.cpp" />
@@ -116,7 +120,9 @@
     <ClCompile Include="HyperPlatform\HyperPlatform\vm.cpp" />
     <ClCompile Include="HyperPlatform\HyperPlatform\vmm.cpp" />
     <ClCompile Include="ioctl_validation.cpp" />
+    <ClCompile Include="process_util.cpp" />
     <ClCompile Include="register_util.cpp" />
+    <ClCompile Include="system_util.cpp" />
     <ClCompile Include="vivienne.cpp" />
   </ItemGroup>
   <ItemGroup>

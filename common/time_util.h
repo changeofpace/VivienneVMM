@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -38,15 +38,15 @@ Environment:
 #define SECOND_IN_MICROSECONDS 1000000
 #define SECOND_IN_NANOSECONDS  1000000000
 
-#define SECONDS_TO_MILLISECONDS(Seconds) (Seconds * SECOND_IN_MILLISECONDS)
-#define SECONDS_TO_MICROSECONDS(Seconds) (Seconds * SECOND_IN_MICROSECONDS)
-#define SECONDS_TO_NANOSECONDS(Seconds)  (Seconds * SECOND_IN_NANOSECONDS)
+#define SECONDS_TO_MILLISECONDS(Seconds) ((Seconds) * SECOND_IN_MILLISECONDS)
+#define SECONDS_TO_MICROSECONDS(Seconds) ((Seconds) * SECOND_IN_MICROSECONDS)
+#define SECONDS_TO_NANOSECONDS(Seconds)  ((Seconds) * SECOND_IN_NANOSECONDS)
 
 //
 // Relative interval for NtDelayExecution.
 //
 #define MILLISECONDS_TO_RELATIVE_NTINTERVAL(Milliseconds) \
-    ((LONGLONG)Milliseconds * (-10000))
+    (((LONGLONG)(Milliseconds)) * (-10000))
 
 //=============================================================================
 // Meta Interface

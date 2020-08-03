@@ -14,9 +14,11 @@
 #include "util.h"
 #include "performance.h"
 
-#include "..\..\breakpoint_manager.h"
-#include "..\..\config.h"
+#include "../../../common/config.h"
+
 #include "..\..\debug_register_facade.h"
+#include "..\..\ept_breakpoint_manager.h"
+#include "..\..\hardware_breakpoint_manager.h"
 #include "..\..\log.h"
 
 extern "C" {
@@ -43,31 +45,6 @@ static const long kVmmpNumberOfProcessors = 2;
 //
 // types
 //
-
-// Represents raw structure of stack of VMM when VmmVmExitHandler() is called
-struct VmmInitialStack {
-  GpRegisters gp_regs;
-  KtrapFrame trap_frame;
-  ProcessorData *processor_data;
-};
-
-// Things need to be read and written by each VM-exit handler
-struct GuestContext {
-  union {
-    VmmInitialStack *stack;
-    GpRegisters *gp_regs;
-  };
-  FlagRegister flag_reg;
-  ULONG_PTR ip;
-  ULONG_PTR cr8;
-  KIRQL irql;
-  bool vm_continue;
-};
-#if defined(_AMD64_)
-static_assert(sizeof(GuestContext) == 40, "Size check");
-#else
-static_assert(sizeof(GuestContext) == 20, "Size check");
-#endif
 
 // Context at the moment of vmexit
 struct VmExitHistory {
@@ -96,8 +73,7 @@ DECLSPEC_NORETURN static void VmmpHandleTripleFault(
 DECLSPEC_NORETURN static void VmmpHandleUnexpectedExit(
     _Inout_ GuestContext *guest_context);
 
-DECLSPEC_NORETURN static void VmmpHandleMonitorTrap(
-    _Inout_ GuestContext *guest_context);
+static void VmmpHandleMonitorTrap(_Inout_ GuestContext *guest_context);
 
 static void VmmpHandleException(_Inout_ GuestContext *guest_context);
 
@@ -230,6 +206,7 @@ _Use_decl_annotations_ bool __stdcall VmmVmExitHandler(VmmInitialStack *stack) {
   if (IsX64()) {
     __writecr8(guest_context.cr8);
   }
+
   return guest_context.vm_continue;
 }
 #pragma warning(pop)
@@ -294,7 +271,7 @@ _Use_decl_annotations_ static void VmmpHandleVmExit(
       break;
     case VmxExitReason::kMonitorTrapFlag:
       VmmpHandleMonitorTrap(guest_context);
-      /* UNREACHABLE */
+      break;
     case VmxExitReason::kGdtrOrIdtrAccess:
       VmmpHandleGdtrOrIdtrAccess(guest_context);
       break;
@@ -319,10 +296,6 @@ _Use_decl_annotations_ static void VmmpHandleVmExit(
     case VmxExitReason::kVmwrite:
     case VmxExitReason::kVmoff:
     case VmxExitReason::kVmon:
-    case VmxExitReason::kInvept:
-    case VmxExitReason::kInvvpid:
-      VmmpHandleVmx(guest_context);
-      break;
     case VmxExitReason::kRdtscp:
       VmmpHandleRdtscp(guest_context);
       break;
@@ -357,10 +330,7 @@ _Use_decl_annotations_ static void VmmpHandleUnexpectedExit(
 // MTF VM-exit
 _Use_decl_annotations_ static void VmmpHandleMonitorTrap(
     GuestContext *guest_context) {
-  VmmpDumpGuestState();
-  HYPERPLATFORM_COMMON_BUG_CHECK(HyperPlatformBugCheck::kUnexpectedVmExit,
-                                 reinterpret_cast<ULONG_PTR>(guest_context),
-                                 guest_context->ip, 0);
+  EbmxHandleMonitorTrapFlag(guest_context);
 }
 
 // Interrupt
@@ -399,7 +369,7 @@ _Use_decl_annotations_ static void VmmpHandleException(
     } else if (vector == InterruptionVector::kDebugException) {
       // #DB
 #pragma warning(suppress : 28123) // Call not permitted at high IRQ level.
-      NTSTATUS ntstatus = BpmVmxProcessDebugExceptionEvent(
+      NTSTATUS ntstatus = HbmxProcessDebugExceptionEvent(
         guest_context->gp_regs,
         &guest_context->flag_reg,
         &guest_context->ip);
@@ -453,7 +423,7 @@ _Use_decl_annotations_ static void VmmpHandleCpuid(
   } else if (function_id == kHyperVCpuidInterface) {
     // Leave signature of HyperPlatform onto EAX
     // NOTE This signature can be used as a VM detection vector.
-    cpu_info[0] = CFG_VVMM_SIGNATURE;
+    cpu_info[0] = CFG_NAME_VIVIENNE_SIGNATURE;
   }
 
   guest_context->gp_regs->ax = cpu_info[0];
@@ -836,6 +806,7 @@ _Use_decl_annotations_ static void VmmpHandleDrAccess(
   const auto register_used =
     VmmpSelectRegister(exit_qualification.fields.gp_register, guest_context);
 
+  // TODO Define this somewhere.
 #if defined(CFG_LOG_MOVDR_EVENTS)
   FcdVmxLogMovDrEvent(exit_qualification, register_used);
 #endif
@@ -926,7 +897,7 @@ _Use_decl_annotations_ static void VmmpHandleDrAccess(
   }
 
   // TODO Use the Dr6 and Dr7 reserved-bits enforcement below in BPM and FCD.
-#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
+#ifdef CFG_HBM_ENABLE_DEBUG_REGISTER_FACADE
   NTSTATUS ntstatus = STATUS_SUCCESS;
 
   ntstatus = FcdVmxProcessMovDrEvent(exit_qualification, register_used);
@@ -1234,11 +1205,6 @@ _Use_decl_annotations_ static void VmmpHandleVmx(GuestContext *guest_context) {
   VmmpAdjustGuestInstructionPointer(guest_context);
 }
 
-//
-// TODO Add a dynamic password system to the VMCALL interface to prevent third
-//  parties from determining the presence of HyperPlatform via VMCALL fuzzing.
-//
-
 // VMCALL
 _Use_decl_annotations_ static void VmmpHandleVmCall(
     GuestContext *guest_context) {
@@ -1251,7 +1217,6 @@ _Use_decl_annotations_ static void VmmpHandleVmCall(
   const auto context = reinterpret_cast<void *>(guest_context->gp_regs->dx);
 
   // Fail if the vmcall occurred in user mode.
-  // TODO Add a test case for this.
   if (VmmpGetGuestCpl() != 0) {
     VmmpIndicateUnsuccessfulVmcall(guest_context);
     return;
@@ -1268,30 +1233,57 @@ _Use_decl_annotations_ static void VmmpHandleVmCall(
   switch (hypercall_number) {
     case HypercallNumber::kTerminateVmm:
       // Unloading requested. This VMCALL is allowed to execute only from CPL=0
-#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
+#if defined(CFG_HBM_ENABLE_DEBUG_REGISTER_FACADE)
       FcdVmxDriverUnload();
 #endif
       VmmpHandleVmCallTermination(guest_context, context);
       break;
+
     //case HypercallNumber::kPingVmm:
     //  // Sample VMCALL handler
     //  HYPERPLATFORM_LOG_INFO_SAFE("Pong by VMM! (context = %p)", context);
     //  VmmpIndicateSuccessfulVmcall(guest_context);
     //  break;
+
     case HypercallNumber::kGetSharedProcessorData:
       *static_cast<void **>(context) =
           guest_context->stack->processor_data->shared_data;
       VmmpIndicateSuccessfulVmcall(guest_context);
       break;
+
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
     case HypercallNumber::kSetHardwareBreakpoint:
-    {
-      NTSTATUS ntstatus = BpmVmxSetHardwareBreakpoint(context);
-      if (NT_SUCCESS(ntstatus))
-      {
-        VmmpIndicateSuccessfulVmcall(guest_context);
-      }
+      HbmxSetHardwareBreakpoint(context);
+      VmmpIndicateSuccessfulVmcall(guest_context);
       break;
-    }
+#endif
+
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+    case HypercallNumber::kInstallEptBreakpoint:
+      EbmxInstallEptBreakpoint(
+          guest_context->stack->processor_data->ept_data, context);
+      VmmpIndicateSuccessfulVmcall(guest_context);
+      break;
+
+    case HypercallNumber::kUninstallEptBreakpoint:
+      EbmxUninstallEptBreakpoint(
+          guest_context->stack->processor_data->ept_data, context);
+      VmmpIndicateSuccessfulVmcall(guest_context);
+      break;
+
+    case HypercallNumber::kUninstallEptBreakpointsByProcessId:
+      EbmxUninstallEptBreakpointsByProcessId(
+          guest_context->stack->processor_data->ept_data, context);
+      VmmpIndicateSuccessfulVmcall(guest_context);
+      break;
+
+    case HypercallNumber::kUninstallAllEptBreakpoints:
+      EbmxUninstallAllEptBreakpoints(
+          guest_context->stack->processor_data->ept_data, context);
+      VmmpIndicateSuccessfulVmcall(guest_context);
+      break;
+#endif
+
     default:
       // Unsupported hypercall
       VmmpIndicateUnsuccessfulVmcall(guest_context);
@@ -1322,8 +1314,7 @@ _Use_decl_annotations_ static void VmmpHandleInvalidateTlbEntry(
 _Use_decl_annotations_ static void VmmpHandleEptViolation(
     GuestContext *guest_context) {
   HYPERPLATFORM_PERFORMANCE_MEASURE_THIS_SCOPE();
-  auto processor_data = guest_context->stack->processor_data;
-  EptHandleEptViolation(processor_data->ept_data);
+  EptHandleEptViolation(guest_context);
 }
 
 // EXIT_REASON_EPT_MISCONFIG

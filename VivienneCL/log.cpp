@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -21,7 +21,7 @@ for more information.
 //=============================================================================
 // Constants
 //=============================================================================
-#define OUTPUT_BUFFER_CCH_MAX       512
+#define OUTPUT_BUFFER_CCH_MAX       1024
 #define TIME_BUFFER_CCH             25
 #define MESSAGE_BUFFER_CCH_MAX \
     (OUTPUT_BUFFER_CCH_MAX - TIME_BUFFER_CCH - 80)
@@ -57,7 +57,6 @@ LogInitialization(
 
     if ((~VALID_CONFIG_OUTPUT_MASK) & Config)
     {
-        SetLastError(ERROR_INVALID_PARAMETER);
         status = FALSE;
         goto exit;
     }
@@ -92,7 +91,7 @@ LogPrintDirect(
         if (0 > printstatus)
         {
             hresult = E_FAIL;
-            DEBUG_BREAK;
+            DEBUG_BREAK();
             goto exit;
         }
     }
@@ -131,7 +130,7 @@ LogPrint(
     va_end(VarArgs);
     if (FAILED(hresult))
     {
-        DEBUG_BREAK;
+        DEBUG_BREAK();
         goto exit;
     }
 
@@ -149,7 +148,7 @@ LogPrint(
             LocalTime.wMilliseconds);
         if (FAILED(hresult))
         {
-            DEBUG_BREAK;
+            DEBUG_BREAK();
             goto exit;
         }
     }
@@ -168,7 +167,7 @@ LogPrint(
         fAppendCrLf ? "\r\n" : "");
     if (FAILED(hresult))
     {
-        DEBUG_BREAK;
+        DEBUG_BREAK();
         goto exit;
     }
 
@@ -183,7 +182,7 @@ LogPrint(
         if (0 > printstatus)
         {
             hresult = E_FAIL;
-            DEBUG_BREAK;
+            DEBUG_BREAK();
             goto exit;
         }
     }

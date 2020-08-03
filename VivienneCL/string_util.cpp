@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -151,6 +151,22 @@ StrUnsignedLongLongFromString(
 
 exit:
     return status;
+}
+
+
+_Use_decl_annotations_
+BOOL
+StrUnsignedLongPtrFromString(
+    const std::string& Token,
+    BOOLEAN IsHex,
+    PULONG_PTR pValue
+)
+{
+#if defined(_WIN64)
+    return StrUnsignedLongLongFromString(Token, IsHex, pValue);
+#else
+    return StrUnsignedLongFromString(Token, IsHex, pValue);
+#endif
 }
 
 

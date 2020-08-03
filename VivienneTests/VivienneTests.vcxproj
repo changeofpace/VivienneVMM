@@ -11,15 +11,15 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <VCProjectVersion>15.0</VCProjectVersion>
+    <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{5FAA74A8-3A31-4A12-9C2E-1812C2D32E2F}</ProjectGuid>
-    <RootNamespace>Tests</RootNamespace>
+    <RootNamespace>VivienneTests</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
+    <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
     <SpectreMitigation>false</SpectreMitigation>
@@ -47,46 +47,65 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\</OutDir>
-    <TargetName>VivienneTests</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\$(ProjectName)\</OutDir>
-    <TargetName>VivienneTests</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)VivienneCL\</AdditionalIncludeDirectories>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <DisableSpecificWarnings>6066;6273;6328;26812;</DisableSpecificWarnings>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SupportJustMyCode>false</SupportJustMyCode>
     </ClCompile>
     <Link>
+      <SubSystem>Console</SubSystem>
       <AdditionalDependencies>ntdll.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <FixedBaseAddress>true</FixedBaseAddress>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)VivienneCL\</AdditionalIncludeDirectories>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <WholeProgramOptimization>false</WholeProgramOptimization>
+      <DisableSpecificWarnings>6066;6273;6328;26812;</DisableSpecificWarnings>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_MBCS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
+      <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>ntdll.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <FixedBaseAddress>true</FixedBaseAddress>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\common\time_util.cpp" />
+    <ClCompile Include="..\VivienneCL\debug.cpp" />
     <ClCompile Include="..\VivienneCL\driver_io.cpp" />
+    <ClCompile Include="..\VivienneCL\ept_breakpoint.cpp" />
     <ClCompile Include="..\VivienneCL\log.cpp" />
+    <ClCompile Include="..\VivienneCL\memory_util.cpp" />
     <ClCompile Include="..\VivienneCL\string_util.cpp" />
     <ClCompile Include="..\VivienneCL\token_parser.cpp" />
+    <ClCompile Include="affinity.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="memory.cpp" />
+    <ClCompile Include="system_util.cpp" />
     <ClCompile Include="test_antidebug_cecm_spanning_page.cpp" />
     <ClCompile Include="test_antidebug_single_step.cpp" />
     <ClCompile Include="test_breakpoint_ranges.cpp" />
@@ -96,6 +115,7 @@
     <ClCompile Include="test_cecr.cpp" />
     <ClCompile Include="test_cecr_edge_cases.cpp" />
     <ClCompile Include="test_duplicate_breakpoints.cpp" />
+    <ClCompile Include="test_ept_breakpoint_manager.cpp" />
     <ClCompile Include="test_facade.cpp" />
     <ClCompile Include="test_facade_stress.cpp" />
     <ClCompile Include="test_read_dr.cpp" />
@@ -104,22 +124,28 @@
     <ClCompile Include="test_token_parser.cpp" />
     <ClCompile Include="test_unowned_breakpoints.cpp" />
     <ClCompile Include="test_util.cpp" />
+    <ClCompile Include="thread_util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\common\arch_x64.h" />
-    <ClInclude Include="..\common\debug.h" />
+    <ClInclude Include="..\common\config.h" />
     <ClInclude Include="..\common\driver_io_types.h" />
     <ClInclude Include="..\common\time_util.h" />
+    <ClInclude Include="..\VivienneCL\debug.h" />
     <ClInclude Include="..\VivienneCL\driver_io.h" />
+    <ClInclude Include="..\VivienneCL\ept_breakpoint.h" />
     <ClInclude Include="..\VivienneCL\log.h" />
+    <ClInclude Include="..\VivienneCL\memory_util.h" />
     <ClInclude Include="..\VivienneCL\ntdll.h" />
     <ClInclude Include="..\VivienneCL\string_util.h" />
     <ClInclude Include="..\VivienneCL\token_parser.h" />
-    <ClInclude Include="..\VivienneVMM\config.h" />
+    <ClInclude Include="affinity.h" />
     <ClInclude Include="arbitrary_code.h" />
-    <ClInclude Include="memory.h" />
+    <ClInclude Include="system_util.h" />
     <ClInclude Include="tests.h" />
+    <ClInclude Include="test_ept_breakpoint_manager.h" />
     <ClInclude Include="test_util.h" />
+    <ClInclude Include="thread_util.h" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="arbitrary_code.asm">
@@ -127,6 +153,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
       <FileType>Document</FileType>
     </MASM>
+    <MASM Include="test_ept_breakpoint_manager_asm.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

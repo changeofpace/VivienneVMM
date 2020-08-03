@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -62,6 +62,54 @@ VivienneIoTermination()
 //=============================================================================
 // Public Interface
 //=============================================================================
+_Use_decl_annotations_
+BOOL
+VivienneIoGetProcessInformation(
+    ULONG_PTR ProcessId,
+    PVIVIENNE_PROCESS_INFORMATION pProcessInfo
+)
+{
+    GET_PROCESS_INFORMATION_REQUEST Request = {};
+    GET_PROCESS_INFORMATION_REPLY Reply = {};
+    DWORD ReturnedBytes = 0;
+    BOOL status = TRUE;
+
+    //
+    // Zero out parameters.
+    //
+    RtlSecureZeroMemory(pProcessInfo, sizeof(*pProcessInfo));
+
+    //
+    // Initialize the request.
+    //
+    Request.ProcessId = ProcessId;
+
+    status = DeviceIoControl(
+        g_hDevice,
+        IOCTL_GET_PROCESS_INFORMATION,
+        &Request,
+        sizeof(Request),
+        &Reply,
+        sizeof(Reply),
+        &ReturnedBytes,
+        NULL);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    //
+    // Set out parameters.
+    //
+    RtlCopyMemory(
+        pProcessInfo,
+        &Reply.Info,
+        sizeof(VIVIENNE_PROCESS_INFORMATION));
+
+exit:
+    return status;
+}
+
 
 //
 // VivienneIoQuerySystemDebugState
@@ -294,5 +342,209 @@ VivienneIoCaptureMemoryValues(
         &ReturnedBytes,
         NULL);
 
+    return status;
+}
+
+
+_Use_decl_annotations_
+BOOL
+VivienneIoQueryEptBreakpointInformationSize(
+    PULONG pcbRequired
+)
+{
+    QUERY_EPT_BREAKPOINT_INFORMATION_SIZE_REPLY Reply = {};
+    DWORD ReturnedBytes = 0;
+    BOOL status = TRUE;
+
+    //
+    // Zero out parameters.
+    //
+    *pcbRequired = 0;
+
+    status = DeviceIoControl(
+        g_hDevice,
+        IOCTL_QUERY_EPT_BREAKPOINT_INFORMATION_SIZE,
+        NULL,
+        0,
+        &Reply,
+        sizeof(Reply),
+        &ReturnedBytes,
+        NULL);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    //
+    // Set out parameters.
+    //
+    *pcbRequired = Reply.RequiredSize;
+
+exit:
+    return status;
+}
+
+
+_Use_decl_annotations_
+BOOL
+VivienneIoQueryEptBreakpointInformation(
+    PEPT_BREAKPOINT_INFORMATION pEptBreakpointInfo,
+    ULONG cbEptBreakpointInfo
+)
+{
+    DWORD ReturnedBytes = 0;
+    BOOL status = TRUE;
+
+    //
+    // Zero out parameters.
+    //
+    RtlSecureZeroMemory(pEptBreakpointInfo, cbEptBreakpointInfo);
+
+    status = DeviceIoControl(
+        g_hDevice,
+        IOCTL_QUERY_EPT_BREAKPOINT_INFORMATION,
+        NULL,
+        0,
+        pEptBreakpointInfo,
+        cbEptBreakpointInfo,
+        &ReturnedBytes,
+        NULL);
+    if (!status)
+    {
+        goto exit;
+    }
+
+exit:
+    return status;
+}
+
+
+_Use_decl_annotations_
+BOOL
+VivienneIoSetEptBreakpoint(
+    ULONG_PTR ProcessId,
+    ULONG_PTR Address,
+    EPT_BREAKPOINT_TYPE BreakpointType,
+    EPT_BREAKPOINT_SIZE BreakpointSize,
+    EPT_BREAKPOINT_LOG_TYPE LogType,
+    SIZE_T cbLog,
+    BOOLEAN fMakePageResident,
+    X64_REGISTER RegisterKey,
+    PHANDLE phLog,
+    PEPT_BREAKPOINT_LOG* ppLog
+)
+{
+    SET_EPT_BREAKPOINT_REQUEST Request = {};
+    SET_EPT_BREAKPOINT_REPLY Reply = {};
+    DWORD ReturnedBytes = 0;
+    BOOL status = TRUE;
+
+    //
+    // Zero out parameters.
+    //
+    *phLog = NULL;
+    *ppLog = NULL;
+
+    //
+    // Initialize the request.
+    //
+    Request.ProcessId = ProcessId;
+    Request.Address = Address;
+    Request.BreakpointType = BreakpointType;
+    Request.BreakpointSize = BreakpointSize;
+    Request.LogType = LogType;
+    Request.LogSize = cbLog;
+    Request.MakePageResident = fMakePageResident;
+    Request.RegisterKey = RegisterKey;
+
+    status = DeviceIoControl(
+        g_hDevice,
+        IOCTL_SET_EPT_BREAKPOINT,
+        &Request,
+        sizeof(Request),
+        &Reply,
+        sizeof(Reply),
+        &ReturnedBytes,
+        NULL);
+    if (!status)
+    {
+        goto exit;
+    }
+
+    //
+    // Set out parameters.
+    //
+    *phLog = Reply.Handle;
+    *ppLog = Reply.Log;
+
+exit:
+    return status;
+}
+
+
+_Use_decl_annotations_
+BOOL
+VivienneIoDisableEptBreakpoint(
+    HANDLE Handle
+)
+{
+    CLEAR_EPT_BREAKPOINT_REQUEST Request = {};
+    DWORD ReturnedBytes = 0;
+    BOOL status = TRUE;
+
+    //
+    // Initialize the request.
+    //
+    Request.Handle = Handle;
+
+    status = DeviceIoControl(
+        g_hDevice,
+        IOCTL_DISABLE_EPT_BREAKPOINT,
+        &Request,
+        sizeof(Request),
+        NULL,
+        0,
+        &ReturnedBytes,
+        NULL);
+    if (!status)
+    {
+        goto exit;
+    }
+
+exit:
+    return status;
+}
+
+
+_Use_decl_annotations_
+BOOL
+VivienneIoClearEptBreakpoint(
+    HANDLE Handle
+)
+{
+    CLEAR_EPT_BREAKPOINT_REQUEST Request = {};
+    DWORD ReturnedBytes = 0;
+    BOOL status = TRUE;
+
+    //
+    // Initialize the request.
+    //
+    Request.Handle = Handle;
+
+    status =  DeviceIoControl(
+        g_hDevice,
+        IOCTL_CLEAR_EPT_BREAKPOINT,
+        &Request,
+        sizeof(Request),
+        NULL,
+        0,
+        &ReturnedBytes,
+        NULL);
+    if (!status)
+    {
+        goto exit;
+    }
+
+exit:
     return status;
 }

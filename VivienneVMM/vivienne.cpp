@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -26,15 +26,32 @@ Environment:
 #include "vivienne.h"
 
 #include "breakpoint_callback.h"
-#include "breakpoint_manager.h"
 #include "capture_execution_context.h"
-#include "config.h"
 #include "debug.h"
+#include "ept_breakpoint_manager.h"
+#include "hardware_breakpoint_manager.h"
 #include "log.h"
-#include "process.h"
+#include "process_util.h"
 
+#include "..\common\config.h"
 #include "..\common\driver_io_types.h"
 #include "..\common\time_util.h"
+
+
+//=============================================================================
+// Ioctl Interface Prototypes
+//=============================================================================
+_Dispatch_type_(IRP_MJ_CREATE)
+DRIVER_DISPATCH
+ViviennepVmmDispatchCreate;
+
+_Dispatch_type_(IRP_MJ_CLOSE)
+DRIVER_DISPATCH
+ViviennepVmmDispatchClose;
+
+_Dispatch_type_(IRP_MJ_DEVICE_CONTROL)
+DRIVER_DISPATCH
+ViviennepVmmDispatchDeviceControl;
 
 
 //=============================================================================
@@ -51,13 +68,23 @@ VivienneVmmDriverEntry(
     UNICODE_STRING DeviceName = {};
     UNICODE_STRING SymlinkName = {};
     BOOLEAN fSymlinkCreated = FALSE;
-    BOOLEAN fBpmInitialized = FALSE;
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
+    BOOLEAN fHbmInitialized = FALSE;
     BOOLEAN fCecInitialized = FALSE;
+#endif
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+    BOOLEAN fEbmInitialized = FALSE;
+#endif
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
     UNREFERENCED_PARAMETER(pRegistryPath);
 
     INF_PRINT("Loading %ls.", VVMM_DRIVER_NAME_W);
+
+    INF_PRINT("Vivienne driver mapped at: %p - %p (0x%X)",
+        pDriverObject->DriverStart,
+        (ULONG_PTR)pDriverObject->DriverStart + pDriverObject->DriverSize,
+        pDriverObject->DriverSize);
 
     //
     // Initialize the driver.
@@ -98,10 +125,10 @@ VivienneVmmDriverEntry(
 //  DriverEntry or DriverUnload.
 #pragma warning(push)
 #pragma warning(disable : 28175)
-    pDriverObject->MajorFunction[IRP_MJ_CREATE] = VivienneVmmDispatchCreate;
-    pDriverObject->MajorFunction[IRP_MJ_CLOSE] = VivienneVmmDispatchClose;
+    pDriverObject->MajorFunction[IRP_MJ_CREATE] = ViviennepVmmDispatchCreate;
+    pDriverObject->MajorFunction[IRP_MJ_CLOSE] = ViviennepVmmDispatchClose;
     pDriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] =
-        VivienneVmmDispatchDeviceControl;
+        ViviennepVmmDispatchDeviceControl;
 #pragma warning(pop)
 
     //
@@ -114,14 +141,15 @@ VivienneVmmDriverEntry(
         goto exit;
     }
 
-    ntstatus = BpmDriverEntry();
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
+    ntstatus = HbmDriverEntry();
     if (!NT_SUCCESS(ntstatus))
     {
-        ERR_PRINT("BpmDriverEntry failed: 0x%X", ntstatus);
+        ERR_PRINT("HbmDriverEntry failed: 0x%X", ntstatus);
         goto exit;
     }
     //
-    fBpmInitialized = TRUE;
+    fHbmInitialized = TRUE;
 
     ntstatus = CecDriverEntry();
     if (!NT_SUCCESS(ntstatus))
@@ -131,25 +159,46 @@ VivienneVmmDriverEntry(
     }
     //
     fCecInitialized = TRUE;
+#endif
+
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+    ntstatus = EbmDriverEntry();
+    if (!NT_SUCCESS(ntstatus))
+    {
+        ERR_PRINT("EbmDriverEntry failed: 0x%X", ntstatus);
+        goto exit;
+    }
+    //
+    fEbmInitialized = TRUE;
+#endif
 
     INF_PRINT("Loading %ls.", VVMM_DRIVER_NAME_W);
 
 exit:
     if (!NT_SUCCESS(ntstatus))
     {
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+        if (fEbmInitialized)
+        {
+            EbmDriverUnload();
+        }
+#endif
+
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
         if (fCecInitialized)
         {
             CecDriverUnload();
         }
 
-        if (fBpmInitialized)
+        if (fHbmInitialized)
         {
-            BpmDriverUnload();
+            HbmDriverUnload();
         }
+#endif
 
         if (fSymlinkCreated)
         {
-            VERIFY(IoDeleteSymbolicLink(&SymlinkName));
+            VERIFY_NTSTATUS(IoDeleteSymbolicLink(&SymlinkName));
         }
 
         if (pDeviceObject)
@@ -175,15 +224,21 @@ VivienneVmmDriverUnload(
     //
     // Unload the driver modules.
     //
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+    EbmDriverUnload();
+#endif
+
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
     CecDriverUnload();
-    BpmDriverUnload();
+    HbmDriverUnload();
+#endif
 
     //
     // Release our symbolic link.
     //
     SymlinkName = RTL_CONSTANT_STRING(VVMM_SYMLINK_NAME_W);
 
-    VERIFY(IoDeleteSymbolicLink(&SymlinkName));
+    VERIFY_NTSTATUS(IoDeleteSymbolicLink(&SymlinkName));
 
     //
     // Release our device object.
@@ -198,25 +253,32 @@ VivienneVmmDriverUnload(
 
 
 //=============================================================================
-// Public Interface
+// Ioctl Interface
 //=============================================================================
 _Use_decl_annotations_
 NTSTATUS
-VivienneVmmDispatchCreate(
+ViviennepVmmDispatchCreate(
     PDEVICE_OBJECT pDeviceObject,
     PIRP pIrp
 )
 {
     UNREFERENCED_PARAMETER(pDeviceObject);
+
     DBG_PRINT("Processing IRP_MJ_CREATE.");
+
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+    VERIFY_NTSTATUS(EbmRegisterClient(PsGetCurrentProcessId()));
+#endif
+
     IoCompleteRequest(pIrp, IO_NO_INCREMENT);
+
     return STATUS_SUCCESS;
 }
 
 
 _Use_decl_annotations_
 NTSTATUS
-VivienneVmmDispatchClose(
+ViviennepVmmDispatchClose(
     PDEVICE_OBJECT pDeviceObject,
     PIRP pIrp
 )
@@ -225,7 +287,12 @@ VivienneVmmDispatchClose(
 
     DBG_PRINT("Processing IRP_MJ_CLOSE.");
 
-    VERIFY(BpmCleanupBreakpoints());
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
+    //
+    // TODO Move this to an IRP_MJ_CLEANUP routine?
+    //
+    VERIFY_NTSTATUS(HbmCleanupBreakpoints());
+#endif
 
     IoCompleteRequest(pIrp, IO_NO_INCREMENT);
 
@@ -235,7 +302,7 @@ VivienneVmmDispatchClose(
 
 _Use_decl_annotations_
 NTSTATUS
-VivienneVmmDispatchDeviceControl(
+ViviennepVmmDispatchDeviceControl(
     PDEVICE_OBJECT pDeviceObject,
     PIRP pIrp
 )
@@ -251,6 +318,45 @@ VivienneVmmDispatchDeviceControl(
 
     switch (pIrpStack->Parameters.DeviceIoControl.IoControlCode)
     {
+        //---------------------------------------------------------------------
+        // Process
+        //---------------------------------------------------------------------
+        case IOCTL_GET_PROCESS_INFORMATION:
+            DBG_PRINT("Processing IOCTL_GET_PROCESS_INFORMATION.");
+
+            if (sizeof(GET_PROCESS_INFORMATION_REQUEST) == cbInput &&
+                sizeof(GET_PROCESS_INFORMATION_REPLY) == cbOutput &&
+                pSystemBuffer)
+            {
+                PGET_PROCESS_INFORMATION_REQUEST pRequest =
+                    (PGET_PROCESS_INFORMATION_REQUEST)pSystemBuffer;
+                PGET_PROCESS_INFORMATION_REPLY pReply =
+                    (PGET_PROCESS_INFORMATION_REPLY)pSystemBuffer;
+
+                ntstatus = PsuGetProcessInformation(
+                    (HANDLE)pRequest->ProcessId,
+                    &pReply->Info);
+                if (NT_SUCCESS(ntstatus))
+                {
+                    Information = sizeof(*pReply);
+                }
+                else
+                {
+                    ERR_PRINT("PsuGetProcessInformation failed: 0x%X",
+                        ntstatus);
+                }
+            }
+            else
+            {
+                ntstatus = STATUS_INFO_LENGTH_MISMATCH;
+            }
+
+            break;
+
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
+        //---------------------------------------------------------------------
+        // Hardware Breakpoint Manager
+        //---------------------------------------------------------------------
         case IOCTL_QUERYSYSTEMDEBUGSTATE:
             DBG_PRINT("Processing IOCTL_QUERYSYSTEMDEBUGSTATE.");
 
@@ -260,7 +366,7 @@ VivienneVmmDispatchDeviceControl(
                 PQUERYSYSTEMDEBUGSTATE_REPLY pReply =
                     (PQUERYSYSTEMDEBUGSTATE_REPLY)pSystemBuffer;
 
-                ntstatus = BpmQuerySystemDebugState(
+                ntstatus = HbmQuerySystemDebugState(
                     (PSYSTEM_DEBUG_STATE)pReply,
                     cbOutput);
                 if (NT_SUCCESS(ntstatus))
@@ -274,7 +380,7 @@ VivienneVmmDispatchDeviceControl(
                 else
                 {
                     ERR_PRINT(
-                        "BpmQuerySystemDebugState failed: 0x%X",
+                        "HbmQuerySystemDebugState failed: 0x%X",
                         ntstatus);
                 }
             }
@@ -294,7 +400,7 @@ VivienneVmmDispatchDeviceControl(
                 PSETHARDWAREBREAKPOINT_REQUEST pRequest =
                     (PSETHARDWAREBREAKPOINT_REQUEST)pSystemBuffer;
 
-                ntstatus = BpmSetHardwareBreakpoint(
+                ntstatus = HbmSetHardwareBreakpoint(
                     pRequest->ProcessId,
                     pRequest->Index,
                     pRequest->Address,
@@ -305,7 +411,7 @@ VivienneVmmDispatchDeviceControl(
                 if (!NT_SUCCESS(ntstatus))
                 {
                     ERR_PRINT(
-                        "BpmSetHardwareBreakpoint failed: 0x%X",
+                        "HbmSetHardwareBreakpoint failed: 0x%X",
                         ntstatus);
                 }
             }
@@ -325,11 +431,11 @@ VivienneVmmDispatchDeviceControl(
                 PCLEARHARDWAREBREAKPOINT_REQUEST pRequest =
                     (PCLEARHARDWAREBREAKPOINT_REQUEST)pSystemBuffer;
 
-                ntstatus = BpmClearHardwareBreakpoint(pRequest->Index);
+                ntstatus = HbmClearHardwareBreakpoint(pRequest->Index);
                 if (!NT_SUCCESS(ntstatus))
                 {
                     ERR_PRINT(
-                        "BpmClearHardwareBreakpoint failed: 0x%X",
+                        "HbmClearHardwareBreakpoint failed: 0x%X",
                         ntstatus);
                 }
             }
@@ -340,6 +446,9 @@ VivienneVmmDispatchDeviceControl(
 
             break;
 
+        //---------------------------------------------------------------------
+        // Capture Execution Context
+        //---------------------------------------------------------------------
         case IOCTL_CEC_REGISTER:
             DBG_PRINT("Processing IOCTL_CEC_REGISTER.");
 
@@ -400,7 +509,7 @@ VivienneVmmDispatchDeviceControl(
                     pRequest->Size,
                     &pRequest->MemoryDescription,
                     pRequest->DurationInMilliseconds,
-                    (PCEC_MEMORY_REPLY)pReply,
+                    (PCEC_MEMORY_VALUES)pReply,
                     cbOutput);
                 if (NT_SUCCESS(ntstatus))
                 {
@@ -419,10 +528,165 @@ VivienneVmmDispatchDeviceControl(
             }
 
             break;
+#endif
+
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+        //---------------------------------------------------------------------
+        // Ept Breakpoint Manager
+        //---------------------------------------------------------------------
+        case IOCTL_QUERY_EPT_BREAKPOINT_INFORMATION_SIZE:
+            DBG_PRINT(
+                "Processing IOCTL_QUERY_EPT_BREAKPOINT_INFORMATION_SIZE.");
+
+            if (sizeof(QUERY_EPT_BREAKPOINT_INFORMATION_SIZE_REPLY) == cbOutput
+                && pSystemBuffer)
+            {
+                PQUERY_EPT_BREAKPOINT_INFORMATION_SIZE_REPLY pReply =
+                    (PQUERY_EPT_BREAKPOINT_INFORMATION_SIZE_REPLY)pSystemBuffer;
+
+                ntstatus = EbmQueryEptBreakpointInformationSize(
+                    &pReply->RequiredSize);
+                if (NT_SUCCESS(ntstatus))
+                {
+                    Information = sizeof(*pReply);
+                }
+                else
+                {
+                    ERR_PRINT(
+                        "EbmQueryEptBreakpointInformationSize failed: 0x%X",
+                        ntstatus);
+                }
+            }
+            else
+            {
+                ntstatus = STATUS_INFO_LENGTH_MISMATCH;
+            }
+
+            break;
+
+        case IOCTL_QUERY_EPT_BREAKPOINT_INFORMATION:
+            DBG_PRINT("Processing IOCTL_QUERY_EPT_BREAKPOINT_INFORMATION.");
+
+            if (sizeof(QUERY_EPT_BREAKPOINT_INFORMATION_REPLY) <= cbOutput
+                && pSystemBuffer)
+            {
+                PQUERY_EPT_BREAKPOINT_INFORMATION_REPLY pReply =
+                    (PQUERY_EPT_BREAKPOINT_INFORMATION_REPLY)pSystemBuffer;
+                ULONG cbReturned = 0;
+
+                ntstatus = EbmQueryEptBreakpointInformation(
+                    pReply,
+                    cbOutput,
+                    &cbReturned);
+                if (NT_SUCCESS(ntstatus))
+                {
+                    Information = cbReturned;
+                }
+                else
+                {
+                    ERR_PRINT("EbmQueryEptBreakpointInformation failed: 0x%X",
+                        ntstatus);
+                }
+            }
+            else
+            {
+                ntstatus = STATUS_INFO_LENGTH_MISMATCH;
+            }
+
+            break;
+
+        case IOCTL_SET_EPT_BREAKPOINT:
+            DBG_PRINT("Processing IOCTL_SET_EPT_BREAKPOINT.");
+
+            if (sizeof(SET_EPT_BREAKPOINT_REQUEST) == cbInput &&
+                sizeof(SET_EPT_BREAKPOINT_REPLY) == cbOutput &&
+                pSystemBuffer)
+            {
+                PSET_EPT_BREAKPOINT_REQUEST pRequest =
+                    (PSET_EPT_BREAKPOINT_REQUEST)pSystemBuffer;
+                PSET_EPT_BREAKPOINT_REPLY pReply =
+                    (PSET_EPT_BREAKPOINT_REPLY)pSystemBuffer;
+
+                ntstatus = EbmSetEptBreakpoint(
+                    (HANDLE)pRequest->ProcessId,
+                    (HANDLE)pRequest->Address,
+                    pRequest->BreakpointType,
+                    pRequest->BreakpointSize,
+                    pRequest->LogType,
+                    pRequest->LogSize,
+                    pRequest->MakePageResident,
+                    pRequest->RegisterKey,
+                    &pReply->Handle,
+                    &pReply->Log);
+                if (NT_SUCCESS(ntstatus))
+                {
+                    Information = sizeof(*pReply);
+                }
+                else
+                {
+                    ERR_PRINT("EbmSetEptBreakpoint failed: 0x%X", ntstatus);
+                }
+            }
+            else
+            {
+                ntstatus = STATUS_INFO_LENGTH_MISMATCH;
+            }
+
+            break;
+
+        case IOCTL_DISABLE_EPT_BREAKPOINT:
+            DBG_PRINT("Processing IOCTL_DISABLE_EPT_BREAKPOINT.");
+
+            if (sizeof(DISABLE_EPT_BREAKPOINT_REQUEST) == cbInput &&
+                pSystemBuffer)
+            {
+                PDISABLE_EPT_BREAKPOINT_REQUEST pRequest =
+                    (PDISABLE_EPT_BREAKPOINT_REQUEST)pSystemBuffer;
+
+                ntstatus = EbmDisableEptBreakpoint(pRequest->Handle);
+                if (!NT_SUCCESS(ntstatus))
+                {
+                    ERR_PRINT("EbmDisableEptBreakpoint failed: 0x%X", ntstatus);
+                }
+            }
+            else
+            {
+                ntstatus = STATUS_INFO_LENGTH_MISMATCH;
+            }
+
+            break;
+
+        case IOCTL_CLEAR_EPT_BREAKPOINT:
+            DBG_PRINT("Processing IOCTL_CLEAR_EPT_BREAKPOINT.");
+
+            if (sizeof(CLEAR_EPT_BREAKPOINT_REQUEST) == cbInput &&
+                pSystemBuffer)
+            {
+                PCLEAR_EPT_BREAKPOINT_REQUEST pRequest =
+                    (PCLEAR_EPT_BREAKPOINT_REQUEST)pSystemBuffer;
+
+                ntstatus = EbmClearEptBreakpoint(pRequest->Handle);
+                if (!NT_SUCCESS(ntstatus))
+                {
+                    ERR_PRINT("EbmClearEptBreakpoint failed: 0x%X", ntstatus);
+                }
+            }
+            else
+            {
+                ntstatus = STATUS_INFO_LENGTH_MISMATCH;
+            }
+
+            break;
+#endif
 
         default:
+            ERR_PRINT(
+                "Unhandled ioctl."
+                " (Major = %hhu, Minor = %hhu, Control = %hhu)",
+                pIrpStack->MajorFunction,
+                pIrpStack->MinorFunction,
+                pIrpStack->Control);
             ntstatus = STATUS_NOINTERFACE;
-            ERR_PRINT("Unhandled IOCTL: 0x%X.", pIrpStack->MajorFunction);
             break;
     }
 
