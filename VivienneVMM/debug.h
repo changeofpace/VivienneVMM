@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -32,20 +32,20 @@ Macro Description:
 
 --*/
 #if defined(DBG)
-#define DEBUG_BREAK                 \
+#define DEBUG_BREAK()               \
     if (!(KD_DEBUGGER_NOT_PRESENT)) \
     {                               \
         DbgBreakPoint();            \
     }
 #else
-#define DEBUG_BREAK
+#define DEBUG_BREAK()
 #endif
 
 /*++
 
 Macro Name:
 
-    VERIFY
+    VERIFY_NTSTATUS
 
 Macro Description:
 
@@ -57,19 +57,66 @@ Remarks:
     NT_VERIFY and RTL_SOFT_ASSERT are similar utility macros.
 
 --*/
-#if defined(VERIFY)
-#error "Unexpected identifier conflict. (VERIFY)"
+#if defined(VERIFY_NTSTATUS)
+#error "Unexpected identifier conflict. (VERIFY_NTSTATUS)"
 #endif
 
 #if defined(DBG)
-#define VERIFY(NtExpression)    (NT_ASSERT(NT_SUCCESS(NtExpression)))
+#define VERIFY_NTSTATUS(Expression)                                     \
+{                                                                       \
+    NTSTATUS Verify_NtStatus_ = (Expression);                           \
+    if (!NT_SUCCESS(Verify_NtStatus_))                                  \
+    {                                                                   \
+        ERR_PRINT("\'" #Expression "\' failed: 0x%X", Verify_NtStatus_);\
+        NT_ASSERT(NT_SUCCESS(Expression));                              \
+    }                                                                   \
+}
 #else
-#define VERIFY(NtExpression)                                                \
-{                                                                           \
-    NTSTATUS Verify_NtStatus_ = (NtExpression);                             \
-    if (!NT_SUCCESS(Verify_NtStatus_))                                      \
-    {                                                                       \
-        ERR_PRINT("\'" #NtExpression "\' failed: 0x%X", Verify_NtStatus_);  \
-    }                                                                       \
+#define VERIFY_NTSTATUS(Expression)                                     \
+{                                                                       \
+    NTSTATUS Verify_NtStatus_ = (Expression);                           \
+    if (!NT_SUCCESS(Verify_NtStatus_))                                  \
+    {                                                                   \
+        ERR_PRINT("\'" #Expression "\' failed: 0x%X", Verify_NtStatus_);\
+    }                                                                   \
+}
+#endif
+
+/*++
+
+Macro Name:
+
+    VERIFY_BOOLEAN
+
+Macro Description:
+
+    A validation macro which ASSERTs in debug build configurations and logs
+    failures in release build configurations.
+
+Remarks:
+
+    NT_VERIFY and RTL_SOFT_ASSERT are similar utility macros.
+
+--*/
+#if defined(VERIFY_BOOLEAN)
+#error "Unexpected identifier conflict. (VERIFY_BOOLEAN)"
+#endif
+
+#if defined(DBG)
+#define VERIFY_BOOLEAN(Expression)                          \
+{                                                           \
+    if (!(Expression))                                      \
+    {                                                       \
+        ERR_PRINT("\'" #Expression "\' assertion failed."); \
+        NT_ASSERT((Expression));                            \
+    }                                                       \
+}
+#else
+#define VERIFY_BOOLEAN(Expression)                          \
+{                                                           \
+    if (!(Expression))                                      \
+    {                                                       \
+        ERR_PRINT("\'" #Expression "\' assertion failed."); \
+    }                                                       \
 }
 #endif

@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -15,6 +15,13 @@ for more information.
 
 #include "log.h"
 
+_Success_(return != FALSE)
+_Check_return_
+BOOL
+IsKernelDebuggerAttached(
+    _Out_ PBOOL pfDebuggerAttached
+);
+
 /*++
 
 Macro Name:
@@ -28,13 +35,19 @@ Macro Description:
 
 --*/
 #if defined(_DEBUG)
-#define DEBUG_BREAK             \
-    if (IsDebuggerPresent())    \
-    {                           \
-        DebugBreak();           \
-    }
+#define DEBUG_BREAK()                                           \
+{                                                               \
+    BOOL _dbg_fDebuggerAttached = FALSE;                        \
+                                                                \
+    _ASSERT(IsKernelDebuggerAttached(&_dbg_fDebuggerAttached)); \
+                                                                \
+    if (IsDebuggerPresent() || _dbg_fDebuggerAttached)          \
+    {                                                           \
+        __debugbreak();                                         \
+    }                                                           \
+}
 #else
-#define DEBUG_BREAK
+#define DEBUG_BREAK()
 #endif
 
 /*++

@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -214,6 +214,49 @@ typedef struct _RFLAGS {
 } RFLAGS, *PRFLAGS;
 #pragma warning(pop)
 
+//
+// NOTE the field layout for this structure must mirror that of GpRegistersX64.
+//
+typedef struct _GENERAL_PURPOSE_REGISTERS {
+    ULONG_PTR R15;
+    ULONG_PTR R14;
+    ULONG_PTR R13;
+    ULONG_PTR R12;
+    ULONG_PTR R11;
+    ULONG_PTR R10;
+    ULONG_PTR R9;
+    ULONG_PTR R8;
+    ULONG_PTR Rdi;
+    ULONG_PTR Rsi;
+    ULONG_PTR Rbp;
+    ULONG_PTR Rsp;
+    ULONG_PTR Rbx;
+    ULONG_PTR Rdx;
+    ULONG_PTR Rcx;
+    ULONG_PTR Rax;
+} GENERAL_PURPOSE_REGISTERS, *PGENERAL_PURPOSE_REGISTERS;
+
+#ifdef _KERNEL_MODE
+#include "../VivienneVMM/HyperPlatform/HyperPlatform/ia32_type.h"
+
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, R15) == FIELD_OFFSET(GpRegistersX64, r15));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, R14) == FIELD_OFFSET(GpRegistersX64, r14));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, R13) == FIELD_OFFSET(GpRegistersX64, r13));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, R12) == FIELD_OFFSET(GpRegistersX64, r12));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, R11) == FIELD_OFFSET(GpRegistersX64, r11));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, R10) == FIELD_OFFSET(GpRegistersX64, r10));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, R9) == FIELD_OFFSET(GpRegistersX64, r9));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, R8) == FIELD_OFFSET(GpRegistersX64, r8));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, Rdi) == FIELD_OFFSET(GpRegistersX64, di));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, Rsi) == FIELD_OFFSET(GpRegistersX64, si));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, Rbp) == FIELD_OFFSET(GpRegistersX64, bp));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, Rsp) == FIELD_OFFSET(GpRegistersX64, sp));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, Rbx) == FIELD_OFFSET(GpRegistersX64, bx));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, Rdx) == FIELD_OFFSET(GpRegistersX64, dx));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, Rcx) == FIELD_OFFSET(GpRegistersX64, cx));
+C_ASSERT(FIELD_OFFSET(GENERAL_PURPOSE_REGISTERS, Rax) == FIELD_OFFSET(GpRegistersX64, ax));
+#endif
+
 //=============================================================================
 // Instructions
 //=============================================================================
@@ -259,6 +302,20 @@ typedef struct _INDIRECT_ADDRESS {
 //  qualification to their corresponding debug address register.
 //
 #define DAR_INDEX_TO_BITMAP(Index) (1ull << Index)
+
+typedef enum _HARDWARE_BREAKPOINT_TYPE {
+    HardwareBreakpointTypeExecute = 0,
+    HardwareBreakpointTypeWrite = 1,
+    HardwareBreakpointTypeIo = 2,
+    HardwareBreakpointTypeAccess = 3
+} HARDWARE_BREAKPOINT_TYPE, *PHARDWARE_BREAKPOINT_TYPE;
+
+typedef enum _HARDWARE_BREAKPOINT_SIZE {
+    HardwareBreakpointSizeByte = 0,
+    HardwareBreakpointSizeWord = 1,
+    HardwareBreakpointSizeQword = 2,
+    HardwareBreakpointSizeDword = 3,
+} HARDWARE_BREAKPOINT_SIZE, *PHARDWARE_BREAKPOINT_SIZE;
 
 typedef enum class _HWBP_TYPE {
     Execute = 0,

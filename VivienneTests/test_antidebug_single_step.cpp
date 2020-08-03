@@ -6,9 +6,9 @@
 
 #include "test_util.h"
 
-#include "..\common\debug.h"
 #include "..\common\time_util.h"
 
+#include "..\VivienneCL\debug.h"
 #include "..\VivienneCL\driver_io.h"
 
 

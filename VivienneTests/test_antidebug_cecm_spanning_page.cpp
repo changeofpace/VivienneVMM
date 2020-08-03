@@ -3,7 +3,6 @@
 #include <Psapi.h>
 
 #include "arbitrary_code.h"
-#include "memory.h"
 #include "test_util.h"
 
 #include "..\common\driver_io_types.h"

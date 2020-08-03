@@ -10,6 +10,8 @@
 
 #include <fltKernel.h>
 
+#include "ia32_type.h"
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // macro utilities
@@ -29,8 +31,8 @@
 struct SharedProcessorData {
   volatile long reference_count;  //!< Number of processors sharing this data
   void* msr_bitmap;               //!< Bitmap to activate MSR I/O VM-exit
-  void* io_bitmap_a;              //!< Bitmap to activate IO VM-exit (~ 0x7FFF)
-  void* io_bitmap_b;              //!< Bitmap to activate IO VM-exit (~ 0xffff)
+  //void* io_bitmap_a;              //!< Bitmap to activate IO VM-exit (~ 0x7FFF)
+  //void* io_bitmap_b;              //!< Bitmap to activate IO VM-exit (~ 0xffff)
 };
 
 /// Represents VMM related data associated with each processor
@@ -79,6 +81,31 @@ struct MachineFrame {
 using KtrapFrame = KtrapFrameX64;
 #else
 using KtrapFrame = KtrapFrameX86;
+#endif
+
+// Represents raw structure of stack of VMM when VmmVmExitHandler() is called
+struct VmmInitialStack {
+  GpRegisters gp_regs;
+  KtrapFrame trap_frame;
+  ProcessorData *processor_data;
+};
+
+// Things need to be read and written by each VM-exit handler
+struct GuestContext {
+  union {
+    VmmInitialStack *stack;
+    GpRegisters *gp_regs;
+  };
+  FlagRegister flag_reg;
+  ULONG_PTR ip;
+  ULONG_PTR cr8;
+  KIRQL irql;
+  bool vm_continue;
+};
+#if defined(_AMD64_)
+static_assert(sizeof(GuestContext) == 40, "Size check");
+#else
+static_assert(sizeof(GuestContext) == 20, "Size check");
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////

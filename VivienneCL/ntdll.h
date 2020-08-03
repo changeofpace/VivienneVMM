@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -15,20 +15,44 @@ for more information.
 typedef _Return_type_success_(return >= 0) LONG NTSTATUS;
 
 
-#pragma region Preprocessor
-
 //=============================================================================
 // NTSTATUS Codes
 //=============================================================================
+#ifndef NT_SUCCESS
 #define NT_SUCCESS(Status) ((NTSTATUS)(Status) >= 0)
+#endif
 
 #define STATUS_SUCCESS                   ((NTSTATUS)0x00000000L)
-#define STATUS_NO_MORE_ENTRIES           ((NTSTATUS)0x8000001AL)
+#define STATUS_UNSUCCESSFUL              ((NTSTATUS)0xC0000001L)
+#define STATUS_NOT_IMPLEMENTED           ((NTSTATUS)0xC0000002L)
 #define STATUS_INFO_LENGTH_MISMATCH      ((NTSTATUS)0xC0000004L)
+#define STATUS_INVALID_CID               ((NTSTATUS)0xC000000BL)
+#define STATUS_NO_SUCH_DEVICE            ((NTSTATUS)0xC000000EL)
+#define STATUS_NO_SUCH_FILE              ((NTSTATUS)0xC000000FL)
+#define STATUS_INVALID_DEVICE_REQUEST    ((NTSTATUS)0xC0000010L)
+#define STATUS_MORE_PROCESSING_REQUIRED  ((NTSTATUS)0xC0000016L)
+#define STATUS_CONFLICTING_ADDRESSES     ((NTSTATUS)0xC0000018L)
+#define STATUS_NO_MORE_ENTRIES           ((NTSTATUS)0x8000001AL)
 #define STATUS_BUFFER_TOO_SMALL          ((NTSTATUS)0xC0000023L)
 #define STATUS_INVALID_PAGE_PROTECTION   ((NTSTATUS)0xC0000045L)
-#define STATUS_INTERNAL_ERROR            ((NTSTATUS)0xC00000E5L)
 #define STATUS_PROCEDURE_NOT_FOUND       ((NTSTATUS)0xC000007AL)
+#define STATUS_INSUFFICIENT_RESOURCES    ((NTSTATUS)0xC000009AL)     // ntsubauth
+#define STATUS_INSTRUCTION_MISALIGNMENT  ((NTSTATUS)0xC00000AAL)
+#define STATUS_INTERNAL_ERROR            ((NTSTATUS)0xC00000E5L)
+#define STATUS_INVALID_PARAMETER_1       ((NTSTATUS)0xC00000EFL)
+#define STATUS_INVALID_PARAMETER_2       ((NTSTATUS)0xC00000F0L)
+#define STATUS_INVALID_PARAMETER_3       ((NTSTATUS)0xC00000F1L)
+#define STATUS_INVALID_PARAMETER_4       ((NTSTATUS)0xC00000F2L)
+#define STATUS_INVALID_PARAMETER_5       ((NTSTATUS)0xC00000F3L)
+#define STATUS_INVALID_PARAMETER_6       ((NTSTATUS)0xC00000F4L)
+#define STATUS_INVALID_PARAMETER_7       ((NTSTATUS)0xC00000F5L)
+#define STATUS_INVALID_PARAMETER_8       ((NTSTATUS)0xC00000F6L)
+#define STATUS_INVALID_PARAMETER_9       ((NTSTATUS)0xC00000F7L)
+#define STATUS_INVALID_PARAMETER_10      ((NTSTATUS)0xC00000F8L)
+#define STATUS_INVALID_PARAMETER_11      ((NTSTATUS)0xC00000F9L)
+#define STATUS_INVALID_PARAMETER_12      ((NTSTATUS)0xC00000FAL)
+#define STATUS_INVALID_ADDRESS           ((NTSTATUS)0xC0000141L)
+#define STATUS_DATATYPE_MISALIGNMENT_ERROR ((NTSTATUS)0xC00002C5L)
 
 //=============================================================================
 // Sections
@@ -52,9 +76,14 @@ typedef _Return_type_success_(return >= 0) LONG NTSTATUS;
 #ifndef PAGE_SIZE
 #define PAGE_SIZE               0x1000
 #endif
+
+#define PAGE_SHIFT 12L
+
 #define PAGE_ALIGN(Va)          ((PVOID)((ULONG_PTR)(Va) & ~(PAGE_SIZE - 1)))
 #define ROUND_TO_PAGES(Size) \
     (((ULONG_PTR)(Size) + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
+
+#define BYTE_OFFSET(Va) ((ULONG)((LONG_PTR)(Va) & (PAGE_SIZE - 1)))
 
 //=============================================================================
 // Alignment
@@ -86,13 +115,42 @@ typedef _Return_type_success_(return >= 0) LONG NTSTATUS;
 //  Checks if 1st argument is aligned on given power of 2 boundary specified
 //  by 2nd argument
 #define IS_ALIGNED(_pointer, _alignment) \
-    ((((ULONG_PTR) (_pointer)) & ((_alignment) - 1)) == 0)
+    ((((ULONG_PTR) (_pointer)) & (((ULONG_PTR) (_alignment)) - 1)) == 0)
+
+#define ADDRESS_AND_SIZE_TO_SPAN_PAGES(Va,Size) \
+    ((BYTE_OFFSET (Va) + ((SIZE_T) (Size)) + (PAGE_SIZE - 1)) >> PAGE_SHIFT)
 
 //=============================================================================
-// Utility Macros
+// Utility
 //=============================================================================
+#define ARGUMENT_PRESENT(ArgumentPointer)    (\
+    (CHAR *)((ULONG_PTR)(ArgumentPointer)) != (CHAR *)(NULL) )
+
 #define OFFSET_POINTER(Pointer, Offset, Type) \
     ((Type*)(((PUCHAR)(Pointer)) + (Offset)))
+
+#define NtCurrentProcess() ( (HANDLE)(LONG_PTR) -1 )
+#define ZwCurrentProcess() NtCurrentProcess()
+#define NtCurrentThread() ( (HANDLE)(LONG_PTR) -2 )
+#define ZwCurrentThread() NtCurrentThread()
+#define NtCurrentSession() ( (HANDLE)(LONG_PTR) -3 )
+#define ZwCurrentSession() NtCurrentSession()
+
+#ifndef FlagOn
+#define FlagOn(_F,_SF)        ((_F) & (_SF))
+#endif
+
+#ifndef BooleanFlagOn
+#define BooleanFlagOn(F,SF)   ((BOOLEAN)(((F) & (SF)) != 0))
+#endif
+
+#ifndef SetFlag
+#define SetFlag(_F,_SF)       ((_F) |= (_SF))
+#endif
+
+#ifndef ClearFlag
+#define ClearFlag(_F,_SF)     ((_F) &= ~(_SF))
+#endif
 
 //=============================================================================
 // Objects
@@ -108,11 +166,9 @@ typedef _Return_type_success_(return >= 0) LONG NTSTATUS;
     (p)->SecurityQualityOfService = NULL;               \
     }
 
-#pragma endregion Preprocessor
-
-
-#pragma region Enumerations
-
+//=============================================================================
+// Enumerations
+//=============================================================================
 typedef enum _SYSTEM_INFORMATION_CLASS {
     SystemBasicInformation = 0,
     SystemPerformanceInformation = 2,
@@ -121,6 +177,7 @@ typedef enum _SYSTEM_INFORMATION_CLASS {
     SystemProcessorPerformanceInformation = 8,
     SystemInterruptInformation = 23,
     SystemExceptionInformation = 33,
+    SystemKernelDebuggerInformation = 35,
     SystemRegistryQuotaInformation = 37,
     SystemLookasideInformation = 45,
     SystemPolicyInformation = 134,
@@ -135,10 +192,11 @@ typedef enum _SECTION_INHERIT {
     ViewUnmap = 2
 } SECTION_INHERIT, *PSECTION_INHERIT;
 
-#pragma endregion Enumerations
-
-
-#pragma region Types
+//=============================================================================
+// Types
+//=============================================================================
+typedef ULONG LOGICAL;
+typedef ULONG *PLOGICAL;
 
 typedef _Null_terminated_ CHAR *PSZ;
 typedef _Null_terminated_ CONST char *PCSZ;
@@ -296,11 +354,26 @@ typedef struct _SYSTEM_PROCESS_INFORMATION {
     LARGE_INTEGER Reserved7[6];
 } SYSTEM_PROCESS_INFORMATION, *PSYSTEM_PROCESS_INFORMATION;
 
-#pragma endregion Types
+typedef struct _SYSTEM_KERNEL_DEBUGGER_INFORMATION {
+    BOOLEAN KernelDebuggerEnabled;
+    BOOLEAN KernelDebuggerNotPresent;
+} SYSTEM_KERNEL_DEBUGGER_INFORMATION, *PSYSTEM_KERNEL_DEBUGGER_INFORMATION;
 
+//=============================================================================
+// Inlines
+//=============================================================================
+FORCEINLINE
+LOGICAL
+MI_RESERVED_BITS_CANONICAL(
+    _In_ PVOID VirtualAddress
+)
+{
+    return ((ULONG64)(((LONG64)VirtualAddress >> 48) + 1) <= 1);
+}
 
-#pragma region Prototypes
-
+//=============================================================================
+// Prototypes
+//=============================================================================
 EXTERN_C
 NTSTATUS
 NTAPI
@@ -466,6 +539,15 @@ NTAPI
 NtYieldExecution();
 
 EXTERN_C
+NTSTATUS
+NTAPI
+NtWaitForSingleObject(
+    _In_ HANDLE             Handle,
+    _In_ BOOLEAN            Alertable,
+    _In_opt_ PLARGE_INTEGER Timeout
+);
+
+EXTERN_C
 VOID
 NTAPI
 RtlInitUnicodeString(
@@ -517,8 +599,7 @@ RtlFreeUnicodeString(
 
 EXTERN_C
 ULONG
+NTAPI
 RtlRandomEx(
     PULONG Seed
 );
-
-#pragma endregion Prototypes

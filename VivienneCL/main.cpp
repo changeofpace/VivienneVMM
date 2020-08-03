@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -24,13 +24,21 @@ for more information.
 
 static
 VOID
+PrintClientBanner()
+{
+    //__debugbreak();
+}
+
+
+static
+VOID
 ProcessCommands()
 {
     for (;;)
     {
-        std::string Input;
-        std::string Command;
-        std::vector<std::string> ArgTokens;
+        std::string Input = {};
+        std::vector<std::string> ArgTokens = {};
+        PCSTR pszCommand = NULL;
 
         //
         // Prompt and tokenize input.
@@ -47,47 +55,137 @@ ProcessCommands()
             continue;
         }
 
-        Command = ArgTokens[0];
+        //
+        // Dispatch the command.
+        //
+        pszCommand = ArgTokens[0].data();
 
-        //
-        // Dispatch Commands.
-        //
-        if (CMD_EXITCLIENT == Command)
+        //---------------------------------------------------------------------
+        // General
+        //---------------------------------------------------------------------
+        if (CMD_ICOMPARE(CMD_EXIT_CLIENT, pszCommand))
         {
             break;
         }
-        else if (CMD_HELP == Command)
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_COMMANDS) ||
+            CMD_ICOMPARE(pszCommand, CMD_COMMANDS_SHORT))
         {
-            (VOID)CmdDisplayHelpText(ArgTokens);
+            CmdCommands(ArgTokens);
         }
-        else if (CMD_COMMANDS == Command)
+        else if (CMD_ICOMPARE(pszCommand, CMD_HELP))
         {
-            (VOID)CmdDisplayCommands(ArgTokens);
+            CmdHelp(ArgTokens);
         }
-        else if (CMD_LOOKUPPROCESSIDBYNAME == Command)
+        //---------------------------------------------------------------------
+        // Process
+        //---------------------------------------------------------------------
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_GET_PROCESS_ID) ||
+            CMD_ICOMPARE(pszCommand, CMD_GET_PROCESS_ID_SHORT))
         {
-            (VOID)CmdLookupProcessIdByName(ArgTokens);
+            CmdGetProcessId(ArgTokens);
         }
-        else if (CMD_QUERYSYSTEMDEBUGSTATE == Command)
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_GET_PROCESS_INFORMATION) ||
+            CMD_ICOMPARE(pszCommand, CMD_GET_PROCESS_INFORMATION_SHORT))
         {
-            (VOID)CmdQuerySystemDebugState(ArgTokens);
+            CmdGetProcessInformation(ArgTokens);
         }
-        else if (CMD_SETHARDWAREBREAKPOINT == Command)
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
+        //---------------------------------------------------------------------
+        // Hardware Breakpoints
+        //---------------------------------------------------------------------
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_QUERY_SYSTEM_DEBUG_STATE) ||
+            CMD_ICOMPARE(pszCommand, CMD_QUERY_SYSTEM_DEBUG_STATE_SHORT))
         {
-            (VOID)CmdSetHardwareBreakpoint(ArgTokens);
+            CmdQuerySystemDebugState(ArgTokens);
         }
-        else if (CMD_CLEARHARDWAREBREAKPOINT == Command)
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_SET_HARDWARE_BREAKPOINT) ||
+            CMD_ICOMPARE(pszCommand, CMD_SET_HARDWARE_BREAKPOINT_SHORT))
         {
-            (VOID)CmdClearHardwareBreakpoint(ArgTokens);
+            CmdSetHardwareBreakpoint(ArgTokens);
         }
-        else if (CMD_CEC_REGISTER == Command)
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_CLEAR_HARDWARE_BREAKPOINT) ||
+            CMD_ICOMPARE(pszCommand, CMD_CLEAR_HARDWARE_BREAKPOINT_SHORT))
         {
-            (VOID)CmdCaptureRegisterValues(ArgTokens);
+            CmdClearHardwareBreakpoint(ArgTokens);
         }
-        else if (CMD_CEC_MEMORY == Command)
+        //---------------------------------------------------------------------
+        // Capture Execution Context
+        //---------------------------------------------------------------------
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_CEC_REGISTER) ||
+            CMD_ICOMPARE(pszCommand, CMD_CEC_REGISTER_SHORT))
         {
-            (VOID)CmdCaptureMemoryValues(ArgTokens);
+            CmdCaptureRegisterValues(ArgTokens);
         }
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_CEC_MEMORY) ||
+            CMD_ICOMPARE(pszCommand, CMD_CEC_MEMORY_SHORT))
+        {
+            CmdCaptureMemoryValues(ArgTokens);
+        }
+#endif
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+        //---------------------------------------------------------------------
+        // Ept Breakpoints
+        //---------------------------------------------------------------------
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_QUERY_EPT_BREAKPOINT_INFORMATION) ||
+            CMD_ICOMPARE(pszCommand, CMD_QUERY_EPT_BREAKPOINT_INFORMATION_SHORT))
+        {
+            CmdQueryEptBreakpointInformation(ArgTokens);
+        }
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_SET_EPT_BREAKPOINT_BASIC) ||
+            CMD_ICOMPARE(pszCommand, CMD_SET_EPT_BREAKPOINT_BASIC_SHORT))
+        {
+            CmdSetEptBreakpointBasic(ArgTokens);
+        }
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_SET_EPT_BREAKPOINT_GENERAL_REGISTER_CONTEXT) ||
+            CMD_ICOMPARE(pszCommand, CMD_SET_EPT_BREAKPOINT_GENERAL_REGISTER_CONTEXT_SHORT))
+        {
+            CmdSetEptBreakpointGeneralRegisterContext(ArgTokens);
+        }
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_SET_EPT_BREAKPOINT_KEYED_REGISTER_CONTEXT) ||
+            CMD_ICOMPARE(pszCommand, CMD_SET_EPT_BREAKPOINT_KEYED_REGISTER_CONTEXT_SHORT))
+        {
+            CmdSetEptBreakpointKeyedRegisterContext(ArgTokens);
+        }
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_DISABLE_EPT_BREAKPOINT) ||
+            CMD_ICOMPARE(pszCommand, CMD_DISABLE_EPT_BREAKPOINT_SHORT))
+        {
+            CmdDisableEptBreakpoint(ArgTokens);
+        }
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_CLEAR_EPT_BREAKPOINT) ||
+            CMD_ICOMPARE(pszCommand, CMD_CLEAR_EPT_BREAKPOINT_SHORT))
+        {
+            CmdClearEptBreakpoint(ArgTokens);
+        }
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_PRINT_EPT_BREAKPOINT_LOG_HEADER) ||
+            CMD_ICOMPARE(pszCommand, CMD_PRINT_EPT_BREAKPOINT_LOG_HEADER_SHORT))
+        {
+            CmdPrintEptBreakpointLogHeader(ArgTokens);
+        }
+        else if (
+            CMD_ICOMPARE(pszCommand, CMD_PRINT_EPT_BREAKPOINT_LOG_ELEMENTS) ||
+            CMD_ICOMPARE(pszCommand, CMD_PRINT_EPT_BREAKPOINT_LOG_ELEMENTS_SHORT))
+        {
+            CmdPrintEptBreakpointLogElements(ArgTokens);
+        }
+#endif
+        //---------------------------------------------------------------------
+        // Unhandled
+        //---------------------------------------------------------------------
         else
         {
             ERR_PRINT("Invalid command.");
@@ -121,7 +219,7 @@ main(
     if (!LogInitialization(LOG_CONFIG_STDOUT))
     {
         mainstatus = EXIT_FAILURE;
-        DEBUG_BREAK;
+        DEBUG_BREAK();
         goto exit;
     }
 
@@ -142,6 +240,7 @@ main(
         goto exit;
     }
 
+    PrintClientBanner();
     ProcessCommands();
 
 exit:

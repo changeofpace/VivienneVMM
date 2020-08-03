@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -17,6 +17,7 @@ for more information.
 #include "..\common\arch_x64.h"
 #include "..\common\driver_io_types.h"
 
+_Success_(return != FALSE)
 _Check_return_
 BOOL
 IsBreakpointAddressAligned(
@@ -25,6 +26,34 @@ IsBreakpointAddressAligned(
     _In_ HWBP_SIZE Size
 );
 
+_Success_(return != FALSE)
+_Check_return_
+BOOL
+ParseUnsignedLongToken(
+    _In_ const std::string& Token,
+    _In_ BOOLEAN IsHex,
+    _Out_ PULONG pValue
+);
+
+_Success_(return != FALSE)
+_Check_return_
+BOOL
+ParseUnsignedLongLongToken(
+    _In_ const std::string& Token,
+    _In_ BOOLEAN IsHex,
+    _Out_ PULONGLONG pValue
+);
+
+_Success_(return != FALSE)
+_Check_return_
+BOOL
+ParseUnsignedLongPtrToken(
+    _In_ const std::string& Token,
+    _In_ BOOLEAN IsHex,
+    _Out_ PULONG_PTR pValue
+);
+
+_Success_(return != FALSE)
 _Check_return_
 BOOL
 ParseDebugRegisterIndexToken(
@@ -32,6 +61,7 @@ ParseDebugRegisterIndexToken(
     _Out_ PULONG pDebugRegisterIndex
 );
 
+_Success_(return != FALSE)
 _Check_return_
 BOOL
 ParseDebugRegisterIndexToken(
@@ -39,6 +69,7 @@ ParseDebugRegisterIndexToken(
     _Out_ PULONG pDebugRegisterIndex
 );
 
+_Success_(return != FALSE)
 _Check_return_
 BOOL
 ParseProcessIdToken(
@@ -46,6 +77,7 @@ ParseProcessIdToken(
     _Out_ PULONG_PTR pProcessId
 );
 
+_Success_(return != FALSE)
 _Check_return_
 BOOL
 ParseAddressToken(
@@ -53,14 +85,25 @@ ParseAddressToken(
     _Out_ PULONG_PTR pAddress
 );
 
+_Success_(return != FALSE)
 _Check_return_
 BOOL
-ParseAccessSizeToken(
+ParseHardwareBreakpointAccessSizeToken(
     _In_ const std::string& Token,
     _Out_ PHWBP_TYPE pType,
     _Out_ PHWBP_SIZE pSize
 );
 
+_Success_(return != FALSE)
+_Check_return_
+BOOL
+ParseEptBreakpointAccessSizeToken(
+    _In_ const std::string& Token,
+    _Out_ PEPT_BREAKPOINT_TYPE pType,
+    _Out_ PEPT_BREAKPOINT_SIZE pSize
+);
+
+_Success_(return != FALSE)
 _Check_return_
 BOOL
 ParseRegisterToken(
@@ -68,6 +111,7 @@ ParseRegisterToken(
     _Out_ PX64_REGISTER pRegister
 );
 
+_Success_(return != FALSE)
 _Check_return_
 BOOL
 ParseMemoryDataTypeToken(
@@ -75,6 +119,7 @@ ParseMemoryDataTypeToken(
     _Out_ PMEMORY_DATA_TYPE pMemoryDataType
 );
 
+_Success_(return != FALSE)
 _Check_return_
 BOOL
 ParseScaleFactorToken(
@@ -82,6 +127,7 @@ ParseScaleFactorToken(
     _Out_ PSCALE_FACTOR pScaleFactor
 );
 
+_Success_(return != FALSE)
 _Check_return_
 BOOL
 ParseIndirectAddressToken(
@@ -89,17 +135,11 @@ ParseIndirectAddressToken(
     _Out_ PINDIRECT_ADDRESS pIndirectAddress
 );
 
+_Success_(return != FALSE)
 _Check_return_
 BOOL
 ParseMemoryDescriptionToken(
     _In_ const std::string& Token,
     _In_ MEMORY_DATA_TYPE MemoryDataType,
     _Out_ PCEC_MEMORY_DESCRIPTION pMemoryDescription
-);
-
-_Check_return_
-BOOL
-ParseDurationToken(
-    _In_ const std::string& Token,
-    _Out_ PULONG pDurationInMilliseconds
 );

@@ -23,6 +23,16 @@ PromptDebuggerExceptionConfiguration(
 );
 
 //=============================================================================
+// Memory
+//=============================================================================
+_Check_return_
+BOOL
+IsVirtualAddressValid(
+    _In_ PVOID pAddress,
+    _Out_ PBOOL pValid
+);
+
+//=============================================================================
 // Exception Handlers
 //=============================================================================
 _Check_return_
@@ -104,7 +114,7 @@ GenerateUniqueRandomValues(
 // Logging
 //=============================================================================
 #define TEST_DELIM_MAJOR \
-    "===========================================================\n"
+    "==============================================================================\n"
 
 #define PRINT_TEST_HEADER           \
     printf(TEST_DELIM_MAJOR);       \
@@ -139,3 +149,11 @@ DisplayFailureWindowThenExit(
         __LINE__,                   \
         Format,                     \
         __VA_ARGS__)
+
+#define TEST_VERIFY(Expression)         \
+    {                                   \
+        if (!(Expression))              \
+        {                               \
+            FAIL_TEST("Test failed.");  \
+        }                               \
+    }

@@ -1,207 +1,244 @@
 VivienneVMM
 ===========
 
-VivienneVMM is a stealthy debugging framework implemented via an Intel VT-x hypervisor. The driver exposes a hardware breakpoint control interface which allows a user mode client to set and clear breakpoints. These breakpoints are invisible to the guest.
+VivienneVMM is a stealthy debugging framework implemented via an Intel VT-x hypervisor. The VMM driver implements multiple breakpoint control managers which allow a user mode client to set, clear, and inspect VMM-backed breakpoints. These breakpoints are invisible to the guest.
 
 This project is an extension of the [HyperPlatform](https://github.com/tandasat/HyperPlatform) framework by [tandasat](https://github.com/tandasat).
 
 
-Projects
---------
+What's New
+----------
+## [1.0.0] - 2020-08-02
 
-### VivienneVMM
-The core driver project containing the Vivienne Virtual Machine Monitor.
+VivienneVMM 1.0.0 released. :birthday:
 
-### VivienneCL
-A command line VivienneVMM client which makes use of the hardware breakpoint control interface. A simple debugger.
+### Added
+- **Ept breakpoints**: a new breakpoint type with many advantages over the now deprecated Vivienne hardware breakpoint type.
+- New VivienneCL commands: GetProcessInformation, QueryEptBpInfo, SetEptBpBasic, SetEptBpRegisters, SetEptBpKeyed, DisableEptBp, ClearEptBp, PrintEptBpLogHeader, and PrintEptBpLogElements. See the VivienneCL [README](./VivienneCL/README.md) for more information.
+- Added extended information for many VivienneCL commands. Type 'help command_name' in the VivienneCL console to see a command's extended information.
+- Most commands now have an abbreviated command name.
 
-### Tests
-VivienneVMM test cases.
-
-
-Implementation
---------------
-
-### Breakpoint Manager
-The breakpoint manager (BPM) modifies processor debug registers to install and uninstall hardware breakpoints. Each modification is performed synchronously on all logical processors using the following protocol:
-
-1. The client requests a breakpoint change via an IOCTL.
-2. BPM receives the client request and validates the input parameters.
-3. BPM issues an IPI broadcast so that all processors synchronously execute a vmcall.
-4. Each processor modifies its debug registers in VMX root mode so that a MovDr event does not occur.
-
-Processors generate a debug exception when the execution of an instruction satisfies a hardware breakpoint condition. The breakpoint manager monitors these exceptions via a debug exception VM exit handler, and consumes exceptions caused by BPM-managed breakpoints.
-
-Users can customize breakpoint behavior by registering a callback during breakpoint installation. Callbacks are executed in VMX root mode, in the context of the target process, whenever the breakpoint condition is met. **Capture execution context** is an example callback which acts as an execution hook to read register state.
-
-### Debug Register Facade
-The debug register facade prevents the guest from accessing processor debug registers via a MovDr VM exit handler. This handler emulates debug register access instructions using a set of processor-specific, 'fake' debug registers.
+See the [CHANGELOG](./CHANGELOG.md) for additional information.
 
 
-Capture Execution Context
--------------------------
+Breakpoint Control Manager
+--------------------------
+The VivienneVMM driver contains two breakpoint control manager modules which implement their own style of breakpoint:
 
-The capture execution context (CEC) module implements two breakpoint callbacks: capture execution context register (CECR) and capture execution context memory (CECM).
+#### Ept Breakpoint Manager
+* Implements **ept breakpoints** using extended page tables.
+* + Ept breakpoints are undetectable by user mode processes in the guest.
+* + Supports unlimited number of ept breakpoints.
+* - Only execution and data breakpoints are supported.
+* ~ Data breakpoint events are processed as **faults** instead of **traps**.
 
-### Capture Execution Context Register (CECR)
-This callback samples the contents of a target register and records unique values to a user-supplied buffer.
+#### Hardware Breakpoint Manager
+* Implements **hardware breakpoints** by hooking the debug exception vector and monitoring debug register accesses.
+* + Faster than ept breakpoints.
+* - Susceptible to certain anti-debug detection techniques.
+
+
+Ept Breakpoint Manager
+----------------------
+The ept breakpoint manager module implements ept breakpoints using Intel VT-x extended page tables (ept) and the monitor trap flag VM execution control.
+
+### Ept Breakpoints
+
+Ept breakpoints are effectively hardware breakpoints with the following differences:
+
+* Each processor can have an unlimited number of active ept breakpoints.
+* Only execution and data breakpoints are supported.
+* Data breakpoint events are processed as **faults** instead of **traps**. i.e., When a data ept breakpoint condition is triggered the VMM logs the event before the read or write occurs in the guest.
+* Ept breakpoints cannot be detected by user mode processes in the guest OS. (See 'Limitations')
+
+Each ept breakpoint has a corresponding ept breakpoint log.
+
+### Ept Breakpoint Log
+An ept breakpoint log contains the "breakpoint hit history" for its corresponding ept breakpoint. The contents of the log depend on the ept breakpoint log type:
+
+#### Basic
+Records each unique guest virtual address that triggers the breakpoint condition and its hit count. Traditional hardware breakpoint functionality. Can be used to discover addresses which read, write, and execute a target breakpoint address.
+
+#### General Register Context
+Records the general purpose register context each time the guest triggers the breakpoint condition.
+
+#### Keyed Register Context
+Similar to **General Register Context**, except that guest state is only recorded when the value in the *key register* is not already in the log.
+
+### Using Ept Breakpoints
+
+VivienneCL contains several commands for setting, disabling, clearing, and viewing ept breakpoints. The **SetEptBp\*** commands install an ept breakpoint on all processors and return a log handle. This log handle is the primary input argument for the other ept breakpoint commands.
 
 #### Example
-For this example, we must reverse engineer the 'player' data structure(s) of a multiplayer FPS game. Our goal is to be able to reliably obtain all player pointers for an in game 'round' from our out-of-process client.
 
-We have identified the following function in the game's code which constantly iterates a list of player pointers:
+The following example shows the VivienneCL output of the **PrintEptBpLogElements** command for a **Keyed Register Context** ept breakpoint.
 
-```C++
+Given the following function, we want to know all possible values of the **DecryptedValue** variable:
+
+```C
 VOID
-ProcessGameTick(
-    _In_ ULONG NumberOfPlayers
+EptBreakpointExample(
+    _In_ ULONG_PTR EncryptedValue
 )
 {
-    for (ULONG i = 0; i < NumberOfPlayers; ++i)
-    {
-        PVOID pPlayer = GetDecryptedPlayerPointer(i);
-        SimulatePlayerTick(pPlayer);
-    }
+    ULONG_PTR DecryptedValue = 0;
+
+    DecryptedValue = Decrypt(EncryptedValue);
+
+    // ...
 }
 ```
 
-Disassembly of the for loop:
+Disassembly:
 
 ```
-.text:0000000140001032 loc_140001032:
-.text:0000000140001032     mov     eax, [rsp+38h+PlayerIndex]
-.text:0000000140001036     inc     eax
-.text:0000000140001038     mov     [rsp+38h+PlayerIndex], eax
-.text:000000014000103C
-.text:000000014000103C loc_14000103C:
-.text:000000014000103C     mov     eax, [rsp+38h+arg_0]
-.text:0000000140001040     cmp     [rsp+38h+PlayerIndex], eax
-.text:0000000140001044     jnb     short loc_140001060
-.text:0000000140001046     mov     ecx, [rsp+38h+PlayerIndex]
-.text:000000014000104A     call    GetDecryptedPlayerPointer
-.text:000000014000104F     mov     [rsp+38h+pPlayer], rax       ; target.
-.text:0000000140001054     mov     rcx, [rsp+38h+pPlayer]
-.text:0000000140001059     call    SimulatePlayerTick
-.text:000000014000105E     jmp     short loc_140001032
+;
+; ImageBase = 0x140000000
+;
+.text:0000000140001030     mov     [rsp+EncryptedValue], rcx
+.text:0000000140001035     sub     rsp, 38h
+.text:0000000140001039     mov     [rsp+38h+var_18], 0
+.text:0000000140001042     mov     rcx, [rsp+38h+EncryptedValue] ; EncryptedValue
+.text:0000000140001047     call    Decrypt(unsigned __int64)
+.text:0000000140001047
+.text:0000000140001047     ; rax contains the decrypted value
+.text:0000000140001047
+.text:000000014000104C     mov     [rsp+38h+var_18], rax
+;                          ...
 ```
 
-We determine that we can calculate player pointers if we are able to recreate the **GetDecryptedPlayerPointer** function. Now, imagine that this function is heavily obfuscated to the point that it would require an unrealistic amount of time to reverse. Normally we would dismiss this code snippet because the reward is not worth the time investment.
+Suppose that process **X** is executing this function randomly and uses many anti-debug techniques. Assume that the process id of process X is **5600** and the image base is **0x140000000**. We can use the **SetEptBpKeyed** command to log guest state whenever a unique value is returned from the **Decrypt** routine at **0000000140001027**:
 
-We can accomplish our goal without reversing **GetDecryptedPlayerPointer** by executing a **capture register values** (CECR) IOCTL for register **RAX** at address **0x14000104F**. The CEC module satisfies this CECR request by installing an ephemeral hardware breakpoint at **0x14000104F** for the target process. When the target process executes the instruction at this address, a debug exception is generated and processed by BPM. BPM then invokes the CECR callback which records every unique value in the **RAX** register to the IOCTL buffer. The unique values buffer is returned to the client when the breakpoint duration expires.
-
-The following snippet is the client code for this example's CECR request:
-
-```C++
-UCHAR pBuffer[PAGE_SIZE] = {};
-PCEC_REGISTER_VALUES pRegisterValues = (PCEC_REGISTER_VALUES)pBuffer;
-BOOL status = TRUE;
-
-status = DrvCaptureRegisterValues(
-    GetTargetProcessId(),
-    0,
-    (ULONG_PTR)0x14000104F,
-    HWBP_TYPE::Execute,
-    HWBP_SIZE::Byte,
-    REGISTER_RAX,
-    5000,
-    pRegisterValues,
-    sizeof(pBuffer));
-```
-
-### Capture Execution Context Memory (CECM)
-This callback samples the memory-data-typed contents of a memory address defined by a memory expression.
-
-A memory expression can either be an absolute, virtual address or an indirect address in x64 addressing-mode form. The following are examples of valid memory expressions and their evaluations:
-
-    14000           ; effective address = [14000]
-    rax             ; effective address = [rax]
-    rcx+rax-20      ; effective address = [rcx+rax-20]
-    rcx+rax*8       ; effective address = [rcx+rax*8]
-    rcx+rax*8-20    ; effective address = [rcx+rax*8-20]
-
-For each callback invocation, the effective address is calculated, validated, and interpreted as a pointer to one of the following user-specified types:
-
-    byte
-    word
-    dword
-    qword
-    float
-    double
-
-The value obtained by dereferencing the effective pointer is the value recorded in the unique values buffer.
-
-#### Example
-For this example, we want to sample float values stored in xmm0 in the following instruction:
+Set the ept breakpoint with 'rax' as the key register:
 
 ```
-.text:0000000140001066     movss   dword ptr [rsp+rax*4+30h], xmm0
-.text:000000014000106C     ret
+> SetEptBpKeyed 5600 e1 14000104C 10000 1 rax
+Log Handle: 1
 ```
 
-We can easily capture these values using the following CECM request:
+Print the log elements.
 
-```C++
-UCHAR pBuffer[PAGE_SIZE] = {};
-CEC_MEMORY_DESCRIPTION MemoryDescription = {};
-PCEC_MEMORY_VALUES pMemoryValues = NULL;
-PMEMORY_DATA_VALUE pMemoryDataValue = NULL;
-BOOL status = TRUE;
+```
+> PrintEptBpLogElements 1
+EPTBP Log #1 | PID: 5600, Address: 000000014000104C, BP: X , Status: Active, KeyedRegisterContext RAX
+    NumberOfElements: 4, MaxIndex: 409
+    Elements:
+        0   rip: 000000014000104C flg: 0000000000010202
+            rax: 138582AFE1835301 rbx: 000007FEF03369F8 rbp: 0000000000000000 rsp: 000000000012FE70
+            rcx: FFFFFFFFFFFFFF7F rdx: 0000000000000000 r8:  000007FFFFFDE000 r9:  000007FEF0303BD0
+            rdi: 0000000000368120 rsi: 0000000000000000 r10: B0003A0D060A5F66 r11: 00003A0D067C9178
+            r12: 0000000000000000 r13: 0000000000000000 r14: 0000000000000000 r15: 0000000000000000
 
-// Translate the memory expression and data type into a memory description.
-status = ParseMemoryDescriptionToken(
-    "rsp+rax*4+30",
-    MDT_FLOAT,
-    &MemoryDescription);
-if (!status)
-{
-    goto exit;
-}
+        1   rip: 000000014000104C flg: 0000000000010202
+            rax: FFF83815FA800890 rbx: 000007FEF03369F8 rbp: 0000000000000000 rsp: 000000000012FE70
+            rcx: FFFFFFFFFFFFB123 rdx: 0000000000000000 r8:  000007FFFFFDE000 r9:  000007FEF0303BD0
+            rdi: 0000000000368120 rsi: 0000000000000000 r10: B0003A0D060A5F66 r11: 00003A0D067C9178
+            r12: 0000000000000000 r13: 0000000000000000 r14: 0000000000000000 r15: 0000000000000000
 
-// Issue the CECM request.
-status = DrvCaptureMemoryValues(
-    GetTargetProcessId(),
-    0,
-    (ULONG_PTR)0x14000106C,
-    HWBP_TYPE::Execute,
-    HWBP_SIZE::Byte,
-    &MemoryDescription,
-    5000,
-    pMemoryValues,
-    sizeof(pBuffer));
-if (!status)
-{
-    goto exit;
-}
+        2   rip: 000000014000104C flg: 0000000000010202
+            rax: FFFFFFFFFFFFFFFF rbx: 000007FEF03369F8 rbp: 0000000000000000 rsp: 000000000012FE70
+            rcx: FFFFFFFFFFFFEDED rdx: 0000000000000000 r8:  000007FFFFFDE000 r9:  000007FEF0303BD0
+            rdi: 0000000000368120 rsi: 0000000000000000 r10: B0003A0D060A5F66 r11: 00003A0D067C9178
+            r12: 0000000000000000 r13: 0000000000000000 r14: 0000000000000000 r15: 0000000000000000
 
-// Log the results.
-for (ULONG i = 0; i < pValuesCtx->NumberOfValues; ++i)
-{
-    pMemoryDataValue = (PMEMORY_DATA_VALUE)&pValuesCtx->Values[i];
-    printf("    %u: %f\n", i, pMemoryDataValue->Float);
-}
+        3   rip: 000000014000104C flg: 0000000000010202
+            rax: 00103350308F80CD rbx: 000007FEF03369F8 rbp: 0000000000000000 rsp: 000000000012FE70
+            rcx: FFFFFFFFFFFFDB89 rdx: 0000000000000000 r8:  000007FFFFFDE000 r9:  000007FEF0303BD0
+            rdi: 0000000000368120 rsi: 0000000000000000 r10: B0003A0D060A5F66 r11: 00003A0D067C9178
+            r12: 0000000000000000 r13: 0000000000000000 r14: 0000000000000000 r15: 0000000000000000
 ```
 
-See the CECM command description in the VivienneCL README for more information.
+From the log output above we can see that there were four decrypted values used by process X: **138582AFE1835301**, **FFF83815FA800890**, **FFFFFFFFFFFFFFFF**, and **00103350308F80CD**.
+
+Now suppose that we are finished with this ept breakpoint, but we want to continue debugging process X. We can use the **DisableEptBp** command to uninstall the breakpoint while keeping the breakpoint log valid:
+
+```
+> DisableEptBp 1
+
+```
+
+If we print the log elements again then we can see that the breakpoint is inactive:
+
+```
+> PrintEptBpLogElements 1
+EPTBP Log #1 | PID: 5600, Address: 000000014000104C, BP: X , Status: Inactive, KeyedRegisterContext RAX
+    NumberOfElements: 4, MaxIndex: 409
+    Elements:
+        0   rip: 000000014000104C flg: 0000000000010202
+            rax: 138582AFE1835301 rbx: 000007FEF03369F8 rbp: 0000000000000000 rsp: 000000000012FE70
+            rcx: FFFFFFFFFFFFFF7F rdx: 0000000000000000 r8:  000007FFFFFDE000 r9:  000007FEF0303BD0
+            rdi: 0000000000368120 rsi: 0000000000000000 r10: B0003A0D060A5F66 r11: 00003A0D067C9178
+            r12: 0000000000000000 r13: 0000000000000000 r14: 0000000000000000 r15: 0000000000000000
+
+        1   rip: 000000014000104C flg: 0000000000010202
+            rax: FFF83815FA800890 rbx: 000007FEF03369F8 rbp: 0000000000000000 rsp: 000000000012FE70
+            rcx: FFFFFFFFFFFFB123 rdx: 0000000000000000 r8:  000007FFFFFDE000 r9:  000007FEF0303BD0
+            rdi: 0000000000368120 rsi: 0000000000000000 r10: B0003A0D060A5F66 r11: 00003A0D067C9178
+            r12: 0000000000000000 r13: 0000000000000000 r14: 0000000000000000 r15: 0000000000000000
+
+        2   rip: 000000014000104C flg: 0000000000010202
+            rax: FFFFFFFFFFFFFFFF rbx: 000007FEF03369F8 rbp: 0000000000000000 rsp: 000000000012FE70
+            rcx: FFFFFFFFFFFFEDED rdx: 0000000000000000 r8:  000007FFFFFDE000 r9:  000007FEF0303BD0
+            rdi: 0000000000368120 rsi: 0000000000000000 r10: B0003A0D060A5F66 r11: 00003A0D067C9178
+            r12: 0000000000000000 r13: 0000000000000000 r14: 0000000000000000 r15: 0000000000000000
+
+        3   rip: 000000014000104C flg: 0000000000010202
+            rax: 00103350308F80CD rbx: 000007FEF03369F8 rbp: 0000000000000000 rsp: 000000000012FE70
+            rcx: FFFFFFFFFFFFDB89 rdx: 0000000000000000 r8:  000007FFFFFDE000 r9:  000007FEF0303BD0
+            rdi: 0000000000368120 rsi: 0000000000000000 r10: B0003A0D060A5F66 r11: 00003A0D067C9178
+            r12: 0000000000000000 r13: 0000000000000000 r14: 0000000000000000 r15: 0000000000000000
+```
+
+Ept breakpoints can have a significant performance cost because an ept violation occurs whenever the guest accesses the target page in a manner which matches the ept breakpoint condition. e.g., If we set an execute ept breakpoint in an an address in a page, then the guest will experience an ept violation VM exit whenever it executes an instruction inside that page.
+
+We can use the **QueryEptBpInfo** command to get a list of all ept breakpoints on the system:
+
+```
+> QueryEptBpInfo
+Ept Breakpoint Information
+    0 active breakpoints.
+    1 inactive breakpoints.
+    0 locked pages.
+    0 hooked pages.
+    Breakpoints:
+        Handle   PID          Address BP     Status                LogType #Elements MaxIndex
+        -------------------------------------------------------------------------------------
+             1  5600 000000014000104C X    Inactive   KeyedRegisterContext         4      409
+```
+
+Finally, we can release the resources for an ept breakpoint log using the **ClearEptBp** command:
+
+```
+> ClearEptBp 1
+
+```
+
+See the VivienneCL [README](./VivienneCL/README.md) for more command information.
+
+### Limitations
+
+* Currently only user mode clients are supported. Kernel support is in development.
+* Unhandled edge cases may reveal the presence of ept breakpoints to user processes in the guest OS.
 
 
-Limitations
------------
+Hardware Breakpoint Manager
+---------------------------
+The hardware breakpoint manager is deprecated since the release of the ept breakpoint manager. Developers can enable the hardware breakpoint manager by modifying the [config file](./common/config.h).
 
-When the debug register facade is active, hardware breakpoints installed by the guest (into the fake debug registers) cannot be triggered. A process can detect this side effect by installing a breakpoint, triggering the breakpoint condition, and then waiting for a single-step exception that will never be delivered.
-
-
-EPT Hooking Comparison
-----------------------
-
-EPT hooking is a viable alternative for implementing stealth debugging which does not have the limitation(s) described above. The trade-offs are:
-
-* Maintaining EPT page mappings is arguably more complex than debug register bookkeeping.
-* EPT hooks are slower than hardware breakpoint hooks because EPT hooks have a page-sized trigger range versus the byte, word, dword, and qword trigger range of hardware breakpoints.
-* The target machine must use a processor that supports EPT.
+Legacy documentation can be found [here](./Documentation/HardwareBreakpointManager.md).
 
 
 Project Structure
 -----------------
+
+### VivienneVMM
+The core driver project containing the Vivienne virtual machine monitor.
+
+### VivienneCL
+A command line VivienneVMM client which makes use of the breakpoint control interfaces. A simple debugger.
+
+### VivienneTests
+VivienneVMM test cases.
 
 This project uses [HyperPlatform](https://github.com/tandasat/HyperPlatform) as a git subtree with prefix='VivienneVMM/HyperPlatform'. We subtree the project instead of using a git submodule because we must modify HyperPlatform files to implement VivienneVMM features. This allows us to merge HyperPlatform updates from upstream with minimal merge conflicts.
 
@@ -219,13 +256,18 @@ The following list of console commands are an example of how to pull HyperPlatfo
     git subtree pull --prefix=VivienneVMM/HyperPlatform upstream master
 
 
-Related Project(s)
-------------------
+Related Projects
+----------------
 
 * HyperPlatform
 * https://github.com/tandasat/HyperPlatform
 
 HyperPlatform is an Intel VT-x based hypervisor (a.k.a. virtual machine monitor) aiming to provide a thin platform for research on Windows. HyperPlatform is capable of monitoring a wide range of events, including but not limited to, access to virtual/physical memory and system registers, occurrences of interrupts and execution of certain instructions.
+
+* DdiMon
+* https://github.com/tandasat/DdiMon
+
+DdiMon is a hypervisor performing inline hooking that is invisible to a guest (ie, any code other than DdiMon) by using extended page table (EPT).
 
 
 Notes
@@ -234,7 +276,6 @@ Notes
 * This project was developed and tested on Windows 7 x64 SP1.
 * All binaries are PatchGuard safe on Windows 7.
 * x86 is not supported and WoW64 is untested.
-* Hardware breakpoints are restricted to user space addresses (for now).
 
 
 Special Thanks

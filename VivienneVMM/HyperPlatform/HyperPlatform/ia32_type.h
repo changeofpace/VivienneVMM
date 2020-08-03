@@ -1606,19 +1606,124 @@ static_assert(sizeof(EptPtEntry) == 8, "Size check");
 union EptViolationQualification {
   ULONG64 all;
   struct {
+    //
+    // Set if the access causing the EPT violation was a data read.
+    //
     ULONG64 read_access : 1;                   //!< [0]
+    //
+    // Set if the access causing the EPT violation was a data write.
+    //
     ULONG64 write_access : 1;                  //!< [1]
+    //
+    // Set if the access causing the EPT violation was an instruction fetch.
+    //
     ULONG64 execute_access : 1;                //!< [2]
+    //
+    // The logical-AND of bit 0 in the EPT paging-structure entries used to
+    //  translate the guest-physical address of the access causing the EPT
+    //  violation (indicates whether the guest-physical address was readable).
+    //
     ULONG64 ept_readable : 1;                  //!< [3]
+    //
+    // The logical-AND of bit 1 in the EPT paging-structure entries used to
+    //  translate the guest-physical address of the access causing the EPT
+    //  violation (indicates whether the guest-physical address was writeable).
+    //
     ULONG64 ept_writeable : 1;                 //!< [4]
+    //
+    // The logical-AND of bit 2 in the EPT paging-structure entries used to
+    //  translate the guest-physical address of the access causing the EPT
+    //  violation. If the "mode-based execute control for EPT" VM-execution
+    //  control is 0, this indicates whether the guest-physical address was
+    //  executable. If that control is 1, this indicates whether the
+    //  guest-physical address was executable for supervisor-mode linear
+    //  addresses.
+    //
     ULONG64 ept_executable : 1;                //!< [5]
+    //
+    // If the "mode-based execute control" VM-execution control is 0, the value
+    //  of this bit is undefined. If that control is 1, this bit is the
+    //  logical-AND of bit 10 in the EPT paging-structure entries used to
+    //  translate the guest-physical address of the access causing the EPT
+    //  violation. In this case, it indicates whether the guest-physical
+    //  address was executable for user-mode linear addresses.
+    //
     ULONG64 ept_executable_for_user_mode : 1;  //!< [6]
+    //
+    // Set if the guest linear-address field is valid.The guest linear-address
+    //  field is valid for all EPT violations except those resulting from an
+    //  attempt to load the guest PDPTEs as part of the execution of the MOV CR
+    //  instruction and those due to trace-address pre-translation (TAPT;
+    //  Section 25.5.4).
+    //
     ULONG64 valid_guest_linear_address : 1;    //!< [7]
+    //
+    // If bit 7 is 1:
+    //
+    //  - Set if the access causing the EPT violation is to a guest-physical
+    //      address that is the translation of a linear address.
+    //
+    //  - Clear if the access causing the EPT violation is to a
+    //      paging-structure entry as part of a page walk or the update of an
+    //      accessed or dirty bit.
+    //
+    // Reserved if bit 7 is 0 (cleared to 0).
+    //
     ULONG64 caused_by_translation : 1;         //!< [8]
+    //
+    // If bit 7 is 1, bit 8 is 1, and the processor supports advanced VM-exit
+    //  information for EPT violations this bit is 0 if the linear address is a
+    //  supervisor-mode linear address and 1 if it is a user-mode linear
+    //  address. (If CR0.PG = 0, the translation of every linear address is a
+    //  user-mode linear address and thus this bit will be 1.) Otherwise, this
+    //  bit is undefined.
+    //
     ULONG64 user_mode_linear_address : 1;      //!< [9]
+    //
+    // If bit 7 is 1, bit 8 is 1, and the processor supports advanced VM-exit
+    //  information for EPT violations this bit is 0 if paging translates the
+    //  linear address to a read-only page and 1 if it translates to a
+    //  read/write page. (If CR0.PG = 0, every linear address is read/write and
+    //  thus this bit will be 1.) Otherwise, this bit is undefined.
+    //
     ULONG64 readable_writable_page : 1;        //!< [10]
+    //
+    // If bit 7 is 1, bit 8 is 1, and the processor supports advanced VM-exit
+    //  information for EPT violations this bit is 0 if paging translates the
+    //  linear address to an executable page and 1 if it translates to an
+    //  execute-disable page. (If CR0.PG = 0, CR4.PAE = 0, or
+    //  IA32_EFER.NXE = 0, every linear address is executable and thus this bit
+    //  will be 0.) Otherwise, this bit is undefined.
+    //
     ULONG64 execute_disable_page : 1;          //!< [11]
+    //
+    // NMI unblocking due to IRET (see Section 27.2.3).
+    //
     ULONG64 nmi_unblocking : 1;                //!< [12]
+    //
+    // Set if the access causing the EPT violation was a shadow-stack access.
+    //
+    ULONG64 shadow_stack_access : 1;           //!< [13]
+    //
+    // If supervisor shadow-stack control is enabled (by setting bit 7 of
+    //  EPTP), this bit is the same as bit 60 in the EPT paging-structure entry
+    //  that maps the page of the guest-physical address of the access causing
+    //  the EPT violation. Otherwise (or if translation of the guest-physical
+    //  address terminates before reaching an EPT paging-structure entry that
+    //  maps a page), this bit is undefined.
+    //
+    ULONG64 shadow_stack_ex : 1;               //!< [14]
+    //
+    // Reserved (cleared to 0).
+    //
+    ULONG64 reserved15 : 1;                    //!< [15]
+    //
+    // This bit is set if the access was asynchronous to instruction execution
+    //  not the result of event delivery. (The bit is set if the access is
+    //  related to trace output by Intel PT; see Section 25.5.4.) Otherwise,
+    //  this bit is cleared.
+    //
+    ULONG64 asynchronous_access : 1;           //!< [16]
   } fields;
 };
 static_assert(sizeof(EptViolationQualification) == 8, "Size check");

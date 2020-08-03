@@ -103,8 +103,8 @@ TestDebugRegisterFacade()
     // Install a real hardware breakpoint in the same debug address register
     //  with different parameters.
     status = VivienneIoSetHardwareBreakpoint(
-        GetCurrentProcessId(),
         SHARED_BREAKPOINT_INDEX,
+        GetCurrentProcessId(),
         VVMMGLOBAL_BREAKPOINT_ADDRESS,
         VVMMGLOBAL_BREAKPOINT_TYPE,
         VVMMGLOBAL_BREAKPOINT_SIZE);

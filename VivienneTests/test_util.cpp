@@ -1,5 +1,7 @@
 #include "test_util.h"
 
+#include <Psapi.h>
+
 #include <cstdio>
 #include <iostream>
 #include <intrin.h>
@@ -7,9 +9,9 @@
 #include <time.h>
 
 #include "..\common\arch_x64.h"
-#include "..\common\debug.h"
 #include "..\common\time_util.h"
 
+#include "..\VivienneCL\debug.h"
 #include "..\VivienneCL\driver_io.h"
 #include "..\VivienneCL\ntdll.h"
 
@@ -64,7 +66,55 @@ PromptDebuggerExceptionConfiguration(
     printf("    %s\n", pszCommandMessage);
     std::cout.flush();
     Sleep(PROMPT_DBG_FLUSH_DURATION_MS);
-    DEBUGBREAK;
+    DEBUG_BREAK();
+}
+
+
+//=============================================================================
+// Memory
+//=============================================================================
+
+//
+// IsVirtualAddressValid
+//
+// Determine if the PTE for the specified address is valid.
+//
+_Use_decl_annotations_
+BOOL
+IsVirtualAddressValid(
+    PVOID pAddress,
+    PBOOL pValid
+)
+{
+    PSAPI_WORKING_SET_EX_INFORMATION WorkingSetInfo = {};
+    BOOL status = TRUE;
+
+    // Zero out parameters.
+    *pValid = FALSE;
+
+    //
+    // Initialize the target virtual address for the working set query.
+    //
+    WorkingSetInfo.VirtualAddress = pAddress;
+
+    status = QueryWorkingSetEx(
+        GetCurrentProcess(),
+        &WorkingSetInfo,
+        sizeof(WorkingSetInfo));
+    if (!status)
+    {
+        printf("QueryWorkingSetEx failed: %u\n", GetLastError());
+        goto exit;
+    }
+
+    // Set out parameters.
+    if (WorkingSetInfo.VirtualAttributes.Valid)
+    {
+        *pValid = TRUE;
+    }
+
+exit:
+    return status;
 }
 
 
@@ -180,7 +230,7 @@ iSetThreadLocalHardwareBreakpoint(
     // Initialize context.
     Context.ContextFlags = CONTEXT_DEBUG_REGISTERS;
 
-    status = GetThreadContext(GetCurrentThread(), &Context);
+    status = GetThreadContext(hThread, &Context);
     if (!status)
     {
         printf("GetThreadContext failed: %u\n", GetLastError());
@@ -240,10 +290,12 @@ iSetThreadLocalHardwareBreakpoint(
             goto exit;
     }
 
+    //NewDr7.Reserved1 = 1;
+
     Context.Dr7 = NewDr7.All;
     Context.ContextFlags = CONTEXT_DEBUG_REGISTERS;
 
-    status = SetThreadContext(GetCurrentThread(), &Context);
+    status = SetThreadContext(hThread, &Context);
     if (!status)
     {
         printf("SetThreadContext failed: %u\n", GetLastError());

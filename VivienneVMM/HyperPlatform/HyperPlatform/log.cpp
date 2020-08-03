@@ -9,7 +9,7 @@
 #define NTSTRSAFE_NO_CB_FUNCTIONS
 #include <ntstrsafe.h>
 
-#include "..\..\config.h"
+#include "../../../common/config.h"
 
 // See common.h for details
 #pragma prefast(disable : 30030)
@@ -28,7 +28,7 @@ extern "C" {
 // A size for log buffer in NonPagedPool. Two buffers are allocated with this
 // size. Exceeded logs are ignored silently. Make it bigger if a buffered log
 // size often reach this size.
-static const auto kLogpBufferSizeInPages = 16ul;
+static const auto kLogpBufferSizeInPages = CFG_LOG_NUMBER_OF_PAGES;
 
 // An actual log buffer size in bytes.
 static const auto kLogpBufferSize = PAGE_SIZE * kLogpBufferSizeInPages;
@@ -38,7 +38,7 @@ static const auto kLogpBufferSize = PAGE_SIZE * kLogpBufferSizeInPages;
 static const auto kLogpBufferUsableSize = kLogpBufferSize - 1;
 
 // An interval to flush buffered log entries into a log file.
-static const auto kLogpLogFlushIntervalMsec = 50;
+static const auto kLogpLogFlushIntervalMsec = CFG_LOG_FLUSH_INTERVAL_MS;
 
 static const ULONG kLogpPoolTag = ' gol';
 
@@ -275,19 +275,18 @@ _Use_decl_annotations_ static NTSTATUS LogpInitializeLogFile(
                              OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE, nullptr,
                              nullptr);
 
+  ACCESS_MASK LogFileDataBehavior = {};
   NTSTATUS status = STATUS_SUCCESS;
 
-#if defined(CFG_DELETE_EXISTING_LOGFILE)
-  status = ZwDeleteFile(&oa);
-  if (!NT_SUCCESS(status) && STATUS_OBJECT_NAME_NOT_FOUND != status)
-  {
-    return status;
-  }
+#if defined(CFG_LOG_APPEND_DATA_TO_EXISTING_LOG_FILE)
+  LogFileDataBehavior = FILE_APPEND_DATA;
+#else
+  LogFileDataBehavior = FILE_WRITE_DATA;
 #endif
 
   IO_STATUS_BLOCK io_status = {};
   status = ZwCreateFile(
-      &info->log_file_handle, FILE_APPEND_DATA | SYNCHRONIZE, &oa, &io_status,
+      &info->log_file_handle, LogFileDataBehavior | SYNCHRONIZE, &oa, &io_status,
       nullptr, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN_IF,
       FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE, nullptr, 0);
   if (!NT_SUCCESS(status)) {
@@ -470,16 +469,16 @@ _Use_decl_annotations_ static NTSTATUS LogpMakePrefix(
   char const *level_string = nullptr;
   switch (level) {
     case kLogpLevelDebug:
-      level_string = "DBG\t";
+      level_string = "DBG";
       break;
     case kLogpLevelInfo:
-      level_string = "INF\t";
+      level_string = "INF";
       break;
     case kLogpLevelWarn:
-      level_string = "WRN\t";
+      level_string = "WRN";
       break;
     case kLogpLevelError:
-      level_string = "ERR\t";
+      level_string = "ERR";
       break;
     default:
       return STATUS_INVALID_PARAMETER;
@@ -497,7 +496,7 @@ _Use_decl_annotations_ static NTSTATUS LogpMakePrefix(
     RtlTimeToTimeFields(&local_time, &time_fields);
 
     status = RtlStringCchPrintfA(time_buffer, RTL_NUMBER_OF(time_buffer),
-                                 "%02hd:%02hd:%02hd.%03hd\t", time_fields.Hour,
+                                 "%02hd:%02hd:%02hd.%03hd", time_fields.Hour,
                                  time_fields.Minute, time_fields.Second,
                                  time_fields.Milliseconds);
     if (!NT_SUCCESS(status)) {
@@ -522,7 +521,7 @@ _Use_decl_annotations_ static NTSTATUS LogpMakePrefix(
   if ((g_logp_debug_flag & kLogOptDisableProcessorNumber) == 0) {
     status =
         RtlStringCchPrintfA(processro_number, RTL_NUMBER_OF(processro_number),
-                            "#%lu\t", KeGetCurrentProcessorNumberEx(nullptr));
+                            "#%02lu", KeGetCurrentProcessorNumberEx(nullptr));
     if (!NT_SUCCESS(status)) {
       return status;
     }
@@ -535,8 +534,8 @@ _Use_decl_annotations_ static NTSTATUS LogpMakePrefix(
   // The author is guessing that it is related to attaching processes but
   // not quite sure. The former way works as expected.
   status = RtlStringCchPrintfA(
-      log_buffer, log_buffer_length, "%s%s%s%5Iu\t%5Iu\t%-15s\t%s%s\r\n",
-      time_buffer, level_string, processro_number,
+      log_buffer, log_buffer_length, "%s %s %s [%02u] %5Iu %5Iu %-15s    %s%s\r\n",
+      time_buffer, level_string, processro_number, KeGetCurrentIrql(),
       reinterpret_cast<ULONG_PTR>(PsGetProcessId(PsGetCurrentProcess())),
       reinterpret_cast<ULONG_PTR>(PsGetCurrentThreadId()),
       PsGetProcessImageFileName(PsGetCurrentProcess()), function_name_buffer,

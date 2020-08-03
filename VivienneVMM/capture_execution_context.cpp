@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -29,13 +29,13 @@ Environment:
 
 #include <intrin.h>
 
-#include "breakpoint_manager.h"
-#include "config.h"
 #include "debug.h"
+#include "hardware_breakpoint_manager.h"
 #include "ioctl_validation.h"
 #include "log.h"
 #include "register_util.h"
 
+#include "..\common\config.h"
 #include "..\common\time_util.h"
 
 #include "HyperPlatform\HyperPlatform\log.h"
@@ -47,12 +47,13 @@ Environment:
 // Constants and Macros
 //=============================================================================
 #define MODULE_TITLE    "Capture Execution Context"
-
 #define CEC_TAG         'TceC'
 
 #define CEC_MAX_DURATION_MS     (SECONDS_TO_MILLISECONDS(10))
 
-#ifdef CFG_VERBOSE_CAPTUREEXECUTIONCONTEXT
+///#define CEC_ENABLE_VERBOSE_OUTPUT
+
+#if defined(CEC_ENABLE_VERBOSE_OUTPUT)
 #define CEC_VERBOSE_PRINT   INF_PRINT
 #else
 #define CEC_VERBOSE_PRINT(Format, ...)
@@ -213,7 +214,9 @@ exit:
         {
             if (fResourceInitialized[i])
             {
-                VERIFY(ExDeleteResourceLite(&g_CecManager.DarResources[i]));
+                VERIFY_NTSTATUS(
+                    ExDeleteResourceLite(
+                        &g_CecManager.DarResources[i]));
             }
         }
     }
@@ -231,7 +234,7 @@ CecDriverUnload()
 
     for (i = 0; i < ARRAYSIZE(g_CecManager.DarResources); i++)
     {
-        VERIFY(ExDeleteResourceLite(&g_CecManager.DarResources[i]));
+        VERIFY_NTSTATUS(ExDeleteResourceLite(&g_CecManager.DarResources[i]));
     }
 
     INF_PRINT("%s unloaded.", MODULE_TITLE);
@@ -276,7 +279,7 @@ CecCaptureRegisterValues(
     //
     // Validate in parameters.
     //
-    ntstatus = BpmInitializeBreakpoint(
+    ntstatus = HbmInitializeBreakpoint(
         ProcessId,
         Index,
         Address,
@@ -285,7 +288,7 @@ CecCaptureRegisterValues(
         &Breakpoint);
     if (!NT_SUCCESS(ntstatus))
     {
-        ERR_PRINT("BpmInitializeBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("HbmInitializeBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -367,7 +370,7 @@ CecCaptureRegisterValues(
     //
     // Install the hardware breakpoint on all processors.
     //
-    ntstatus = BpmSetHardwareBreakpoint(
+    ntstatus = HbmSetHardwareBreakpoint(
         ProcessId,
         Index,
         Address,
@@ -377,7 +380,7 @@ CecCaptureRegisterValues(
         pCallbackCtx);
     if (!NT_SUCCESS(ntstatus))
     {
-        ERR_PRINT("BpmSetHardwareBreakpoint failed: 0x%X (CECR)", ntstatus);
+        ERR_PRINT("HbmSetHardwareBreakpoint failed: 0x%X (CECR)", ntstatus);
         goto exit;
     }
 
@@ -397,10 +400,10 @@ CecCaptureRegisterValues(
     //
     // Clear the breakpoint.
     //
-    ntstatus = BpmClearHardwareBreakpoint(Index);
+    ntstatus = HbmClearHardwareBreakpoint(Index);
     if (!NT_SUCCESS(ntstatus))
     {
-        ERR_PRINT("BpmClearHardwareBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("HbmClearHardwareBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -458,7 +461,7 @@ CecCaptureMemoryValues(
     //
     // Validate in parameters.
     //
-    ntstatus = BpmInitializeBreakpoint(
+    ntstatus = HbmInitializeBreakpoint(
         ProcessId,
         Index,
         Address,
@@ -467,7 +470,7 @@ CecCaptureMemoryValues(
         &Breakpoint);
     if (!NT_SUCCESS(ntstatus))
     {
-        ERR_PRINT("BpmInitializeBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("HbmInitializeBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -535,7 +538,7 @@ CecCaptureMemoryValues(
         cbValuesCtx,
         pMemoryDescription->DataType);
 
-#if defined(CFG_VERBOSE_CAPTUREEXECUTIONCONTEXT)
+#if defined(CEC_ENABLE_VERBOSE_OUTPUT)
     if (pCallbackCtx->MemoryDescription.IsIndirectAddress)
     {
         CEC_VERBOSE_PRINT(
@@ -582,7 +585,7 @@ CecCaptureMemoryValues(
     //
     // Install the hardware breakpoint on all processors.
     //
-    ntstatus = BpmSetHardwareBreakpoint(
+    ntstatus = HbmSetHardwareBreakpoint(
         ProcessId,
         Index,
         Address,
@@ -592,7 +595,7 @@ CecCaptureMemoryValues(
         pCallbackCtx);
     if (!NT_SUCCESS(ntstatus))
     {
-        ERR_PRINT("BpmSetHardwareBreakpoint failed: 0x%X (CECM)", ntstatus);
+        ERR_PRINT("HbmSetHardwareBreakpoint failed: 0x%X (CECM)", ntstatus);
         goto exit;
     }
 
@@ -612,10 +615,10 @@ CecCaptureMemoryValues(
     //
     // Clear the breakpoint.
     //
-    ntstatus = BpmClearHardwareBreakpoint(Index);
+    ntstatus = HbmClearHardwareBreakpoint(Index);
     if (!NT_SUCCESS(ntstatus))
     {
-        ERR_PRINT("BpmClearHardwareBreakpoint failed: 0x%X", ntstatus);
+        ERR_PRINT("HbmClearHardwareBreakpoint failed: 0x%X", ntstatus);
         goto exit;
     }
 
@@ -1068,8 +1071,6 @@ CeciVmxMemoryBreakpointCallback(
     //
     // Check if the address has been accessed.
     //
-    // TODO Create a test case for this scenario.
-    //
     if (!pEffectivePte->accessed)
     {
         pCecCtx->Statistics.UntouchedPageErrors++;
@@ -1100,11 +1101,6 @@ CeciVmxMemoryBreakpointCallback(
 
     pMemoryDataValue = (PMEMORY_DATA_VALUE)EffectiveAddress;
 
-    //
-    // TODO We store all data types in pointer-sized elements in the values
-    //  buffer to reduce complexity. In the future, refactor the values buffer
-    //  to have memory-data-type-sized elements.
-    //
     switch (pCecCtx->MemoryDescription.DataType)
     {
         case MDT_BYTE:

@@ -1,6 +1,6 @@
 /*++
 
-Copyright (c) 2019 changeofpace. All rights reserved.
+Copyright (c) 2019-2020 changeofpace. All rights reserved.
 
 Use of this source code is governed by the MIT license. See the 'LICENSE' file
 for more information.
@@ -10,6 +10,10 @@ for more information.
 #pragma once
 
 #include <Windows.h>
+
+//
+// TODO Add config option to write log session to a file.
+//
 
 //=============================================================================
 // Constants
@@ -77,3 +81,19 @@ LogPrint(
 
 #define ERR_PRINT(Format, ...) \
     LogPrint(LogLevelError, LOG_OPTION_APPEND_CRLF, (Format), __VA_ARGS__)
+
+//
+// Print messages without trailing CRLF.
+//
+#if defined(_DEBUG)
+#define DBG_PRINT_RAW(Format, ...) \
+    LogPrint(LogLevelDebug, 0, (Format), __VA_ARGS__)
+#else
+//
+// Debug level messages are disabled in release builds.
+//
+#define DBG_PRINT_RAW(Format, ...)
+#endif
+
+#define INF_PRINT_RAW(Format, ...) \
+    LogPrint(LogLevelInfo, 0, (Format), __VA_ARGS__)

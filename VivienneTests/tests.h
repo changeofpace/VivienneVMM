@@ -2,7 +2,11 @@
 
 #include <Windows.h>
 
-#include "..\VivienneVMM\config.h"
+#include "..\common\config.h"
+
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
+#include "test_ept_breakpoint_manager.h"
+#endif
 
 //
 // TODO Add a test which executes an 'int 1' instruction.
@@ -14,6 +18,14 @@
 VOID
 TestTokenParser();
 
+//=============================================================================
+// General Anti-Debug
+//=============================================================================
+VOID
+TestAntiDebugSingleStep();
+
+
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
 //=============================================================================
 // BPM
 //=============================================================================
@@ -56,7 +68,7 @@ TestAntiDebugCecmTrapPage();
 VOID
 TestAntiDebugCecmSpanningPage();
 
-#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
+#if defined(CFG_HBM_ENABLE_DEBUG_REGISTER_FACADE)
 //=============================================================================
 // FCD
 //=============================================================================
@@ -69,9 +81,4 @@ TestDebugRegisterFacadeStress();
 VOID
 TestProcessUnownedHardwareBreakpoint();
 #endif
-
-//=============================================================================
-// General Anti-Debug
-//=============================================================================
-VOID
-TestAntiDebugSingleStep();
+#endif

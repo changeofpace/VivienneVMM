@@ -66,10 +66,14 @@ constexpr VmxStatus operator|=(_In_ VmxStatus lhs, _In_ VmxStatus rhs) {
 
 /// Available command numbers for VMCALL
 enum class HypercallNumber : unsigned __int32 {
-  kTerminateVmm,            //!< Terminates VMM
-  kPingVmm,                 //!< Sends ping to the VMM
-  kGetSharedProcessorData,  //!< Terminates VMM
-  kSetHardwareBreakpoint,   //!< VVMM Breakpoint manager control
+  kTerminateVmm,                        //!< Terminates VMM
+  kPingVmm,                             //!< Sends ping to the VMM
+  kGetSharedProcessorData,              //!< Terminates VMM
+  kSetHardwareBreakpoint,               //!< VVMM Breakpoint manager control
+  kInstallEptBreakpoint,                //!< EPT Breakpoint manager control
+  kUninstallEptBreakpoint,              //!< EPT Breakpoint manager control
+  kUninstallEptBreakpointsByProcessId,  //!< EPT Breakpoint manager control
+  kUninstallAllEptBreakpoints,          //!< EPT Breakpoint manager control
 };
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -15,7 +15,8 @@
 #include "util.h"
 #include "vmm.h"
 
-#include "..\..\config.h"
+#include "../../../common/config.h"
+
 #include "..\..\debug_register_facade.h"
 
 extern "C" {
@@ -256,15 +257,15 @@ _Use_decl_annotations_ static SharedProcessorData *VmpInitializeSharedData() {
     return nullptr;
   }
 
-  // Setup IO bitmaps
-  const auto io_bitmaps = VmpBuildIoBitmaps();
-  if (!io_bitmaps) {
-    ExFreePoolWithTag(shared_data->msr_bitmap, kHyperPlatformCommonPoolTag);
-    ExFreePoolWithTag(shared_data, kHyperPlatformCommonPoolTag);
-    return nullptr;
-  }
-  shared_data->io_bitmap_a = io_bitmaps;
-  shared_data->io_bitmap_b = io_bitmaps + PAGE_SIZE;
+  //// Setup IO bitmaps
+  //const auto io_bitmaps = VmpBuildIoBitmaps();
+  //if (!io_bitmaps) {
+  //  ExFreePoolWithTag(shared_data->msr_bitmap, kHyperPlatformCommonPoolTag);
+  //  ExFreePoolWithTag(shared_data, kHyperPlatformCommonPoolTag);
+  //  return nullptr;
+  //}
+  //shared_data->io_bitmap_a = io_bitmaps;
+  //shared_data->io_bitmap_b = io_bitmaps + PAGE_SIZE;
   return shared_data;
 }
 
@@ -501,7 +502,7 @@ _Use_decl_annotations_ static void VmpInitializeVm(
     goto Exit;
   }
 
-#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
+#ifdef CFG_HBM_ENABLE_DEBUG_REGISTER_FACADE
   //
   // We must perform DebugRegisterFacade VMX initialization before launching
   //  the VM to avoid race conditions involving the contents of the debug
@@ -614,6 +615,10 @@ _Use_decl_annotations_ static bool VmpSetupVmcs(
   Idtr idtr = {};
   __sidt(&idtr);
 
+  //---------------------------------------------------------------------------
+  // Start VM Configuration
+  //---------------------------------------------------------------------------
+
   // See: Algorithms for Determining VMX Capabilities
   const auto use_true_msrs = Ia32VmxBasicMsr{UtilReadMsr64(Msr::kIa32VmxBasic)}
                                  .fields.vmx_capability_hint;
@@ -623,15 +628,11 @@ _Use_decl_annotations_ static bool VmpSetupVmcs(
   //===========================================================================
   VmxVmEntryControls vm_entryctl_requested = {};
 
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
   vm_entryctl_requested.fields.load_debug_controls = true;
+#endif
   vm_entryctl_requested.fields.ia32e_mode_guest = IsX64();
-  vm_entryctl_requested.fields.entry_to_smm = false;
-  vm_entryctl_requested.fields.deactivate_dual_monitor_treatment = false;
-  vm_entryctl_requested.fields.load_ia32_perf_global_ctrl = false;
-  vm_entryctl_requested.fields.load_ia32_pat = false;
-  vm_entryctl_requested.fields.load_ia32_efer = false;
-  vm_entryctl_requested.fields.load_ia32_bndcfgs = false;
-  vm_entryctl_requested.fields.conceal_vmentries_from_intel_pt = false;
+  vm_entryctl_requested.fields.conceal_vmentries_from_intel_pt = true;
 
   VmxVmEntryControls vm_entryctl = {VmpAdjustControlValue(
       (use_true_msrs) ? Msr::kIa32VmxTrueEntryCtls : Msr::kIa32VmxEntryCtls,
@@ -642,71 +643,34 @@ _Use_decl_annotations_ static bool VmpSetupVmcs(
   //===========================================================================
   VmxVmExitControls vm_exitctl_requested = {};
 
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
   vm_exitctl_requested.fields.save_debug_controls = true;
+#endif
   vm_exitctl_requested.fields.host_address_space_size = IsX64();
-  vm_exitctl_requested.fields.load_ia32_perf_global_ctrl = false;
-  vm_exitctl_requested.fields.acknowledge_interrupt_on_exit = true;
-  vm_exitctl_requested.fields.save_ia32_pat = false;
-  vm_exitctl_requested.fields.load_ia32_pat = false;
-  vm_exitctl_requested.fields.save_ia32_efer = false;
-  vm_exitctl_requested.fields.load_ia32_efer = false;
-  vm_exitctl_requested.fields.save_vmx_preemption_timer_value = false;
-  vm_exitctl_requested.fields.clear_ia32_bndcfgs = false;
-  vm_exitctl_requested.fields.conceal_vmexits_from_intel_pt = false;
+  vm_exitctl_requested.fields.conceal_vmexits_from_intel_pt = true;
 
   VmxVmExitControls vm_exitctl = {VmpAdjustControlValue(
       (use_true_msrs) ? Msr::kIa32VmxTrueExitCtls : Msr::kIa32VmxExitCtls,
       vm_exitctl_requested.all)};
 
   //===========================================================================
-  // Pin Based Controls
+  // Pin-Based VM-Execution Controls
   //===========================================================================
   VmxPinBasedControls vm_pinctl_requested = {};
-
-  vm_pinctl_requested.fields.external_interrupt_exiting = false;
-  vm_pinctl_requested.fields.nmi_exiting = false;
-  vm_pinctl_requested.fields.virtual_nmis = false;
-  vm_pinctl_requested.fields.activate_vmx_peemption_timer = false;
-  vm_pinctl_requested.fields.process_posted_interrupts = false;
-
   VmxPinBasedControls vm_pinctl = {
       VmpAdjustControlValue((use_true_msrs) ? Msr::kIa32VmxTruePinbasedCtls
                                             : Msr::kIa32VmxPinbasedCtls,
                             vm_pinctl_requested.all)};
 
   //===========================================================================
-  // Processor Based Controls
+  // Processor-Based VM-Execution Controls
   //===========================================================================
   VmxProcessorBasedControls vm_procctl_requested = {};
 
-  vm_procctl_requested.fields.interrupt_window_exiting = false;
-  vm_procctl_requested.fields.use_tsc_offseting = false;
-  vm_procctl_requested.fields.hlt_exiting = false;
-  vm_procctl_requested.fields.invlpg_exiting = false;
-  vm_procctl_requested.fields.mwait_exiting = false;
-  vm_procctl_requested.fields.rdpmc_exiting = false;
-  vm_procctl_requested.fields.rdtsc_exiting = false;
-  //
-  // TODO Determine if we can disable this setting without impacting
-  //  HyperPlatform because we do not support x86.
-  //
-  vm_procctl_requested.fields.cr3_load_exiting = true;
-  vm_procctl_requested.fields.cr3_store_exiting = false;
-  vm_procctl_requested.fields.cr8_load_exiting = false;
-  vm_procctl_requested.fields.cr8_store_exiting = false;
-  vm_procctl_requested.fields.use_tpr_shadow = false;
-  vm_procctl_requested.fields.nmi_window_exiting = false;
-#ifdef CFG_ENABLE_DEBUGREGISTERFACADE
+#if defined(CFG_HBM_ENABLE_DEBUG_REGISTER_FACADE)
   vm_procctl_requested.fields.mov_dr_exiting = true;
-#else
-  vm_procctl_requested.fields.mov_dr_exiting = false;
 #endif
-  vm_procctl_requested.fields.unconditional_io_exiting = false;
-  vm_procctl_requested.fields.use_io_bitmaps = false;
-  vm_procctl_requested.fields.monitor_trap_flag = false;
-  vm_procctl_requested.fields.use_msr_bitmaps = false;
-  vm_procctl_requested.fields.monitor_exiting = false;
-  vm_procctl_requested.fields.pause_exiting = false;
+  vm_procctl_requested.fields.use_msr_bitmaps = true;
   vm_procctl_requested.fields.activate_secondary_control = true;
 
   VmxProcessorBasedControls vm_procctl = {
@@ -715,34 +679,17 @@ _Use_decl_annotations_ static bool VmpSetupVmcs(
                             vm_procctl_requested.all)};
 
   //===========================================================================
-  // Secondary Processor Based Controls
+  // Secondary Processor-Based VM-Execution Controls
   //===========================================================================
   VmxSecondaryProcessorBasedControls vm_procctl2_requested = {};
 
-  vm_procctl2_requested.fields.virtualize_apic_accesses = false;
-#ifdef CFG_ENABLE_EPT
+#if defined(CFG_BPM_EPT_BREAKPOINT_MANAGER)
   vm_procctl2_requested.fields.enable_ept = true;
-#else
-  vm_procctl2_requested.fields.enable_ept = false;
 #endif
-  vm_procctl2_requested.fields.descriptor_table_exiting = false;
   vm_procctl2_requested.fields.enable_rdtscp = true;            // for Win10
-  vm_procctl2_requested.fields.virtualize_x2apic_mode = false;
   vm_procctl2_requested.fields.enable_vpid = true;
-  vm_procctl2_requested.fields.wbinvd_exiting = false;
-  vm_procctl2_requested.fields.unrestricted_guest = false;
-  vm_procctl2_requested.fields.apic_register_virtualization = false;
-  vm_procctl2_requested.fields.virtual_interrupt_delivery = false;
-  vm_procctl2_requested.fields.pause_loop_exiting = false;
-  vm_procctl2_requested.fields.rdrand_exiting = false;
   vm_procctl2_requested.fields.enable_invpcid = true;           // for Win10
-  vm_procctl2_requested.fields.enable_vm_functions = false;
-  vm_procctl2_requested.fields.vmcs_shadowing = false;
-  vm_procctl2_requested.fields.rdseed_exiting = false;
-  vm_procctl2_requested.fields.ept_violation_ve = false;
   vm_procctl2_requested.fields.enable_xsaves_xstors = true;     // for Win10
-  vm_procctl2_requested.fields.mode_based_execute_control_for_ept = false;
-  vm_procctl2_requested.fields.use_tsc_scaling = false;
 
   VmxSecondaryProcessorBasedControls vm_procctl2 = {VmpAdjustControlValue(
       Msr::kIa32VmxProcBasedCtls2, vm_procctl2_requested.all)};
@@ -758,13 +705,22 @@ _Use_decl_annotations_ static bool VmpSetupVmcs(
   HYPERPLATFORM_LOG_DEBUG("SecondaryProcessorBasedControls  = %08x",
                           vm_procctl2.all);
 
+  //===========================================================================
+  // Exception Bitmap
+  //===========================================================================
   // NOTE: Comment in any of those as needed
   const auto exception_bitmap =
       // 1 << InterruptionVector::kBreakpointException |
       // 1 << InterruptionVector::kGeneralProtectionException |
       // 1 << InterruptionVector::kPageFaultException |
+#if defined(CFG_BPM_HARDWARE_BREAKPOINT_MANAGER)
       1 << InterruptionVector::kDebugException |
+#endif
       0;
+
+  //---------------------------------------------------------------------------
+  // End VM Configuration
+  //---------------------------------------------------------------------------
 
   // Set up CR0 and CR4 bitmaps
   // - Where a bit is     masked, the shadow bit appears
@@ -821,8 +777,8 @@ _Use_decl_annotations_ static bool VmpSetupVmcs(
   error |= UtilVmWrite(VmcsField::kHostTrSelector, AsmReadTR() & 0xf8);
 
   /* 64-Bit Control Fields */
-  error |= UtilVmWrite64(VmcsField::kIoBitmapA, UtilPaFromVa(processor_data->shared_data->io_bitmap_a));
-  error |= UtilVmWrite64(VmcsField::kIoBitmapB, UtilPaFromVa(processor_data->shared_data->io_bitmap_b));
+  //error |= UtilVmWrite64(VmcsField::kIoBitmapA, UtilPaFromVa(processor_data->shared_data->io_bitmap_a));
+  //error |= UtilVmWrite64(VmcsField::kIoBitmapB, UtilPaFromVa(processor_data->shared_data->io_bitmap_b));
   error |= UtilVmWrite64(VmcsField::kMsrBitmap, UtilPaFromVa(processor_data->shared_data->msr_bitmap));
   error |= UtilVmWrite64(VmcsField::kEptPointer, EptGetEptPointer(processor_data->ept_data));
 
@@ -1116,10 +1072,10 @@ _Use_decl_annotations_ static void VmpFreeSharedData(
   }
 
   HYPERPLATFORM_LOG_DEBUG("Freeing shared data...");
-  if (processor_data->shared_data->io_bitmap_a) {
-    ExFreePoolWithTag(processor_data->shared_data->io_bitmap_a,
-                      kHyperPlatformCommonPoolTag);
-  }
+  //if (processor_data->shared_data->io_bitmap_a) {
+  //  ExFreePoolWithTag(processor_data->shared_data->io_bitmap_a,
+  //                    kHyperPlatformCommonPoolTag);
+  //}
   if (processor_data->shared_data->msr_bitmap) {
     ExFreePoolWithTag(processor_data->shared_data->msr_bitmap,
                       kHyperPlatformCommonPoolTag);
@@ -1139,7 +1095,7 @@ _Use_decl_annotations_ static bool VmpIsHyperPlatformInstalled() {
   }
 
   __cpuid(cpu_info, kHyperVCpuidInterface);
-  return cpu_info[0] == CFG_VVMM_SIGNATURE;
+  return cpu_info[0] == CFG_NAME_VIVIENNE_SIGNATURE;
 }
 
 // Virtualizes the specified processor
