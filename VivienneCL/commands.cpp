@@ -1097,8 +1097,8 @@ R"(Usage: QueryEptBpInfo
         qebi
 
     Summary
-        Print ept breakpoint log header information for all installed ept
-        breakpoints. Print general statistics about the ept breakpoint manager.)";
+        Print breakpoint information for each ept breakpoint on the system.
+        Print general statistics about the ept breakpoint manager.)";
 
 _Use_decl_annotations_
 BOOL

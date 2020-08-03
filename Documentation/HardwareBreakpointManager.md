@@ -1,6 +1,8 @@
 Hardware Breakpoint Manager
 ===========================
 
+*This breakpoint manager is deprecated. Consider using the ept breakpoint manager instead.*
+
 The hardware breakpoint manager (HBM) modifies processor debug registers to install and uninstall hardware breakpoints. Each modification is performed synchronously on all logical processors using the following protocol:
 
 1. The client requests a breakpoint change via an IOCTL.

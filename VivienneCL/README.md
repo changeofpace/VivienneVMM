@@ -19,6 +19,8 @@ Commands
 
 **commands**
 
+    Usage: commands
+
     Short Name
         cmds
 
@@ -27,8 +29,7 @@ Commands
 
 **help**
 
-    Usage
-        help [command_name]
+    Usage: help [command_name]
 
     Summary
         Display extended command information.
@@ -43,12 +44,16 @@ Commands
 
 **exit**
 
+    Usage: exit
+
     Summary
         Terminate the VivienneCL session.
 
 ### Process
 
 **GetProcessId**
+
+    Usage: GetProcessId process_name
 
     Short Name
         procid
@@ -64,6 +69,8 @@ Commands
         procid calc.exe
 
 **GetProcessInformation**
+
+    Usage: GetProcessInformation process_id
 
     Short Name
         procinfo
@@ -85,8 +92,8 @@ Commands
         qebi
 
     Summary
-        Print ept breakpoint log header information for all installed ept
-        breakpoints. Print general statistics about the ept breakpoint manager.
+        Print breakpoint information for each ept breakpoint on the system.
+        Print general statistics about the ept breakpoint manager.
 
 **SetEptBpBasic**
 

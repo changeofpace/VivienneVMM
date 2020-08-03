@@ -1,23 +1,23 @@
 VivienneVMM
 ===========
 
-VivienneVMM is a stealthy debugging framework implemented via an Intel VT-x hypervisor. The VMM driver implements multiple breakpoint control managers which allow a user mode client to set, clear, and inspect VMM-backed breakpoints. These breakpoints are invisible to the guest.
+VivienneVMM is a stealthy debugging framework implemented via an Intel VT-x hypervisor. The VMM driver implements multiple breakpoint control managers which allow a user mode client to set, clear, and inspect the logs of VMM-backed breakpoints. These breakpoints are invisible to the guest.
 
 This project is an extension of the [HyperPlatform](https://github.com/tandasat/HyperPlatform) framework by [tandasat](https://github.com/tandasat).
 
 
 What's New
 ----------
-## [1.0.0] - 2020-08-02
+### [1.0.0] - 2020-08-02
 
 VivienneVMM 1.0.0 released. :birthday:
 
-### Added
+#### Added
 - **Ept breakpoints**: a new breakpoint type with many advantages over the now deprecated Vivienne hardware breakpoint type.
-- New VivienneCL commands: GetProcessInformation, QueryEptBpInfo, SetEptBpBasic, SetEptBpRegisters, SetEptBpKeyed, DisableEptBp, ClearEptBp, PrintEptBpLogHeader, and PrintEptBpLogElements. See the VivienneCL [README](./VivienneCL/README.md) for more information.
+- New VivienneCL commands: **GetProcessInformation**, **QueryEptBpInfo**, **SetEptBpBasic**, **SetEptBpRegisters**, **SetEptBpKeyed**, **DisableEptBp**, **ClearEptBp**, **PrintEptBpLogHeader**, and **PrintEptBpLogElements**. See the VivienneCL [README](./VivienneCL/README.md) for more information.
 - Add extended information for many VivienneCL commands. Type 'help command_name' in the VivienneCL console to see a command's extended information.
 - Most VivienneCL commands now have an additional short name for ease of use.
-- New config options: CFG_VIVIENNE_DEVICE_NAME, CFG_LOG_NUMBER_OF_PAGES, CFG_LOG_FLUSH_INTERVAL_MS, and CFG_LOG_APPEND_DATA_TO_EXISTING_LOG_FILE. See the [config header file](./common/config.h) for more information.
+- New config options: **CFG_VIVIENNE_DEVICE_NAME**, **CFG_LOG_NUMBER_OF_PAGES**, **CFG_LOG_FLUSH_INTERVAL_MS**, and **CFG_LOG_APPEND_DATA_TO_EXISTING_LOG_FILE**. See the [config header file](./common/config.h) for more information.
 - Add a [CHANGELOG](./CHANGELOG.md) file.
 
 
@@ -27,15 +27,15 @@ The VivienneVMM driver contains two breakpoint control manager modules which imp
 
 #### Ept Breakpoint Manager
 * Implements **ept breakpoints** using extended page tables.
-* + Ept breakpoints are undetectable by user mode processes in the guest.
-* + Supports unlimited number of ept breakpoints.
-* - Only execution and data breakpoints are supported.
-* ~ Data breakpoint events are processed as **faults** instead of **traps**.
+* \+ Ept breakpoints are undetectable by user mode processes in the guest.
+* \+ Supports unlimited number of ept breakpoints.
+* \- Only execution and data breakpoints are supported.
+* \~ Data breakpoint events are processed as **faults** instead of **traps**.
 
 #### Hardware Breakpoint Manager
 * Implements **hardware breakpoints** by hooking the debug exception IDT vector and monitoring debug register accesses.
-* + Faster than ept breakpoints.
-* - Susceptible to certain anti-debug techniques by user mode processes in the guest.
+* \+ Faster than ept breakpoints.
+* \- Susceptible to certain anti-debug techniques by user mode processes in the guest.
 
 
 Ept Breakpoint Manager
@@ -63,14 +63,14 @@ Records each unique guest virtual address that triggers the breakpoint condition
 Records the general purpose register context each time the guest triggers the breakpoint condition.
 
 #### Keyed Register Context
-Similar to **General Register Context**, except that guest state is only recorded when the value in the *key register* is not already in the log.
+Similar to **General Register Context**, except that guest state is only recorded when the value in the **key register** is not already in the log.
 
 ### Using Ept Breakpoints
 
 VivienneCL contains several commands for setting, disabling, clearing, and viewing the logs of ept breakpoints. The **SetEptBp\*** commands install an ept breakpoint on all processors and return a log handle. This log handle is the primary input argument for the other ept breakpoint commands.
 
 #### Example
-The following example uses several ept breakpoint commands to recover decrypted data from a target process.
+The following example uses ept breakpoint commands to recover decrypted data from a target process.
 
 Given the following function, we want to know all possible values of the **DecryptedValue** variable:
 
@@ -106,16 +106,16 @@ Disassembly:
 ;                          ...
 ```
 
-Suppose that process "X" is executing this function randomly. Assume that the process id of process X is **5600** and the image base is **0x140000000**. We can use the **SetEptBpKeyed** command to log guest state whenever a unique value is returned from the **Decrypt** routine at **000000014000104C**:
+Suppose that process "Z" is executing this function randomly. Assume that the process id of process Z is **5600** and the image base is **0x140000000**. We can use the **SetEptBpKeyed** command to log guest state whenever a unique value is returned from the **Decrypt** routine at **000000014000104C**:
 
-Set the ept breakpoint with 'rax' as the key register:
+Set the ept breakpoint with **rax** as the **register key**:
 
 ```
 > SetEptBpKeyed 5600 e1 14000104C 10000 1 rax
 Log Handle: 1
 ```
 
-Print the log elements.
+Wait a few seconds for process Z to execute the function then print the log elements.
 
 ```
 > PrintEptBpLogElements 1
@@ -147,9 +147,11 @@ EPTBP Log #1 | PID: 5600, Address: 000000014000104C, BP: X , Status: Active, Key
             r12: 0000000000000000 r13: 0000000000000000 r14: 0000000000000000 r15: 0000000000000000
 ```
 
-From the log output above we can see that there were at least four decrypted values used by process X: **138582AFE1835301**, **FFF83815FA800890**, **FFFFFFFFFFFFFFFF**, and **00103350308F80CD**.
+The log output above contains a breakpoint header and an array of keyed register context log elements. Each element corresponds to an instance where process Z executed the instruction at **000000014000104C** with a unique value in the **rax** register.
 
-Now suppose that we are finished with this ept breakpoint, but we want to continue debugging process X. We can use the **DisableEptBp** command to uninstall the breakpoint while keeping the breakpoint log valid:
+From this log, we can see that process Z used four unique decrypted values while our breakpoint was active: **138582AFE1835301**, **FFF83815FA800890**, **FFFFFFFFFFFFFFFF**, and **00103350308F80CD**.
+
+Now suppose that we are finished monitoring this function, but we want to continue debugging process Z. We can use the **DisableEptBp** command to uninstall the breakpoint while keeping the breakpoint log valid:
 
 ```
 > DisableEptBp 1
@@ -188,7 +190,7 @@ EPTBP Log #1 | PID: 5600, Address: 000000014000104C, BP: X , Status: Inactive, K
             r12: 0000000000000000 r13: 0000000000000000 r14: 0000000000000000 r15: 0000000000000000
 ```
 
-Ept breakpoints can have a significant performance cost because an ept violation VM exit occurs whenever the guest accesses the target page in a manner which matches the ept breakpoint condition. e.g., If we set an execute ept breakpoint on a system call stub in ntdll.dll then the guest will VM exit each time a processor executes an instruction inside the page that contains the breakpointed address, regardless of process context.
+Ept breakpoints can have a significant performance cost because an ept violation VM exit occurs whenever the guest accesses the target page in a manner which matches the ept breakpoint condition. e.g., If we set an execute ept breakpoint on a system call stub in ntdll.dll then the guest will VM exit each time a processor executes an instruction inside the page that contains the breakpointed address, regardless of process context. Disabling an ept breakpoint removes its performance cost.
 
 We can use the **QueryEptBpInfo** command to get a list of all ept breakpoints on the system:
 
