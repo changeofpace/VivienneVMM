@@ -31,6 +31,7 @@ Environment:
 
 #include "debug.h"
 #include "log.h"
+#include "nt.h"
 
 #include "../common/config.h"
 

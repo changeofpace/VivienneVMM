@@ -26,7 +26,7 @@ Environment:
 
 #pragma once
 
-#include <fltKernel.h>
+#include <ntddk.h>
 
 #include "HyperPlatform\HyperPlatform\ia32_type.h"
 

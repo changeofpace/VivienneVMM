@@ -9,7 +9,7 @@ for more information.
 
 #pragma once
 
-#include <fltKernel.h>
+#include <ntddk.h>
 
 #include "log.h"
 

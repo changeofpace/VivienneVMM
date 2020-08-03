@@ -1,10 +1,11 @@
-// Copyright (c) 2015-2018, Satoshi Tanda. All rights reserved.
+// Copyright (c) 2015-2019, Satoshi Tanda. All rights reserved.
 // Use of this source code is governed by a MIT-style license that can be
 // found in the LICENSE file.
 
 /// @file
 /// Implements primitive utility functions.
-
+#include <ntddk.h>
+#include <ntimage.h>
 #include "util.h"
 #include <intrin.h>
 #include "asm.h"
@@ -49,17 +50,42 @@ _Must_inspect_result_ _IRQL_requires_max_(DISPATCH_LEVEL) NTKERNELAPI
 using MmAllocateContiguousNodeMemoryType =
     decltype(MmAllocateContiguousNodeMemory);
 
-// dt nt!_LDR_DATA_TABLE_ENTRY
-struct LdrDataTableEntry {
-  LIST_ENTRY in_load_order_links;
-  LIST_ENTRY in_memory_order_links;
-  LIST_ENTRY in_initialization_order_links;
-  void *dll_base;
-  void *entry_point;
-  ULONG size_of_image;
-  UNICODE_STRING full_dll_name;
-  // ...
-};
+//
+// DRIVER_OBJECT.DriverSection type
+// see Reverse Engineering site:
+// https://revers.engineering/author/daax/
+//
+struct KLdrDataTableEntry {
+    LIST_ENTRY in_load_order_links;
+    PVOID exception_table;
+    UINT32 exception_table_size;
+    // ULONG padding on IA64
+    PVOID gp_value;
+    PNON_PAGED_DEBUG_INFO non_paged_debug_info;
+    PVOID dll_base;
+    PVOID entry_point;
+    UINT32 size_of_image;
+    UNICODE_STRING full_dll_name;
+    UNICODE_STRING base_dll_name;
+    UINT32 flags;
+    UINT16 load_count;
+
+    union {
+      UINT16 signature_level : 4;
+      UINT16 signature_type : 3;
+      UINT16 unused : 9;
+      UINT16 entire_field;
+    } u;
+
+    PVOID section_pointer;
+    UINT32 checksum;
+    UINT32 coverage_section_size;
+    PVOID coverage_section;
+    PVOID loaded_imports;
+    PVOID spare;
+    UINT32 size_of_image_not_rouned;
+    UINT32 time_date_stamp;
+ };
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -140,7 +166,7 @@ static ULONG_PTR g_utilp_pti_mask = 0;
 // Initializes utility functions
 _Use_decl_annotations_ NTSTATUS
 UtilInitialization(PDRIVER_OBJECT driver_object) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   auto status = UtilpInitializePageTableVariables();
   HYPERPLATFORM_LOG_DEBUG(
@@ -161,14 +187,14 @@ UtilInitialization(PDRIVER_OBJECT driver_object) {
   }
 
   g_utilp_MmAllocateContiguousNodeMemory =
-      reinterpret_cast<MmAllocateContiguousNodeMemoryType *>(
+      static_cast<MmAllocateContiguousNodeMemoryType *>(
           UtilGetSystemProcAddress(L"MmAllocateContiguousNodeMemory"));
   return status;
 }
 
 // Terminates utility functions
 _Use_decl_annotations_ void UtilTermination() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   if (g_utilp_physical_memory_ranges) {
     ExFreePoolWithTag(g_utilp_physical_memory_ranges,
@@ -178,12 +204,13 @@ _Use_decl_annotations_ void UtilTermination() {
 
 // Initializes g_utilp_p*e_base, g_utilp_p*i_shift and g_utilp_p*i_mask.
 _Use_decl_annotations_ static NTSTATUS UtilpInitializePageTableVariables() {
-  PAGED_CODE();
+  PAGED_CODE()
 
 #include "util_page_constants.h"  // Include platform dependent constants
 
   // Check OS version to know if page table base addresses need to be relocated
-  RTL_OSVERSIONINFOW os_version = {sizeof(os_version)};
+  RTL_OSVERSIONINFOW os_version;
+  os_version.dwOSVersionInfoSize = sizeof(os_version);
   auto status = RtlGetVersion(&os_version);
   if (!NT_SUCCESS(status)) {
     return status;
@@ -194,7 +221,7 @@ _Use_decl_annotations_ static NTSTATUS UtilpInitializePageTableVariables() {
   // older than build 14316.
   if (!IsX64() || os_version.dwMajorVersion < 10 ||
       os_version.dwBuildNumber < 14316) {
-    if constexpr (IsX64()) {
+    if (IsX64()) {
       g_utilp_pxe_base = kUtilpPxeBase;
       g_utilp_ppe_base = kUtilpPpeBase;
       g_utilp_pxi_shift = kUtilpPxiShift;
@@ -268,22 +295,21 @@ _Use_decl_annotations_ static NTSTATUS UtilpInitializePageTableVariables() {
 // Locates RtlPcToFileHeader
 _Use_decl_annotations_ static NTSTATUS UtilpInitializeRtlPcToFileHeader(
     PDRIVER_OBJECT driver_object) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   if (kUtilpUseRtlPcToFileHeader) {
     const auto p_RtlPcToFileHeader =
         UtilGetSystemProcAddress(L"RtlPcToFileHeader");
     if (p_RtlPcToFileHeader) {
       g_utilp_RtlPcToFileHeader =
-          reinterpret_cast<RtlPcToFileHeaderType *>(p_RtlPcToFileHeader);
+          static_cast<RtlPcToFileHeaderType *>(p_RtlPcToFileHeader);
       return STATUS_SUCCESS;
     }
   }
 
 #pragma warning(push)
 #pragma warning(disable : 28175)
-  auto module =
-      reinterpret_cast<LdrDataTableEntry *>(driver_object->DriverSection);
+  auto module = static_cast<KLdrDataTableEntry *>(driver_object->DriverSection);
 #pragma warning(pop)
 
   g_utilp_PsLoadedModuleList = module->in_load_order_links.Flink;
@@ -302,7 +328,7 @@ UtilpUnsafePcToFileHeader(PVOID pc_value, PVOID *base_of_image) {
   const auto head = g_utilp_PsLoadedModuleList;
   for (auto current = head->Flink; current != head; current = current->Flink) {
     const auto module =
-        CONTAINING_RECORD(current, LdrDataTableEntry, in_load_order_links);
+        CONTAINING_RECORD(current, KLdrDataTableEntry, in_load_order_links);
     const auto driver_end = reinterpret_cast<void *>(
         reinterpret_cast<ULONG_PTR>(module->dll_base) + module->size_of_image);
     if (UtilIsInBounds(pc_value, module->dll_base, driver_end)) {
@@ -321,7 +347,7 @@ _Use_decl_annotations_ void *UtilPcToFileHeader(void *pc_value) {
 
 // Initializes the physical memory ranges
 _Use_decl_annotations_ static NTSTATUS UtilpInitializePhysicalMemoryRanges() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   const auto ranges = UtilpBuildPhysicalMemoryRanges();
   if (!ranges) {
@@ -348,7 +374,7 @@ _Use_decl_annotations_ static NTSTATUS UtilpInitializePhysicalMemoryRanges() {
 // Builds the physical memory ranges
 _Use_decl_annotations_ static PhysicalMemoryDescriptor *
 UtilpBuildPhysicalMemoryRanges() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   const auto pm_ranges = MmGetPhysicalMemoryRanges();
   if (!pm_ranges) {
@@ -374,7 +400,7 @@ UtilpBuildPhysicalMemoryRanges() {
       sizeof(PhysicalMemoryDescriptor) +
       sizeof(PhysicalMemoryRun) * (number_of_runs - 1);
   const auto pm_block =
-      reinterpret_cast<PhysicalMemoryDescriptor *>(ExAllocatePoolWithTag(
+      static_cast<PhysicalMemoryDescriptor *>(ExAllocatePoolWithTag(
           NonPagedPool, memory_block_size, kHyperPlatformCommonPoolTag));
   if (!pm_block) {
     ExFreePoolWithTag(pm_ranges, 'hPmM');
@@ -410,7 +436,7 @@ UtilGetPhysicalMemoryRanges() {
 // to call remaining callbacks and returns the value.
 _Use_decl_annotations_ NTSTATUS
 UtilForEachProcessor(NTSTATUS (*callback_routine)(void *), void *context) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   const auto number_of_processors =
       KeQueryActiveProcessorCountEx(ALL_PROCESSOR_GROUPS);
@@ -456,7 +482,7 @@ UtilForEachProcessorDpc(PKDEFERRED_ROUTINE deferred_routine, void *context) {
       return status;
     }
 
-    const auto dpc = reinterpret_cast<PRKDPC>(ExAllocatePoolWithTag(
+    const auto dpc = static_cast<PRKDPC>(ExAllocatePoolWithTag(
         NonPagedPool, sizeof(KDPC), kHyperPlatformCommonPoolTag));
     if (!dpc) {
       return STATUS_MEMORY_NOT_ALLOCATED;
@@ -475,7 +501,7 @@ UtilForEachProcessorDpc(PKDEFERRED_ROUTINE deferred_routine, void *context) {
 
 // Sleep the current thread's execution for Millisecond milliseconds.
 _Use_decl_annotations_ NTSTATUS UtilSleep(LONG Millisecond) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   LARGE_INTEGER interval = {};
   interval.QuadPart = -(10000 * Millisecond);  // msec
@@ -501,7 +527,7 @@ _Use_decl_annotations_ void *UtilMemMem(const void *search_base,
 // A wrapper of MmGetSystemRoutineAddress
 _Use_decl_annotations_ void *UtilGetSystemProcAddress(
     const wchar_t *proc_name) {
-  PAGED_CODE();
+  PAGED_CODE()
 
   UNICODE_STRING proc_name_U = {};
   RtlInitUnicodeString(&proc_name_U, proc_name);
@@ -519,13 +545,14 @@ _Use_decl_annotations_ bool UtilIsAccessibleAddress(void *address) {
     return false;
   }
 
-  if constexpr (IsX64()) {
-    const auto pxe = UtilpAddressToPxe(address);
-    const auto ppe = UtilpAddressToPpe(address);
-    if (!pxe->valid || !ppe->valid) {
-      return false;
-    }
+// UtilpAddressToPxe, UtilpAddressToPpe defined for x64
+#if defined(_AMD64_)
+  const auto pxe = UtilpAddressToPxe(address);
+  const auto ppe = UtilpAddressToPpe(address);
+  if (!pxe->valid || !ppe->valid) {
+    return false;
   }
+#endif
 
   const auto pde = UtilpAddressToPde(address);
   const auto pte = UtilpAddressToPte(address);
@@ -543,7 +570,7 @@ _Use_decl_annotations_ bool UtilIsAccessibleAddress(void *address) {
 
 // Checks whether the address is the canonical address
 _Use_decl_annotations_ static bool UtilpIsCanonicalFormAddress(void *address) {
-  if constexpr (!IsX64()) {
+  if (!IsX64()) {
     return true;
   } else {
     return !UtilIsInBounds(0x0000800000000000ull, 0xffff7fffffffffffull,

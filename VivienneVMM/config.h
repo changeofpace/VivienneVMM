@@ -90,11 +90,3 @@ Environment:
      VivienneVMM is already running on the local machine.
 */
 #define CFG_VVMM_SIGNATURE  ((int)'mmvv')
-
-/*
-    Enable the VMCALL handler for the 'ping VMM' hypercall.
-
-    NOTE Enabling this option exposes an interface which can be used to detect
-     the presence of HyperPlatform.
-*/
-///#define CFG_ENABLE_VMCALL_PING

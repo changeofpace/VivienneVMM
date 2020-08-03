@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2017, Satoshi Tanda. All rights reserved.
+// Copyright (c) 2015-2019, Satoshi Tanda. All rights reserved.
 // Use of this source code is governed by a MIT-style license that can be
 // found in the LICENSE file.
 
@@ -71,7 +71,7 @@ _IRQL_requires_max_(PASSIVE_LEVEL) bool DriverpIsSuppoetedOS();
 _Use_decl_annotations_ NTSTATUS DriverEntry(PDRIVER_OBJECT driver_object,
                                             PUNICODE_STRING registry_path) {
   UNREFERENCED_PARAMETER(registry_path);
-  PAGED_CODE();
+  PAGED_CODE()
 
   static const wchar_t kLogFilePath[] = CFG_LOG_NT_PATH_W;
   static const auto kLogLevel =
@@ -207,7 +207,7 @@ _Use_decl_annotations_ static void DriverpDriverUnload(
     PDRIVER_OBJECT driver_object) {
 
   UNREFERENCED_PARAMETER(driver_object);
-  PAGED_CODE();
+  PAGED_CODE()
 
   //HYPERPLATFORM_COMMON_DBG_BREAK();
 
@@ -238,7 +238,7 @@ _Use_decl_annotations_ static void DriverpDriverUnload(
 
 // Test if the system is one of supported OS versions
 _Use_decl_annotations_ bool DriverpIsSuppoetedOS() {
-  PAGED_CODE();
+  PAGED_CODE()
 
   RTL_OSVERSIONINFOW os_version = {};
   auto status = RtlGetVersion(&os_version);

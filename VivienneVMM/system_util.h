@@ -25,7 +25,7 @@ Environment:
 
 #pragma once
 
-#include <fltKernel.h>
+#include <ntddk.h>
 
 typedef
 _IRQL_requires_same_

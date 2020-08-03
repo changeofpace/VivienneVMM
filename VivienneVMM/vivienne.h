@@ -25,7 +25,7 @@ Environment:
 
 #pragma once
 
-#include <fltKernel.h>
+#include <ntddk.h>
 
 //=============================================================================
 // Meta Interface

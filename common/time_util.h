@@ -26,7 +26,7 @@ Environment:
 #pragma once
 
 #ifdef _KERNEL_MODE
-#include <fltKernel.h>
+#include <ntddk.h>
 #else
 #include <Windows.h>
 #endif

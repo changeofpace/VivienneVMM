@@ -25,7 +25,7 @@ Environment:
 
 #pragma once
 
-#include <fltKernel.h>
+#include <ntddk.h>
 
 #include "../common/driver_io_types.h"
 
