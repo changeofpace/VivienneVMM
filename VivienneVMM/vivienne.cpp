@@ -81,6 +81,11 @@ VivienneVmmDriverEntry(
 
     INF_PRINT("Loading %ls.", VVMM_DRIVER_NAME_W);
 
+    INF_PRINT("Vivienne driver mapped at: %p - %p (0x%X)",
+        pDriverObject->DriverStart,
+        (ULONG_PTR)pDriverObject->DriverStart + pDriverObject->DriverSize,
+        pDriverObject->DriverSize);
+
     //
     // Initialize the driver.
     //

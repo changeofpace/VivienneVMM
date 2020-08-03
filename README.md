@@ -15,10 +15,10 @@ VivienneVMM 1.0.0 released. :birthday:
 ### Added
 - **Ept breakpoints**: a new breakpoint type with many advantages over the now deprecated Vivienne hardware breakpoint type.
 - New VivienneCL commands: GetProcessInformation, QueryEptBpInfo, SetEptBpBasic, SetEptBpRegisters, SetEptBpKeyed, DisableEptBp, ClearEptBp, PrintEptBpLogHeader, and PrintEptBpLogElements. See the VivienneCL [README](./VivienneCL/README.md) for more information.
-- Added extended information for many VivienneCL commands. Type 'help command_name' in the VivienneCL console to see a command's extended information.
-- Most commands now have an abbreviated command name.
-
-See the [CHANGELOG](./CHANGELOG.md) for additional information.
+- Add extended information for many VivienneCL commands. Type 'help command_name' in the VivienneCL console to see a command's extended information.
+- Most VivienneCL commands now have an additional short name for ease of use.
+- New config options: CFG_VIVIENNE_DEVICE_NAME, CFG_LOG_NUMBER_OF_PAGES, CFG_LOG_FLUSH_INTERVAL_MS, and CFG_LOG_APPEND_DATA_TO_EXISTING_LOG_FILE. See the [config header file](./common/config.h) for more information.
+- Add a [CHANGELOG](./CHANGELOG.md) file.
 
 
 Breakpoint Control Manager
@@ -33,9 +33,9 @@ The VivienneVMM driver contains two breakpoint control manager modules which imp
 * ~ Data breakpoint events are processed as **faults** instead of **traps**.
 
 #### Hardware Breakpoint Manager
-* Implements **hardware breakpoints** by hooking the debug exception vector and monitoring debug register accesses.
+* Implements **hardware breakpoints** by hooking the debug exception IDT vector and monitoring debug register accesses.
 * + Faster than ept breakpoints.
-* - Susceptible to certain anti-debug detection techniques.
+* - Susceptible to certain anti-debug techniques by user mode processes in the guest.
 
 
 Ept Breakpoint Manager
@@ -47,9 +47,9 @@ The ept breakpoint manager module implements ept breakpoints using Intel VT-x ex
 Ept breakpoints are effectively hardware breakpoints with the following differences:
 
 * Each processor can have an unlimited number of active ept breakpoints.
-* Only execution and data breakpoints are supported.
+* Only execution and data (read / write) breakpoints are supported.
 * Data breakpoint events are processed as **faults** instead of **traps**. i.e., When a data ept breakpoint condition is triggered the VMM logs the event before the read or write occurs in the guest.
-* Ept breakpoints cannot be detected by user mode processes in the guest OS. (See 'Limitations')
+* Ept breakpoints cannot be detected by user mode processes in the guest. (See 'Warnings and Limitations')
 
 Each ept breakpoint has a corresponding ept breakpoint log.
 
@@ -57,7 +57,7 @@ Each ept breakpoint has a corresponding ept breakpoint log.
 An ept breakpoint log contains the "breakpoint hit history" for its corresponding ept breakpoint. The contents of the log depend on the ept breakpoint log type:
 
 #### Basic
-Records each unique guest virtual address that triggers the breakpoint condition and its hit count. Traditional hardware breakpoint functionality. Can be used to discover addresses which read, write, and execute a target breakpoint address.
+Records each unique guest virtual address that triggers the breakpoint condition and its hit count. i.e., Traditional hardware breakpoint functionality. Can be used to discover addresses which read, write, and execute a target breakpoint address.
 
 #### General Register Context
 Records the general purpose register context each time the guest triggers the breakpoint condition.
@@ -67,11 +67,10 @@ Similar to **General Register Context**, except that guest state is only recorde
 
 ### Using Ept Breakpoints
 
-VivienneCL contains several commands for setting, disabling, clearing, and viewing ept breakpoints. The **SetEptBp\*** commands install an ept breakpoint on all processors and return a log handle. This log handle is the primary input argument for the other ept breakpoint commands.
+VivienneCL contains several commands for setting, disabling, clearing, and viewing the logs of ept breakpoints. The **SetEptBp\*** commands install an ept breakpoint on all processors and return a log handle. This log handle is the primary input argument for the other ept breakpoint commands.
 
 #### Example
-
-The following example shows the VivienneCL output of the **PrintEptBpLogElements** command for a **Keyed Register Context** ept breakpoint.
+The following example uses several ept breakpoint commands to recover decrypted data from a target process.
 
 Given the following function, we want to know all possible values of the **DecryptedValue** variable:
 
@@ -107,7 +106,7 @@ Disassembly:
 ;                          ...
 ```
 
-Suppose that process **X** is executing this function randomly and uses many anti-debug techniques. Assume that the process id of process X is **5600** and the image base is **0x140000000**. We can use the **SetEptBpKeyed** command to log guest state whenever a unique value is returned from the **Decrypt** routine at **0000000140001027**:
+Suppose that process "X" is executing this function randomly. Assume that the process id of process X is **5600** and the image base is **0x140000000**. We can use the **SetEptBpKeyed** command to log guest state whenever a unique value is returned from the **Decrypt** routine at **000000014000104C**:
 
 Set the ept breakpoint with 'rax' as the key register:
 
@@ -120,7 +119,7 @@ Print the log elements.
 
 ```
 > PrintEptBpLogElements 1
-EPTBP Log #1 | PID: 5600, Address: 000000014000104C, BP: X , Status: Active, KeyedRegisterContext RAX
+EPTBP Log #1 | PID: 5600, Address: 000000014000104C, BP: X , Status: Active, KeyedRegister RAX
     NumberOfElements: 4, MaxIndex: 409
     Elements:
         0   rip: 000000014000104C flg: 0000000000010202
@@ -148,7 +147,7 @@ EPTBP Log #1 | PID: 5600, Address: 000000014000104C, BP: X , Status: Active, Key
             r12: 0000000000000000 r13: 0000000000000000 r14: 0000000000000000 r15: 0000000000000000
 ```
 
-From the log output above we can see that there were four decrypted values used by process X: **138582AFE1835301**, **FFF83815FA800890**, **FFFFFFFFFFFFFFFF**, and **00103350308F80CD**.
+From the log output above we can see that there were at least four decrypted values used by process X: **138582AFE1835301**, **FFF83815FA800890**, **FFFFFFFFFFFFFFFF**, and **00103350308F80CD**.
 
 Now suppose that we are finished with this ept breakpoint, but we want to continue debugging process X. We can use the **DisableEptBp** command to uninstall the breakpoint while keeping the breakpoint log valid:
 
@@ -157,11 +156,11 @@ Now suppose that we are finished with this ept breakpoint, but we want to contin
 
 ```
 
-If we print the log elements again then we can see that the breakpoint is inactive:
+If we print the log elements again then we see that the breakpoint is inactive:
 
 ```
 > PrintEptBpLogElements 1
-EPTBP Log #1 | PID: 5600, Address: 000000014000104C, BP: X , Status: Inactive, KeyedRegisterContext RAX
+EPTBP Log #1 | PID: 5600, Address: 000000014000104C, BP: X , Status: Inactive, KeyedRegister RAX
     NumberOfElements: 4, MaxIndex: 409
     Elements:
         0   rip: 000000014000104C flg: 0000000000010202
@@ -189,7 +188,7 @@ EPTBP Log #1 | PID: 5600, Address: 000000014000104C, BP: X , Status: Inactive, K
             r12: 0000000000000000 r13: 0000000000000000 r14: 0000000000000000 r15: 0000000000000000
 ```
 
-Ept breakpoints can have a significant performance cost because an ept violation occurs whenever the guest accesses the target page in a manner which matches the ept breakpoint condition. e.g., If we set an execute ept breakpoint in an an address in a page, then the guest will experience an ept violation VM exit whenever it executes an instruction inside that page.
+Ept breakpoints can have a significant performance cost because an ept violation VM exit occurs whenever the guest accesses the target page in a manner which matches the ept breakpoint condition. e.g., If we set an execute ept breakpoint on a system call stub in ntdll.dll then the guest will VM exit each time a processor executes an instruction inside the page that contains the breakpointed address, regardless of process context.
 
 We can use the **QueryEptBpInfo** command to get a list of all ept breakpoints on the system:
 
@@ -201,9 +200,9 @@ Ept Breakpoint Information
     0 locked pages.
     0 hooked pages.
     Breakpoints:
-        Handle   PID          Address BP     Status                LogType #Elements MaxIndex
-        -------------------------------------------------------------------------------------
-             1  5600 000000014000104C X    Inactive   KeyedRegisterContext         4      409
+        Handle   PID           Address  BP      Status          LogType   #Elements    MaxIndex
+        ---------------------------------------------------------------------------------------
+             1  5600  000000014000104C  X     Inactive    KeyedRegister           4         409
 ```
 
 Finally, we can release the resources for an ept breakpoint log using the **ClearEptBp** command:
@@ -215,15 +214,15 @@ Finally, we can release the resources for an ept breakpoint log using the **Clea
 
 See the VivienneCL [README](./VivienneCL/README.md) for more command information.
 
-### Limitations
+### Warnings and Limitations
 
 * Currently only user mode clients are supported. Kernel support is in development.
-* Unhandled edge cases may reveal the presence of ept breakpoints to user processes in the guest OS.
+* Unhandled edge cases may reveal the presence of ept breakpoints to user mode processes in the guest. If this occurs then please create an issue on github so that we can fix it.
 
 
 Hardware Breakpoint Manager
 ---------------------------
-The hardware breakpoint manager is deprecated since the release of the ept breakpoint manager. Developers can enable the hardware breakpoint manager by modifying the [config file](./common/config.h).
+The hardware breakpoint manager is deprecated since the release of the ept breakpoint manager. Developers can enable the hardware breakpoint manager by modifying the [config header](./common/config.h).
 
 Legacy documentation can be found [here](./Documentation/HardwareBreakpointManager.md).
 

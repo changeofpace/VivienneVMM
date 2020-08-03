@@ -51,6 +51,9 @@ Environment:
 //  aligned to the system allocation granularity. If yes then consider using
 //  an alternate strategy for locking / securing logs.
 //
+// TODO Consider implementing the execute ept breakpoint strategy from the
+//  'DdiMon' (Tandasat) project.
+//
 
 
 //=============================================================================
@@ -1227,13 +1230,19 @@ EbmDriverUnload()
     {
         pProcessorContext = &g_EbmVmxRootContext.Processors[i];
 
-        NT_ASSERT(IsListEmpty(&pProcessorContext->HookedPageListHead));
-        NT_ASSERT(!pProcessorContext->NumberOfHookedPages);
-        NT_ASSERT(IsListEmpty(&pProcessorContext->BreakpointListHead));
-        NT_ASSERT(!pProcessorContext->NumberOfBreakpoints);
-        NT_ASSERT(!pProcessorContext->NumberOfPendingSingleSteps);
-        NT_ASSERT(IsListEmpty(&pProcessorContext->EptRestorationListHead));
-        NT_ASSERT(!pProcessorContext->NumberOfEptRestorations);
+        VIVIENNE_ASSERT(IsListEmpty(&pProcessorContext->HookedPageListHead));
+        VIVIENNE_ASSERT(!pProcessorContext->NumberOfHookedPages);
+        VIVIENNE_ASSERT(IsListEmpty(&pProcessorContext->BreakpointListHead));
+        VIVIENNE_ASSERT(!pProcessorContext->NumberOfBreakpoints);
+        //
+        // TODO This assert sometimes fails when testing on real hardware, but
+        //  there are no noticeable issues after the driver is unloaded.
+        //
+        VIVIENNE_ASSERT(!pProcessorContext->NumberOfPendingSingleSteps);
+        VIVIENNE_ASSERT(
+            IsListEmpty(
+                &pProcessorContext->EptRestorationListHead));
+        VIVIENNE_ASSERT(!pProcessorContext->NumberOfEptRestorations);
     }
 #endif
 
@@ -1244,17 +1253,20 @@ EbmDriverUnload()
     //
     // Release vmx non-root context resources.
     //
-    NT_ASSERT(!g_EbmVmxNonRootContext.ClientRegistered);
-    NT_ASSERT(IsListEmpty(&g_EbmVmxNonRootContext.Client.LockedPageListHead));
-    NT_ASSERT(!g_EbmVmxNonRootContext.Client.NumberOfLockedPages);
-    NT_ASSERT(
+    VIVIENNE_ASSERT(!g_EbmVmxNonRootContext.ClientRegistered);
+    VIVIENNE_ASSERT(
+        IsListEmpty(
+            &g_EbmVmxNonRootContext.Client.LockedPageListHead));
+    VIVIENNE_ASSERT(!g_EbmVmxNonRootContext.Client.NumberOfLockedPages);
+    VIVIENNE_ASSERT(
         IsListEmpty(
             &g_EbmVmxNonRootContext.Client.ActiveBreakpointListHead));
-    NT_ASSERT(!g_EbmVmxNonRootContext.Client.NumberOfActiveBreakpoints);
-    NT_ASSERT(
+    VIVIENNE_ASSERT(!g_EbmVmxNonRootContext.Client.NumberOfActiveBreakpoints);
+    VIVIENNE_ASSERT(
         IsListEmpty(
             &g_EbmVmxNonRootContext.Client.InactiveBreakpointListHead));
-    NT_ASSERT(!g_EbmVmxNonRootContext.Client.NumberOfInactiveBreakpoints);
+    VIVIENNE_ASSERT(
+        !g_EbmVmxNonRootContext.Client.NumberOfInactiveBreakpoints);
 
     VERIFY_NTSTATUS(ExDeleteResourceLite(&g_EbmVmxNonRootContext.Gate));
 
@@ -1615,14 +1627,14 @@ EbmQueryEptBreakpointInformation(
         pListEntry = pListEntry->Flink,
             i++)
     {
-        NT_ASSERT(i < nBreakpoints);
+        VIVIENNE_ASSERT(i < nBreakpoints);
 
         pNonRootEntry = CONTAINING_RECORD(
             pListEntry,
             EPT_BREAKPOINT_NON_ROOT_ENTRY,
             u.Active.ListEntry);
 
-        NT_ASSERT(pNonRootEntry->IsActive);
+        VIVIENNE_ASSERT(pNonRootEntry->IsActive);
 
         pElement = &pEptBreakpointInfo->Elements[i];
 
@@ -1644,14 +1656,14 @@ EbmQueryEptBreakpointInformation(
         pListEntry = pListEntry->Flink,
             i++)
     {
-        NT_ASSERT(i < nBreakpoints);
+        VIVIENNE_ASSERT(i < nBreakpoints);
 
         pNonRootEntry = CONTAINING_RECORD(
             pListEntry,
             EPT_BREAKPOINT_NON_ROOT_ENTRY,
             u.Inactive.ListEntry);
 
-        NT_ASSERT(!pNonRootEntry->IsActive);
+        VIVIENNE_ASSERT(!pNonRootEntry->IsActive);
 
         pElement = &pEptBreakpointInfo->Elements[i];
 
@@ -2469,7 +2481,7 @@ EbmxInstallEptBreakpoint(
             pHookedPageEntry->ExecuteBreakpointCount);
     }
 
-    NT_ASSERT(pEptEntry == pHookedPageEntry->EptEntry);
+    VIVIENNE_ASSERT(pEptEntry == pHookedPageEntry->EptEntry);
 
     ntstatus = EbmxpCreateEptBreakpointRootEntry(
         pProcessorContext,
@@ -3093,7 +3105,7 @@ EbmpCreateProcessNotifyRoutine(
 
         pNextEntry = pNonRootEntry->u.Active.ListEntry.Flink;
 
-        NT_ASSERT(pNonRootEntry->IsActive);
+        VIVIENNE_ASSERT(pNonRootEntry->IsActive);
 
         if (pNonRootEntry->Breakpoint->ProcessId == ProcessId)
         {
@@ -3248,8 +3260,8 @@ EbmpReleaseClientContext(
     PEPT_BREAKPOINT pEptBreakpoint = NULL;
     PEBM_LOG_CONTEXT pLogContext = NULL;
 
-    NT_ASSERT(PsGetCurrentProcessId() == pClientContext->ProcessId);
-    NT_ASSERT(
+    VIVIENNE_ASSERT(PsGetCurrentProcessId() == pClientContext->ProcessId);
+    VIVIENNE_ASSERT(
         PsGetProcessId(PsGetCurrentProcess()) == pClientContext->ProcessId);
 
     VERIFY_NTSTATUS(
@@ -3532,7 +3544,7 @@ EbmpCreateLogContext(
     PEPT_BREAKPOINT_LOG pLog = NULL;
     NTSTATUS ntstatus = STATUS_SUCCESS;
 
-    NT_ASSERT(
+    VIVIENNE_ASSERT(
         PsGetCurrentProcessId() == g_EbmVmxNonRootContext.Client.ProcessId);
 
     //
@@ -3774,7 +3786,7 @@ EbmpDestroyLogContext(
     PEBM_LOG_CONTEXT pLogContext
 )
 {
-    NT_ASSERT(
+    VIVIENNE_ASSERT(
         PsGetCurrentProcessId() == g_EbmVmxNonRootContext.Client.ProcessId);
 
     MmUnsecureVirtualMemory(pLogContext->SecureHandle);
@@ -4053,8 +4065,8 @@ EbmpDestroyLockedPageEntry(
     KAPC_STATE ApcState = {};
     BOOLEAN fAttached = FALSE;
 
-    NT_ASSERT(!pLockedPageEntry->NumberOfBreakpoints);
-    NT_ASSERT(IsListEmpty(&pLockedPageEntry->BreakpointListHead));
+    VIVIENNE_ASSERT(!pLockedPageEntry->NumberOfBreakpoints);
+    VIVIENNE_ASSERT(IsListEmpty(&pLockedPageEntry->BreakpointListHead));
 
     INF_PRINT_V("Destroying locked page entry. (PID = %Iu, GPA = %p)",
         pLockedPageEntry->ProcessId,
@@ -4332,8 +4344,8 @@ EbmpDestroyEptBreakpointNonRootEntry(
 {
     BOOLEAN fLockedPageEntryDestroyed = FALSE;
 
-    NT_ASSERT(pNonRootEntry->Breakpoint);
-    NT_ASSERT(pNonRootEntry->Breakpoint->LogContext);
+    VIVIENNE_ASSERT(pNonRootEntry->Breakpoint);
+    VIVIENNE_ASSERT(pNonRootEntry->Breakpoint->LogContext);
 
     INF_PRINT_V(
         "Destroying ept breakpoint non-root entry."
@@ -4465,7 +4477,7 @@ EbmpMakeEptBreakpointInactive(
     BOOLEAN fDestroyLockedPage
 )
 {
-    NT_ASSERT(pNonRootEntry->IsActive);
+    VIVIENNE_ASSERT(pNonRootEntry->IsActive);
 
     INF_PRINT_V("Disabling ept breakpoint. (# inactive: %u)",
         g_EbmVmxNonRootContext.Client.NumberOfInactiveBreakpoints);
@@ -5025,14 +5037,14 @@ EbmxpDestroyHookedPageEntry(
     PHOOKED_PAGE_ENTRY pHookedPageEntry
 )
 {
-    NT_ASSERT(IsListEmpty(&pHookedPageEntry->BreakpointListHead));
-    NT_ASSERT(pHookedPageEntry->EptEntry->fields.read_access);
-    NT_ASSERT(pHookedPageEntry->EptEntry->fields.write_access);
-    NT_ASSERT(pHookedPageEntry->EptEntry->fields.execute_access);
-    NT_ASSERT(!pHookedPageEntry->ReadBreakpointCount);
-    NT_ASSERT(!pHookedPageEntry->WriteBreakpointCount);
-    NT_ASSERT(!pHookedPageEntry->ExecuteBreakpointCount);
-    NT_ASSERT(!pHookedPageEntry->NumberOfBreakpoints);
+    VIVIENNE_ASSERT(IsListEmpty(&pHookedPageEntry->BreakpointListHead));
+    VIVIENNE_ASSERT(pHookedPageEntry->EptEntry->fields.read_access);
+    VIVIENNE_ASSERT(pHookedPageEntry->EptEntry->fields.write_access);
+    VIVIENNE_ASSERT(pHookedPageEntry->EptEntry->fields.execute_access);
+    VIVIENNE_ASSERT(!pHookedPageEntry->ReadBreakpointCount);
+    VIVIENNE_ASSERT(!pHookedPageEntry->WriteBreakpointCount);
+    VIVIENNE_ASSERT(!pHookedPageEntry->ExecuteBreakpointCount);
+    VIVIENNE_ASSERT(!pHookedPageEntry->NumberOfBreakpoints);
 
     RemoveEntryList(&pHookedPageEntry->ListEntry);
 
@@ -5537,7 +5549,7 @@ EbmxpFindEptBreakpointRootEntryForEptViolation(
         ExitQualification.fields.execute_access &&
         !ExitQualification.fields.ept_executable;
 
-    NT_ASSERT(fReadViolation || fWriteViolation || fExecuteViolation);
+    VIVIENNE_ASSERT(fReadViolation || fWriteViolation || fExecuteViolation);
 
     for (pListEntry = pHookedPageEntry->BreakpointListHead.Flink;
         pListEntry != &pHookedPageEntry->BreakpointListHead;
@@ -5685,7 +5697,7 @@ EbmxpLogEptBreakpointHitBasic(
 
     if (!fMatched)
     {
-        NT_ASSERT(i == pLog->Header.NumberOfElements);
+        VIVIENNE_ASSERT(i == pLog->Header.NumberOfElements);
 
         //
         // We did not find a match so insert a new element.
@@ -5795,7 +5807,7 @@ EbmxpLogEptBreakpointHitKeyedRegisterContext(
 
     if (!fMatched)
     {
-        NT_ASSERT(i == pLog->Header.NumberOfElements);
+        VIVIENNE_ASSERT(i == pLog->Header.NumberOfElements);
 
         //
         // We did not find a match so insert a new element.

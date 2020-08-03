@@ -284,19 +284,19 @@ _Use_decl_annotations_ static NTSTATUS LogpInitializeLogFile(
                              OBJ_KERNEL_HANDLE | OBJ_CASE_INSENSITIVE, nullptr,
                              nullptr)
 
-  ACCESS_MASK LogFileDataBehavior = {};
+  ULONG CreateDisposition = 0;
   NTSTATUS status = STATUS_SUCCESS;
 
 #if defined(CFG_LOG_APPEND_DATA_TO_EXISTING_LOG_FILE)
-  LogFileDataBehavior = FILE_APPEND_DATA;
+  CreateDisposition = FILE_OPEN_IF;
 #else
-  LogFileDataBehavior = FILE_WRITE_DATA;
+  CreateDisposition = FILE_OVERWRITE_IF;
 #endif
 
   IO_STATUS_BLOCK io_status = {};
   status = ZwCreateFile(
-      &info->log_file_handle, LogFileDataBehavior | SYNCHRONIZE, &oa, &io_status,
-      nullptr, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_OPEN_IF,
+      &info->log_file_handle, FILE_WRITE_DATA | SYNCHRONIZE, &oa, &io_status,
+      nullptr, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, CreateDisposition,
       FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE, nullptr, 0);
   if (!NT_SUCCESS(status)) {
     return status;

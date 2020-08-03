@@ -104,7 +104,7 @@ exit:
     {
         if (pUnwindRoutine)
         {
-            NT_ASSERT(i < nProcessors);
+            VIVIENNE_ASSERT(i < nProcessors);
 
             //
             // This loop assumes that the failing callback successfully unwound

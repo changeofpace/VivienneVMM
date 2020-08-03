@@ -593,11 +593,11 @@ EbppEptBreakpointLogTypeToString(
             break;
 
         case EptBreakpointLogTypeGeneralRegisterContext:
-            pszString = "GeneralRegisterContext";
+            pszString = "GeneralRegister";
             break;
 
         case EptBreakpointLogTypeKeyedRegisterContext:
-            pszString = "KeyedRegisterContext";
+            pszString = "KeyedRegister";
             break;
 
         default:
@@ -723,8 +723,8 @@ EbpPrintEptBreakpointInformation(
     }
 
     INF_PRINT("    Breakpoints:");
-    INF_PRINT("        Handle   PID          Address BP     Status                LogType #Elements MaxIndex");
-    INF_PRINT("        -------------------------------------------------------------------------------------");
+    INF_PRINT("        Handle   PID           Address  BP      Status          LogType   #Elements    MaxIndex");
+    INF_PRINT("        ---------------------------------------------------------------------------------------");
 
     for (i = 0; i < pEptBreakpointInfo->NumberOfElements; i++)
     {
@@ -745,7 +745,7 @@ EbpPrintEptBreakpointInformation(
             BreakpointTypeSize[1] = ' ';
         }
 
-        INF_PRINT("        %6u %5u %p %s %10s %22s %9u %8u",
+        INF_PRINT("        %6u  %5u %p  %s  %10s  %15s  %10u  %10u",
             pElement->Handle,
             pHeader->ProcessId,
             pHeader->Address,
@@ -827,7 +827,8 @@ EbppPrintLogElementsGeneralRegisterContext(
             "            rax: %p rbx: %p rbp: %p rsp: %p\r\n"
             "            rcx: %p rdx: %p r8:  %p r9:  %p\r\n"
             "            rdi: %p rsi: %p r10: %p r11: %p\r\n"
-            "            r12: %p r13: %p r14: %p r15: %p\r\n\r\n",
+            "            r12: %p r13: %p r14: %p r15: %p\r\n"
+            "%s",
             i, pElement->TriggerAddress, pElement->Flags,
             pElement->Registers.Rax, pElement->Registers.Rbx,
             pElement->Registers.Rbp, pElement->Registers.Rsp,
@@ -836,7 +837,8 @@ EbppPrintLogElementsGeneralRegisterContext(
             pElement->Registers.Rdi, pElement->Registers.Rsi,
             pElement->Registers.R10, pElement->Registers.R11,
             pElement->Registers.R12, pElement->Registers.R13,
-            pElement->Registers.R14, pElement->Registers.R15);
+            pElement->Registers.R14, pElement->Registers.R15,
+            (i != (EndIndex - 1) ? "\r\n" : ""));
     }
 
 exit:
@@ -873,7 +875,7 @@ EbppPrintLogElementsKeyedRegisterContext(
             "            rax: %p rbx: %p rbp: %p rsp: %p\r\n"
             "            rcx: %p rdx: %p r8:  %p r9:  %p\r\n"
             "            rdi: %p rsi: %p r10: %p r11: %p\r\n"
-            "            r12: %p r13: %p r14: %p r15: %p\r\n\r\n",
+            "            r12: %p r13: %p r14: %p r15: %p\r\n",
             i, pElement->TriggerAddress, pElement->Flags,
             pElement->Registers.Rax, pElement->Registers.Rbx,
             pElement->Registers.Rbp, pElement->Registers.Rsp,

@@ -26,7 +26,8 @@ static
 VOID
 PrintClientBanner()
 {
-    //__debugbreak();
+    INF_PRINT("VivienneCL 1.0.0 (2020-08-02)");
+    INF_PRINT("Type 'help' for command information.");
 }
 
 

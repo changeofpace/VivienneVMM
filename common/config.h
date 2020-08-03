@@ -53,9 +53,9 @@ Environment:
     The number of pages used for the driver log buffer.
 */
 #if defined(DBG)
-#define CFG_LOG_NUMBER_OF_PAGES     16
-#else
 #define CFG_LOG_NUMBER_OF_PAGES     64
+#else
+#define CFG_LOG_NUMBER_OF_PAGES     16
 #endif
 
 /*

@@ -49,8 +49,8 @@ Macro Name:
 
 Macro Description:
 
-    A validation macro which ASSERTs in debug build configurations and logs
-    failures in release build configurations.
+    A validation macro which logs failures and executes a DEBUG_BREAK() in
+    debug builds.
 
 Remarks:
 
@@ -68,7 +68,7 @@ Remarks:
     if (!NT_SUCCESS(Verify_NtStatus_))                                  \
     {                                                                   \
         ERR_PRINT("\'" #Expression "\' failed: 0x%X", Verify_NtStatus_);\
-        NT_ASSERT(NT_SUCCESS(Expression));                              \
+        DEBUG_BREAK();                                                  \
     }                                                                   \
 }
 #else
@@ -90,8 +90,8 @@ Macro Name:
 
 Macro Description:
 
-    A validation macro which ASSERTs in debug build configurations and logs
-    failures in release build configurations.
+A validation macro which logs failures and executes a DEBUG_BREAK() in
+debug builds.
 
 Remarks:
 
@@ -108,7 +108,7 @@ Remarks:
     if (!(Expression))                                      \
     {                                                       \
         ERR_PRINT("\'" #Expression "\' assertion failed."); \
-        NT_ASSERT((Expression));                            \
+        DEBUG_BREAK();                                      \
     }                                                       \
 }
 #else
@@ -119,4 +119,26 @@ Remarks:
         ERR_PRINT("\'" #Expression "\' assertion failed."); \
     }                                                       \
 }
+#endif
+
+/*++
+
+Macro Name:
+
+    VIVIENNE_ASSERT
+
+Macro Description:
+
+    An alternative to the 'NT_ASSERT' macro which logs failures and executes a
+    DEBUG_BREAK() in debug builds.
+
+--*/
+#if defined(VIVIENNE_ASSERT)
+#error "Unexpected identifier conflict. (VIVIENNE_ASSERT)"
+#endif
+
+#if defined(DBG)
+#define VIVIENNE_ASSERT VERIFY_BOOLEAN
+#else
+#define VIVIENNE_ASSERT(Expression)
 #endif
