@@ -59,6 +59,13 @@ Environment:
 #define MODULE_TITLE    "EptBreakpointManager"
 #define MODULE_TAG      'TmbE'
 
+//
+// TODO This is a quick fix for hardware breakpoint manager builds.
+//
+#if !defined(CFG_EBM_LOG_SIZE_MAX)
+#define CFG_EBM_LOG_SIZE_MAX    (0x1000 * 50)
+#endif
+
 
 //=============================================================================
 // Macros

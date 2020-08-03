@@ -2,9 +2,6 @@
 
 #include <Windows.h>
 
-#define MAKE_THREAD_AFFINITY_MASK(ProcessorIndex, NumberOfProcessors) \
-    (1 << ((ProcessorIndex) % (NumberOfProcessors)))
-
 _Check_return_
 DWORD
 AfnGetLogicalProcessorCount();
