@@ -123,10 +123,6 @@ Remarks:
         TODO Determine if securing the virtual address space for the user view
         is redundant.
 
-    In release builds, the object creation information is deleted from the
-    section's object header in an effort to hide the log from third party
-    drivers.
-
     'EBM_LOG_CONTEXT' objects are allocated from the NonPagedPool.
 
 --*/
@@ -3530,14 +3526,14 @@ EbmpCreateLogContext(
 {
     ULONG MaxIndex = 0;
     PEBM_LOG_CONTEXT pLogContext = NULL;
-    PVOID pSectionObject = NULL;
     LARGE_INTEGER cbSection = {};
-    BOOLEAN fSectionCreated = FALSE;
-    PVOID pKernelBaseAddress = NULL;
-    SIZE_T cbView = 0;
-    BOOLEAN fKernelViewMapped = FALSE;
     HANDLE SectionHandle = NULL;
-    BOOLEAN fSectionHandleOpened = FALSE;
+    BOOLEAN fSectionCreated = FALSE;
+    PVOID pSectionObject = NULL;
+    BOOLEAN fSectionObjectReferenced = FALSE;
+    PVOID pKernelBaseAddress = NULL;
+    BOOLEAN fKernelViewMapped = FALSE;
+    SIZE_T cbView = 0;
     PVOID pUserBaseAddress = NULL;
     BOOLEAN fUserViewMapped = FALSE;
     HANDLE SecureHandle = NULL;
@@ -3594,30 +3590,36 @@ EbmpCreateLogContext(
     //
     cbSection.QuadPart = cbLog;
 
-    ntstatus = MmCreateSection(
-        &pSectionObject,
-        SECTION_MAP_READ | SECTION_MAP_WRITE,
+    ntstatus = ZwCreateSection(
+        &SectionHandle,
+        SECTION_ALL_ACCESS,
         NULL,
         &cbSection,
         PAGE_READWRITE,
         SEC_COMMIT | SEC_NO_CHANGE,
-        NULL,
         NULL);
     if (!NT_SUCCESS(ntstatus))
     {
-        ERR_PRINT("MmCreateSection failed: 0x%X", ntstatus);
+        ERR_PRINT("ZwCreateSection failed: 0x%X", ntstatus);
         goto exit;
     }
     //
     fSectionCreated = TRUE;
 
-#if !defined(DBG)
+    ntstatus = ObReferenceObjectByHandle(
+        SectionHandle,
+        SECTION_ALL_ACCESS,
+        (*MmSectionObjectType),
+        KernelMode,
+        &pSectionObject,
+        NULL);
+    if (!NT_SUCCESS(ntstatus))
+    {
+        ERR_PRINT("ObReferenceObjectByHandle failed: 0x%X", ntstatus);
+        goto exit;
+    }
     //
-    // TODO Research and comment on the benefits of deleting object creation
-    //  information here.
-    //
-    ObDeleteCapturedInsertInfo(pSectionObject);
-#endif
+    fSectionObjectReferenced = TRUE;
 
     ntstatus =
         MmMapViewInSystemSpace(pSectionObject, &pKernelBaseAddress, &cbView);
@@ -3629,9 +3631,6 @@ EbmpCreateLogContext(
     //
     fKernelViewMapped = TRUE;
 
-    //
-    // TODO Are sections guaranteed to be zeroed? If yes then remove.
-    //
     RtlSecureZeroMemory(pKernelBaseAddress, cbView);
 
     //
@@ -3640,26 +3639,6 @@ EbmpCreateLogContext(
     //
     pLog = (PEPT_BREAKPOINT_LOG)pKernelBaseAddress;
     pLog->Header.BreakpointStatus = EptBreakpointStatusInstalling;
-
-    //
-    // Map a read-only view of the log section into the EBM client's virtual
-    //  address space.
-    //
-    ntstatus = ObOpenObjectByPointer(
-        pSectionObject,
-        OBJ_KERNEL_HANDLE,
-        NULL,
-        SECTION_MAP_READ,
-        NULL,
-        KernelMode,
-        &SectionHandle);
-    if (!NT_SUCCESS(ntstatus))
-    {
-        ERR_PRINT("ObOpenObjectByPointer failed: 0x%X", ntstatus);
-        goto exit;
-    }
-    //
-    fSectionHandleOpened = TRUE;
 
     cbView = 0;
 
@@ -3734,19 +3713,19 @@ exit:
                     pUserBaseAddress));
         }
 
-        if (fSectionHandleOpened)
-        {
-            VERIFY_NTSTATUS(ZwClose(SectionHandle));
-        }
-
         if (fKernelViewMapped)
         {
             VERIFY_NTSTATUS(MmUnmapViewInSystemSpace(pKernelBaseAddress));
         }
 
+        if (fSectionObjectReferenced)
+        {
+            ObDereferenceObject(pSectionObject);
+        }
+
         if (fSectionCreated)
         {
-            ObfDereferenceObject(pSectionObject);
+            VERIFY_NTSTATUS(ZwClose(SectionHandle));
         }
 
         if (pLogContext)

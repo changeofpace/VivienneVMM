@@ -127,3 +127,5 @@ PsLookupProcessByProcessId(
     _In_ HANDLE ProcessId,
     _Outptr_ PEPROCESS* Process
 );
+
+EXTERN_C POBJECT_TYPE* MmSectionObjectType;
